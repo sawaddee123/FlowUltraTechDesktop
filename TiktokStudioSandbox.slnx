@@ -1,0 +1,9 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/TiktokStudioSandbox.App/TiktokStudioSandbox.App.csproj" />
+    <Project Path="src/TiktokStudioSandbox.Core/TiktokStudioSandbox.Core.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/TiktokStudioSandbox.Tests/TiktokStudioSandbox.Tests.csproj" />
+  </Folder>
+</Solution>

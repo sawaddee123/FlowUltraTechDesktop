@@ -1,0 +1,33 @@
+# Build results
+[Bb]in/
+[Oo]bj/
+publish/
+dist/
+TestResults/
+models/
+*.onnx
+
+# Visual Studio / VS Code
+.vs/
+.vscode/
+*.user
+*.userosscache
+*.sln.docstates
+*.suo
+
+# User data & runtime logs
+*.log
+app_debug.log
+
+# Shortcuts
+*.lnk
+
+# OS generated files
+.DS_Store
+Thumbs.db
+ehthumbs.db
+[Dd]esktop.ini
+
+# Temporary files
+*.tmp
+*~
