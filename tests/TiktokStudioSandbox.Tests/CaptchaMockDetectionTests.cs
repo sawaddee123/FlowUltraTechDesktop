@@ -328,4 +328,57 @@ public class CaptchaMockDetectionTests
         Assert.Equal(3, detection.Elements.Count);
         Assert.All(detection.Elements, el => Assert.True(el.IsVisible));
     }
+
+    [Theory]
+    [InlineData("LIVE will end in: 00:24", "00:24")]
+    [InlineData("LIVE will end in: 00:16", "00:16")]
+    [InlineData("LIVE will end in:  01:05 ", "01:05")]
+    [InlineData("We have detected inactivity during your current LIVE. LIVE will end in: 00:30 Complete verification", "00:30")]
+    public void ResilientCountdown_Extraction_FromInactivityModalText(string sampleText, string expectedCountdown)
+    {
+        var match = Regex.Match(sampleText, @"LIVE will end in[:\s]*(\d{1,2}:\d{2})", RegexOptions.IgnoreCase);
+        Assert.True(match.Success);
+        Assert.Equal(expectedCountdown, match.Groups[1].Value);
+    }
+
+    [Theory]
+    [InlineData("20260912200836236424C80169BFCB4CF")]
+    [InlineData("Challenge ID: 20260914193500A1B2C3D4E5F6A7B8C9 and footer")]
+    public void ResilientSessionId_Extraction_MatchesChallengePattern(string sampleText)
+    {
+        var match = Regex.Match(sampleText, @"\b(20\d{12}[A-Za-z0-9]{12,})\b");
+        Assert.True(match.Success);
+        Assert.StartsWith("2026", match.Groups[1].Value);
+        Assert.True(match.Groups[1].Value.Length >= 26);
+    }
+
+    [Theory]
+    [InlineData("Drag the puzzle piece into place")]
+    [InlineData("Please drag the puzzle piece into place to continue")]
+    [InlineData("ลากสไลเดอร์เพื่อต่อชิ้นส่วนจิ๊กซอว์ให้พอดี")]
+    public void ResilientJigsaw_InstructionMatching_DetectsPuzzleInstruction(string instruction)
+    {
+        bool isMatched = Regex.IsMatch(instruction, @"drag the puzzle piece into place", RegexOptions.IgnoreCase)
+                      || Regex.IsMatch(instruction, @"drag.*puzzle", RegexOptions.IgnoreCase)
+                      || Regex.IsMatch(instruction, @"ลาก.*จิ๊กซอว์", RegexOptions.IgnoreCase);
+        Assert.True(isMatched);
+    }
+
+    [Fact]
+    public void CaptchaDetectionResult_WithSessionId_PreservesProperty()
+    {
+        var result = new CaptchaDetectionResult
+        {
+            IsActive = true,
+            Type = CaptchaType.Jigsaw,
+            State = CaptchaState.ActiveVisible,
+            CountdownText = "00:24",
+            CaptchaSessionId = "20260912200836236424C80169BFCB4CF",
+            HasInactivityModal = true
+        };
+
+        Assert.Equal("20260912200836236424C80169BFCB4CF", result.CaptchaSessionId);
+        Assert.Equal("00:24", result.CountdownText);
+        Assert.True(result.HasInactivityModal);
+    }
 }

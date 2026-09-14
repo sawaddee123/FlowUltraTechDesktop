@@ -625,8 +625,8 @@ public class CdpAutomationService : ICdpAutomationService
                     }
 
                     // 4. Check known SecSDK / verification tags
-                    if (el.id && (el.id.toLowerCase().includes('secsdk') || el.id.toLowerCase().includes('verify-bar') || el.id.toLowerCase().includes('verify_container'))) return true;
-                    if (className && (className.toLowerCase().includes('secsdk') || className.toLowerCase().includes('verify-bar') || className.toLowerCase().includes('verify_container'))) return true;
+                    if (el.id && (el.id.toLowerCase().includes('secsdk') || el.id.toLowerCase().includes('verify-bar') || el.id.toLowerCase().includes('verify_container') || el.id.toLowerCase().includes('verify-image'))) return true;
+                    if (className && (className.toLowerCase().includes('secsdk') || className.toLowerCase().includes('verify-bar') || className.toLowerCase().includes('verify_container') || className.toLowerCase().includes('verify-image') || className.toLowerCase().includes('whirl'))) return true;
 
                     return false;
                 }
@@ -687,68 +687,147 @@ public class CdpAutomationService : ICdpAutomationService
                     } catch(e) {}
                 }
 
+                // Inactivity warning modal status
+                let inactModalContent = document.querySelector('.captcha-modal-content-UBaIok, [class*=""captcha-modal-content""]');
+                if (!inactModalContent) {
+                    // Fallback to text detection for inactivity modal
+                    const candidateEls = Array.from(document.querySelectorAll('div, section, p, span, h1, h2, h3, h4'));
+                    for (const el of candidateEls) {
+                        const txt = el.textContent || '';
+                        if (txt.includes('detected inactivity during your current LIVE') ||
+                            txt.includes('Complete the verification to continue your current LIVE') ||
+                            txt.includes('LIVE will end in:')) {
+                            inactModalContent = el.closest('[role=""dialog""], .tt-live-modalv2-wrapper, [class*=""modalv2""], [class*=""modal""]') || el;
+                            break;
+                        }
+                    }
+                }
+
+                const inactModalWrapper = inactModalContent ? (inactModalContent.closest ? inactModalContent.closest('.tt-live-modalv2-wrapper, [class*=""modalv2-wrapper""]') : null) : null;
+                const isModalExited = inactModalWrapper
+                    ? (inactModalWrapper.classList.contains('tt-live-modalv2-wrapper-exited') || (inactModalWrapper.className && inactModalWrapper.className.includes('exited')))
+                    : false;
+                const isModalVisible = inactModalContent ? isElementVisible(inactModalContent) : false;
+
+                // Fallback topmost item if modal is visible but classes were obfuscated
+                if (items.length === 0 && inactModalContent && isModalVisible && !isModalExited) {
+                    const rect = inactModalContent.getBoundingClientRect();
+                    items.push({
+                        tagName: inactModalContent.tagName.toLowerCase(),
+                        id: inactModalContent.id || '',
+                        className: typeof inactModalContent.className === 'string' ? inactModalContent.className : (inactModalContent.className && inactModalContent.className.baseVal ? inactModalContent.className.baseVal : ''),
+                        html: inactModalContent.outerHTML,
+                        depth: getDepth(inactModalContent),
+                        isVisible: true,
+                        width: rect.width || 0,
+                        height: rect.height || 0,
+                        x: rect.x || 0,
+                        y: rect.y || 0,
+                        frameUrl: document.location ? document.location.href : ''
+                    });
+                }
+
                 let mainFullHtml = '';
-                if (items.length > 0) {
+                if (items.length > 0 || (inactModalContent && isModalVisible && !isModalExited)) {
                     mainFullHtml = document.documentElement ? document.documentElement.outerHTML : (document.body ? document.body.outerHTML : '');
                 }
 
-                // Inactivity warning modal status
-                const inactModalContent = document.querySelector('.captcha-modal-content-UBaIok');
-                const inactModalWrapper = inactModalContent ? (inactModalContent.closest ? inactModalContent.closest('.tt-live-modalv2-wrapper') : null) : null;
-                const isModalExited = inactModalWrapper ? inactModalWrapper.classList.contains('tt-live-modalv2-wrapper-exited') : false;
-                const isModalVisible = inactModalContent ? isElementVisible(inactModalContent) : false;
-
                 let countdownText = '';
                 try {
-                    const cdEl = document.querySelector('.countdown-EXaokG, [class*=\'countdown\'], #captcha-mount-point [class*=\'countdown\']');
+                    const cdEl = document.querySelector('.countdown-EXaokG, [class*=""countdown""], #captcha-mount-point [class*=""countdown""]');
                     if (cdEl && isElementVisible(cdEl)) {
                         countdownText = (cdEl.textContent || '').trim();
                     }
                 } catch(e) {}
 
+                if (!countdownText || !/\d{1,2}:\d{2}/.test(countdownText)) {
+                    const scope = inactModalContent || document.body;
+                    if (scope) {
+                        const text = scope.innerText || scope.textContent || '';
+                        const liveEndMatch = text.match(/LIVE will end in[:\s]*(\d{1,2}:\d{2})/i);
+                        if (liveEndMatch && liveEndMatch[1]) {
+                            countdownText = liveEndMatch[1];
+                        } else if (inactModalContent) {
+                            const anyCd = (inactModalContent.innerText || inactModalContent.textContent || '').match(/\b(\d{1,2}:\d{2})\b/);
+                            if (anyCd && anyCd[1]) {
+                                countdownText = anyCd[1];
+                            }
+                        }
+                    }
+                }
+
+                // Challenge / Session ID extraction (e.g. 20260912200836236424C80169BFCB4CF...)
+                function extractSessionId(doc) {
+                    if (!doc) return '';
+                    const text = (doc.body ? (doc.body.innerText || doc.body.textContent) : '') || '';
+                    const m = text.match(/\b(20\d{12}[A-Za-z0-9]{12,})\b/);
+                    return m ? m[1] : '';
+                }
+
+                let sessionId = extractSessionId(document);
+
                 // Active Captcha Widget scanning across document and all accessible iframes
                 function scanForActiveWidget(doc) {
                     if (!doc) return null;
 
+                    const docText = (doc.body ? (doc.body.innerText || doc.body.textContent) : '') || '';
+
                     // 1. Jigsaw (Slide puzzle)
-                    const slideImg = doc.querySelector('#captcha-verify-image, img.captcha_verify_img_slide, canvas.captcha_verify_img_slide, img[src*=\'captcha\'][class*=\'slide\']');
-                    const dragKnob = doc.querySelector('.secsdk-captcha-drag-icon, .captcha_verify_slide--drag-icon, div[role=\'slider\'], .sec-captcha-drag-icon, [class*=\'drag-icon\']');
-                    if (slideImg && dragKnob && isElementVisible(slideImg) && isElementVisible(dragKnob)) {
-                        const imgRect = slideImg.getBoundingClientRect();
+                    const hasJigsawInstruction = /drag the puzzle piece into place/i.test(docText) || /drag.*puzzle/i.test(docText) || /ลาก.*จิ๊กซอว์/i.test(docText);
+                    let slideImg = doc.querySelector('#captcha-verify-image, img.captcha_verify_img_slide, canvas.captcha_verify_img_slide, img[src*=""captcha""][class*=""slide""], img[alt=""Captcha""], img[aria-label=""Captcha""], [class*=""captcha-verify-image""]');
+                    let dragKnob = doc.querySelector('.secsdk-captcha-drag-icon, .captcha_verify_slide--drag-icon, div[role=""slider""], button[role=""slider""], .sec-captcha-drag-icon, [class*=""drag-icon""], [class*=""drag_icon""], [class*=""slider-btn""], [aria-label*=""slider"" i]');
+
+                    if (!slideImg && hasJigsawInstruction) {
+                        const candidateImgs = Array.from(doc.querySelectorAll('img, canvas')).filter(el => {
+                            if (!isElementVisible(el)) return false;
+                            const r = el.getBoundingClientRect();
+                            return r.width >= 150 && r.height >= 100;
+                        });
+                        if (candidateImgs.length > 0) slideImg = candidateImgs[0];
+                    }
+
+                    if (!dragKnob && hasJigsawInstruction) {
+                        dragKnob = doc.querySelector('[class*=""slidebar""] button, [class*=""drag-track""] button, [class*=""slide""] [role=""button""], [class*=""slidebar""] [tabindex], button:has(svg)');
+                    }
+
+                    if ((slideImg && dragKnob && isElementVisible(slideImg) && isElementVisible(dragKnob)) ||
+                        (hasJigsawInstruction && (slideImg || dragKnob) && isElementVisible(slideImg || dragKnob))) {
                         return {
                             type: 'Jigsaw',
                             typeDescription: 'จิ๊กซอว์เลื่อนต่อภาพ (Slide Captcha)',
-                            imageSrc: slideImg.src || slideImg.getAttribute('src') || '',
-                            promptText: 'ลากสไลเดอร์เพื่อต่อชิ้นส่วนจิ๊กซอว์ให้พอดี',
-                            hasWidgetLoaded: true
+                            imageSrc: (slideImg && (slideImg.src || slideImg.getAttribute('src'))) || '',
+                            promptText: hasJigsawInstruction ? 'Drag the puzzle piece into place' : 'ลากสไลเดอร์เพื่อต่อชิ้นส่วนจิ๊กซอว์ให้พอดี',
+                            hasWidgetLoaded: !!(slideImg && isElementVisible(slideImg))
                         };
                     }
 
                     // 2. Symbol (Icon match)
-                    const symbolImg = doc.querySelector('#captcha-verify-image, img.captcha_verify_img_symbol, .captcha_verify_img--bg, canvas.captcha_verify_img--bg, img[class*=\'symbol\']');
-                    const submitBtn = doc.querySelector('.secsdk-captcha-submit-button, [class*=\'secsdk-captcha-submit\'], button[class*=\'verify-btn\']');
+                    const hasSymbolInstruction = /select.*same/i.test(docText) || /click.*same/i.test(docText) || /select.*object/i.test(docText) || /เลือก.*เหมือนกัน/i.test(docText);
+                    const symbolImg = doc.querySelector('#captcha-verify-image, img.captcha_verify_img_symbol, .captcha_verify_img--bg, canvas.captcha_verify_img--bg, img[class*=""symbol""]');
+                    const submitBtn = doc.querySelector('.secsdk-captcha-submit-button, [class*=""secsdk-captcha-submit""], button[class*=""verify-btn""]');
                     let prompt = '';
-                    const promptEl = doc.querySelector('.secsdk-captcha-label, .captcha_verify_label, [class*=\'tip-wrapper\'], [class*=\'prompt\'], [class*=\'title\']');
+                    const promptEl = doc.querySelector('.secsdk-captcha-label, .captcha_verify_label, [class*=""tip-wrapper""], [class*=""prompt""], [class*=""title""]');
                     if (promptEl && isElementVisible(promptEl)) prompt = (promptEl.textContent || '').trim();
 
-                    if (symbolImg && isElementVisible(symbolImg) && (submitBtn || /select|click|same|object|symbol/i.test(prompt))) {
+                    if (symbolImg && isElementVisible(symbolImg) && (submitBtn || /select|click|same|object|symbol/i.test(prompt) || hasSymbolInstruction)) {
                         return {
                             type: 'Symbol',
                             typeDescription: 'เลือกสัญลักษณ์ 2 รูปที่เหมือนกัน (Symbol Captcha)',
                             imageSrc: symbolImg.src || symbolImg.getAttribute('src') || '',
-                            promptText: prompt || 'คลิกเลือกรูปภาพสัญลักษณ์ที่เหมือนกัน 2 รูปแล้วกดยืนยัน',
+                            promptText: prompt || (hasSymbolInstruction ? 'Select 2 same objects' : 'คลิกเลือกรูปภาพสัญลักษณ์ที่เหมือนกัน 2 รูปแล้วกดยืนยัน'),
                             hasWidgetLoaded: true
                         };
                     }
 
                     // 3. Rotate / Whirl
-                    const rotateEl = doc.querySelector('[class*=\'rotate\'], [class*=\'whirl\']');
-                    if (rotateEl && isElementVisible(rotateEl) && dragKnob && isElementVisible(dragKnob)) {
+                    const hasRotateInstruction = /rotate.*upright/i.test(docText) || /หมุนภาพ/i.test(docText);
+                    const rotateEl = doc.querySelector('[class*=""rotate""], [class*=""whirl""]:not([class*=""title""])');
+                    if (!hasJigsawInstruction && (hasRotateInstruction || (rotateEl && isElementVisible(rotateEl))) && dragKnob && isElementVisible(dragKnob)) {
                         return {
                             type: 'Rotate',
                             typeDescription: 'หมุนภาพให้ตรง (Rotate Captcha)',
                             imageSrc: '',
-                            promptText: 'หมุนภาพให้อยู่ในแนวตั้งตรง',
+                            promptText: hasRotateInstruction ? 'Rotate the image' : 'หมุนภาพให้อยู่ในแนวตั้งตรง',
                             hasWidgetLoaded: true
                         };
                     }
@@ -757,13 +836,18 @@ public class CdpAutomationService : ICdpAutomationService
                 }
 
                 let activeWidget = scanForActiveWidget(document);
-                if (!activeWidget) {
+                if (!activeWidget || !sessionId) {
                     for (const iframe of iframes) {
                         try {
                             const fDoc = iframe.contentDocument || (iframe.contentWindow && iframe.contentWindow.document);
                             if (fDoc) {
-                                activeWidget = scanForActiveWidget(fDoc);
-                                if (activeWidget) break;
+                                if (!activeWidget) {
+                                    activeWidget = scanForActiveWidget(fDoc);
+                                }
+                                if (!sessionId) {
+                                    sessionId = extractSessionId(fDoc);
+                                }
+                                if (activeWidget && sessionId) break;
                             }
                         } catch(e) {}
                     }
@@ -799,6 +883,7 @@ public class CdpAutomationService : ICdpAutomationService
                     hasWidgetLoaded: hasWidgetLoaded,
                     imageSrc: imageSrc,
                     promptText: promptText,
+                    sessionId: sessionId,
                     mainFullHtml: mainFullHtml,
                     iframeHtmls: iframeHtmls,
                     pageUrl: window.location ? window.location.href : '',
@@ -847,6 +932,9 @@ public class CdpAutomationService : ICdpAutomationService
 
                         if (doc.RootElement.TryGetProperty("countdownText", out var cdElem) && !string.IsNullOrWhiteSpace(cdElem.GetString()))
                             result.CountdownText = cdElem.GetString()!;
+
+                        if (doc.RootElement.TryGetProperty("sessionId", out var sidElem) && !string.IsNullOrWhiteSpace(sidElem.GetString()))
+                            result.CaptchaSessionId = sidElem.GetString()!;
 
                         if (doc.RootElement.TryGetProperty("hasInactivityModal", out var inactElem))
                             result.HasInactivityModal = inactElem.GetBoolean();
@@ -1015,7 +1103,7 @@ public class CdpAutomationService : ICdpAutomationService
 
                 if (result.IsActive)
                 {
-                    logger?.Info("Captcha", $"🚨 [REAL CAPTCHA ACTIVE] ตรวจพบ {result.TypeDescription} กำลังแสดงผลบนพอร์ต {cdpPort} (Countdown='{result.CountdownText ?? "N/A"}', Full HTML: {result.CombinedHtml.Length:N0} ตัวอักษร)");
+                    logger?.Info("Captcha", $"🚨 [REAL CAPTCHA ACTIVE] ตรวจพบ {result.TypeDescription} กำลังแสดงผลบนพอร์ต {cdpPort} (Countdown='{result.CountdownText ?? "N/A"}', SessionId='{result.CaptchaSessionId ?? "N/A"}', Full HTML: {result.CombinedHtml.Length:N0} ตัวอักษร)");
                     for (int i = 0; i < result.Elements.Count; i++)
                     {
                         var el = result.Elements[i];
