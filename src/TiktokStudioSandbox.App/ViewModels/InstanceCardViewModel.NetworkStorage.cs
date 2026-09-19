@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Diagnostics;
@@ -19,7 +19,7 @@ namespace TiktokStudioSandbox.App.ViewModels;
 public partial class InstanceCardViewModel : ObservableObject
 {
     // ==========================================
-    // 🌐 Real-time Network Monitor Properties
+    // Network Monitor Properties
     // ==========================================
     public ObservableCollection<NetworkTrafficItem> NetworkTraffic { get; } = new();
     public ICollectionView FilteredNetworkTraffic { get; }
@@ -27,8 +27,8 @@ public partial class InstanceCardViewModel : ObservableObject
     [ObservableProperty]
     private bool _isNetworkHooking;
 
-    public string NetworkHookButtonText => IsNetworkHooking ? "🔴 หยุดดักจับ API ชั่วคราว" : "▶ เริ่มดักจับ Network API";
-    public string NetworkHookBadgeText => IsNetworkHooking ? "🟢 Auto Monitor (เปิดอยู่)" : "⚪ พักการดักจับ";
+    public string NetworkHookButtonText => IsNetworkHooking ? "หยุดดักจับ API ชั่วคราว" : "เริ่มดักจับ Network API";
+    public string NetworkHookBadgeText => IsNetworkHooking ? "Auto Monitor (เปิดอยู่)" : "พักการดักจับ";
 
     [ObservableProperty]
     private NetworkTrafficItem? _selectedTraffic;
@@ -49,7 +49,7 @@ public partial class InstanceCardViewModel : ObservableObject
     public string[] StatusOptions => ["ALL", "2xx (สำเร็จ)", "4xx/5xx (Error)", "Pending (รอดำเนินการ)"];
 
     // ==========================================
-    // 🍪 Real-time Cookies & Storage Properties
+    // Cookies & Storage Properties
     // ==========================================
     public ObservableCollection<CookieItem> Cookies { get; } = new();
     public ICollectionView FilteredCookies { get; }
@@ -238,7 +238,7 @@ public partial class InstanceCardViewModel : ObservableObject
 
 
     // ==========================================
-    // 🌐 Network Hook Commands & Auto Monitor
+    // Network Hook Commands & Auto Monitor
     // ==========================================
     public async Task StartAutoMonitoringAsync()
     {
@@ -325,14 +325,14 @@ public partial class InstanceCardViewModel : ObservableObject
             {
                 // Item triggers INotifyPropertyChanged so datagrid updates in-place
             });
-        AppendConsole($"[{DateTime.Now:HH:mm:ss}] 🌐 [Auto Monitor] เริ่มดักจับ Network API อัตโนมัติบนพอร์ต {CdpPort} เรียบร้อย");
+        AppendConsole($"[{DateTime.Now:HH:mm:ss}] [Auto Monitor] เริ่มดักจับ Network API อัตโนมัติบนพอร์ต {CdpPort} เรียบร้อย");
     }
 
     public async Task StopNetworkHookInternalAsync()
     {
         IsNetworkHooking = false;
         await _cdpService.StopNetworkHookAsync(CdpPort);
-        AppendConsole($"[{DateTime.Now:HH:mm:ss}] ⏹️ [Network] หยุดดักจับ API บนพอร์ต {CdpPort}");
+        AppendConsole($"[{DateTime.Now:HH:mm:ss}] [Network] หยุดดักจับ API บนพอร์ต {CdpPort}");
     }
 
     [RelayCommand]
@@ -409,7 +409,7 @@ public partial class InstanceCardViewModel : ObservableObject
 
 
     // ==========================================
-    // 🍪 Cookies & Storage Commands
+    // Cookies & Storage Commands
     // ==========================================
     [RelayCommand]
     public async Task FetchCookiesAndStorageAsync()

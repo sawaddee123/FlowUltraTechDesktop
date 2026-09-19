@@ -120,7 +120,7 @@ public class InstanceOrchestrator : IInstanceOrchestrator
 
             profile.Status = InstanceStatus.Running;
             profile.IsWindowHidden = true;
-            profile.StatusMessage = "⚡ Ultra-Light Active (ซ่อนหน้าต่าง 0% GPU) พร้อมรับการยืนยันตัวตนจากบราวเซอร์";
+            profile.StatusMessage = "โหมด Ultra-Light ทำงาน (ซ่อนหน้าต่าง) พร้อมรับการยืนยันตัวตน";
             logger.Info("Orchestrator", "Ultra-Light mode is active (0% GPU, hidden window).");
             return true;
         }

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Diagnostics;
@@ -19,7 +19,7 @@ namespace TiktokStudioSandbox.App.ViewModels;
 public partial class InstanceCardViewModel : ObservableObject
 {
     // ==========================================
-    // 💬 Real-time Live Chat Monitor Properties
+    // Live Chat Monitor Properties
     // ==========================================
     public ObservableCollection<LiveChatMessageItem> LiveChatMessages { get; } = new();
     public ICollectionView FilteredLiveChatMessages { get; }
@@ -75,20 +75,20 @@ public partial class InstanceCardViewModel : ObservableObject
     [ObservableProperty]
     private bool _filterShowOther = true;
 
-    public string FilterChatLabel => $"💬 แชท ({TotalChatCount})";
+    public string FilterChatLabel => $"แชท ({TotalChatCount})";
     public string FilterGiftLabel => TotalDiamondsCount > 0 
-        ? $"🎁 ของขวัญ ({TotalGiftCount} [{TotalDiamondsCount} 💎])" 
-        : $"🎁 ของขวัญ ({TotalGiftCount})";
-    public string FilterLikeFollowLabel => $"❤️ ไลก์/ติดตาม ({TotalLikeFollowCount})";
-    public string FilterAutoReplyLabel => $"🤖 บอทตอบ ({TotalAutoRepliesCount})";
-    public string FilterOtherLabel => $"📦 อื่นๆ ({TotalOtherCount})";
+        ? $"ของขวัญ ({TotalGiftCount} [{TotalDiamondsCount}])" 
+        : $"ของขวัญ ({TotalGiftCount})";
+    public string FilterLikeFollowLabel => $"ไลก์/ติดตาม ({TotalLikeFollowCount})";
+    public string FilterAutoReplyLabel => $"บอทตอบ ({TotalAutoRepliesCount})";
+    public string FilterOtherLabel => $"อื่นๆ ({TotalOtherCount})";
 
     public string[] ChatTypeOptions => ["ALL", "Chat (แชท)", "Gift (ของขวัญ)", "Like/Follow (ถูกใจ/ติดตาม)", "AutoReply (บอทตอบ)", "Other (อื่นๆ / Raw JSON)"];
-    public string LiveChatCountSummary => $"ทั้งหมด {LiveChatMessages.Count} รายการ (แชท: {TotalChatCount}, ของขวัญ: {TotalGiftCount}{(TotalDiamondsCount > 0 ? $" [{TotalDiamondsCount} 💎]" : "")}, ไลก์/ติดตาม: {TotalLikeFollowCount}, อื่นๆ: {TotalOtherCount})";
-    public string LiveChatMonitorButtonText => IsLiveChatMonitoring ? "🔴 หยุดมอนิเตอร์ชั่วคราว" : "▶ เริ่มมอนิเตอร์แชทสด";
+    public string LiveChatCountSummary => $"ทั้งหมด {LiveChatMessages.Count} รายการ (แชท: {TotalChatCount}, ของขวัญ: {TotalGiftCount}{(TotalDiamondsCount > 0 ? $" [{TotalDiamondsCount}]" : "")}, ไลก์/ติดตาม: {TotalLikeFollowCount}, อื่นๆ: {TotalOtherCount})";
+    public string LiveChatMonitorButtonText => IsLiveChatMonitoring ? "หยุดมอนิเตอร์ชั่วคราว" : "เริ่มมอนิเตอร์แชทสด";
     public string LiveChatMonitorBadgeText => IsLiveChatMonitoring
-        ? (IsRunning ? "🟢 มอนิเตอร์สด (แอปเปิดอยู่)" : "🟢 มอนิเตอร์สด (ก่อนเปิดแอป)")
-        : "⚪ พักการมอนิเตอร์";
+        ? (IsRunning ? "มอนิเตอร์สด (แอปเปิดอยู่)" : "มอนิเตอร์สด (ก่อนเปิดแอป)")
+        : "พักการมอนิเตอร์";
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(ActiveChannelDisplay))]
@@ -106,8 +106,8 @@ public partial class InstanceCardViewModel : ObservableObject
                 : (!string.IsNullOrWhiteSpace(LoggedInDisplayId) ? NormalizeUsername(LoggedInDisplayId) : string.Empty);
 
             return !string.IsNullOrWhiteSpace(target)
-                ? $"📺 ตรวจจับ: @{target}"
-                : "📺 ยังไม่ได้ระบุช่อง";
+                ? $"ตรวจจับ: @{target}"
+                : "ยังไม่ได้ระบุช่อง";
         }
     }
 
@@ -233,7 +233,7 @@ public partial class InstanceCardViewModel : ObservableObject
 
 
     // ==========================================
-    // 💬 Live Chat Monitor Commands & Polling
+    // Live Chat Monitor Commands & Polling
     // ==========================================
     public async Task StartLiveChatMonitoringAsync()
     {
@@ -393,8 +393,8 @@ public partial class InstanceCardViewModel : ObservableObject
                         LiveChatStatus = !string.IsNullOrWhiteSpace(targetChannel)
                             ? (Status == InstanceStatus.Running
                                 ? $"กำลังมอนิเตอร์ @{targetChannel} (รอตรวจจับข้อความ... {DateTime.Now:HH:mm:ss})"
-                                : $"กำลังมอนิเตอร์ @{targetChannel} (กด '🌐 เปิดหน้าไลฟ์' เพื่อเปิดเบราว์เซอร์ตรวจจับ หรือกด '▶ เริ่มทำงาน')")
-                            : $"พร้อมมอนิเตอร์ (ระบุช่องเป้าหมาย หรือกด '🌐 เปิดหน้าไลฟ์')";
+                                : $"กำลังมอนิเตอร์ @{targetChannel} (กด 'เปิดหน้าไลฟ์' เพื่อเปิดเบราว์เซอร์ตรวจจับ หรือกด 'เริ่มทำงาน')")
+                            : $"พร้อมมอนิเตอร์ (ระบุช่องเป้าหมาย หรือกด 'เปิดหน้าไลฟ์')";
                     }
                 });
                 return;

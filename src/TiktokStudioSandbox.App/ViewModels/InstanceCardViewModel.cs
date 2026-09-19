@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.IO;
 using System.Diagnostics;
 using System.Collections.ObjectModel;
@@ -492,7 +492,7 @@ public partial class InstanceCardViewModel : ObservableObject
         if (Status != InstanceStatus.Running)
         {
             Logger.Warn("Script", $"Cannot execute script: '{Name}' is not running.");
-            AppendConsole($"[{DateTime.Now:HH:mm:ss}] ⚠️ ไม่สามารถรันได้: หน้าต่างนี้ยังไม่ได้เปิดทำงาน (สถานะ: {StatusDisplay}) กรุณากดปุ่ม Start ก่อน\n");
+            AppendConsole($"[{DateTime.Now:HH:mm:ss}] ไม่สามารถรันได้: หน้าต่างนี้ยังไม่ได้เปิดทำงาน (สถานะ: {StatusDisplay}) กรุณากดปุ่ม Start ก่อน\n");
             return;
         }
 
@@ -510,7 +510,7 @@ public partial class InstanceCardViewModel : ObservableObject
         }
         catch (Exception ex)
         {
-            AppendConsole($"[{time}] ❌ Error: {ex.Message}\n");
+            AppendConsole($"[{time}] Error: {ex.Message}\n");
             Logger.Error("Script", $"JavaScript execution failed: {ex.Message}", ex);
         }
     }
@@ -545,13 +545,13 @@ public partial class InstanceCardViewModel : ObservableObject
         if (Status != InstanceStatus.Running)
         {
             Logger.Warn("CDP", $"Cannot export HTML: '{Name}' is not running.");
-            AppendConsole($"[{DateTime.Now:HH:mm:ss}] ⚠️ ไม่สามารถ Export ได้: หน้าต่างนี้ยังไม่ได้เปิดทำงาน (สถานะ: {StatusDisplay}) กรุณากดปุ่ม [Start] ก่อน\n");
+            AppendConsole($"[{DateTime.Now:HH:mm:ss}] ไม่สามารถ Export ได้: หน้าต่างนี้ยังไม่ได้เปิดทำงาน (สถานะ: {StatusDisplay}) กรุณากดปุ่ม [Start] ก่อน\n");
             StatusMessage = "กรุณาเปิดสตูดิโอก่อน Export HTML";
             return null;
         }
 
         string time = DateTime.Now.ToString("HH:mm:ss");
-        AppendConsole($"[{time}] ⏳ กำลังดึง Full HTML จากหน้าต่างผ่าน CDP (พอร์ต {CdpPort})...");
+        AppendConsole($"[{time}] กำลังดึง Full HTML จากหน้าต่างผ่าน CDP (พอร์ต {CdpPort})...");
         StatusMessage = "กำลังดึง Full HTML...";
         Logger.Info("CDP", $"Fetching full HTML for '{Name}' on port {CdpPort}...");
 
@@ -560,7 +560,7 @@ public partial class InstanceCardViewModel : ObservableObject
             var result = await _cdpService.GetFullHtmlAsync(CdpPort);
             if (result == null || string.IsNullOrWhiteSpace(result.Html))
             {
-                AppendConsole($"[{DateTime.Now:HH:mm:ss}] ❌ ดึง Full HTML ไม่สำเร็จ (ไม่พบหน้าเว็บที่เปิดอยู่ หรือพอร์ต CDP ไม่ตอบสนอง)\n");
+                AppendConsole($"[{DateTime.Now:HH:mm:ss}] ดึง Full HTML ไม่สำเร็จ (ไม่พบหน้าเว็บที่เปิดอยู่ หรือพอร์ต CDP ไม่ตอบสนอง)\n");
                 StatusMessage = "ดึง Full HTML ไม่สำเร็จ";
                 Logger.Warn("CDP", $"Failed to retrieve HTML for '{Name}' on port {CdpPort}");
                 return null;
@@ -581,7 +581,7 @@ public partial class InstanceCardViewModel : ObservableObject
                 bool? dialogResult = dialog.ShowDialog();
                 if (dialogResult != true)
                 {
-                    AppendConsole($"[{DateTime.Now:HH:mm:ss}] ℹ️ ยกเลิกการ Export Full HTML (ไม่ได้เลือกไฟล์ปลายทาง)\n");
+                    AppendConsole($"[{DateTime.Now:HH:mm:ss}] ยกเลิกการ Export Full HTML (ไม่ได้เลือกไฟล์ปลายทาง)\n");
                     StatusMessage = "ยกเลิกการบันทึกไฟล์";
                     return null;
                 }
@@ -618,19 +618,19 @@ public partial class InstanceCardViewModel : ObservableObject
 
             var fileInfo = new System.IO.FileInfo(targetFilePath);
             LastExportedHtmlPath = targetFilePath;
-            StatusMessage = $"✅ Export Full HTML สำเร็จ ({fileInfo.Name})";
+            StatusMessage = $"Export Full HTML สำเร็จ ({fileInfo.Name})";
 
-            AppendConsole($"[{DateTime.Now:HH:mm:ss}] ✅ Export Full HTML สำเร็จเรียบร้อย!");
-            AppendConsole($"   📁 ตำแหน่ง: {targetFilePath}");
-            AppendConsole($"   📊 ขนาด: {fileInfo.Length:N0} bytes | หน้าเว็บ: {result.Title} ({result.Url})");
-            AppendConsole($"   💡 สามารถดับเบิลคลิกเปิดไฟล์ด้วย Browser หรือ Editor ได้ทันที\n");
+            AppendConsole($"[{DateTime.Now:HH:mm:ss}] Export Full HTML สำเร็จเรียบร้อย!");
+            AppendConsole($"   ตำแหน่ง: {targetFilePath}");
+            AppendConsole($"   ขนาด: {fileInfo.Length:N0} bytes | หน้าเว็บ: {result.Title} ({result.Url})");
+            AppendConsole($"   สามารถเปิดไฟล์ด้วย Browser หรือ Editor ได้\n");
 
             Logger.Info("CDP", $"Successfully exported full HTML to '{targetFilePath}' ({fileInfo.Length} bytes)");
             return targetFilePath;
         }
         catch (Exception ex)
         {
-            AppendConsole($"[{DateTime.Now:HH:mm:ss}] ❌ เกิดข้อผิดพลาดในการ Export HTML: {ex.Message}\n");
+            AppendConsole($"[{DateTime.Now:HH:mm:ss}] เกิดข้อผิดพลาดในการ Export HTML: {ex.Message}\n");
             StatusMessage = $"Export HTML ไม่สำเร็จ: {ex.Message}";
             Logger.Error("CDP", $"Exception exporting full HTML: {ex.Message}", ex);
             return null;
@@ -815,21 +815,21 @@ public partial class InstanceCardViewModel : ObservableObject
                     SyncFromProfile();
                     if (autoClose)
                     {
-                        StatusMessage = $"✅ ตรวจพบการเข้าสู่ระบบ: @{info.DisplayId} ({info.Nickname}) - กำลังบันทึกข้อมูลและปิดสตูดิโอ...";
-                        AppendConsole($"[{DateTime.Now:HH:mm:ss}] ✅ เข้าสู่ระบบสำเร็จ: @{info.DisplayId} ({info.Nickname}) กำลังรอ 1.5 วินาทีเพื่อให้ Chromium บันทึกไฟล์ลงดิสก์แล้วปิดหน้าต่าง...");
+                        StatusMessage = $"ตรวจพบการเข้าสู่ระบบ: @{info.DisplayId} ({info.Nickname}) - กำลังบันทึกข้อมูลและปิดสตูดิโอ...";
+                        AppendConsole($"[{DateTime.Now:HH:mm:ss}] เข้าสู่ระบบสำเร็จ: @{info.DisplayId} ({info.Nickname}) กำลังรอ 1.5 วินาทีเพื่อให้ Chromium บันทึกไฟล์ลงดิสก์แล้วปิดหน้าต่าง...");
 
                         // Allow Chromium 1.5 seconds to flush cookies/LevelDB/session files safely to disk
                         await Task.Delay(1500);
 
                         await StopAsync();
 
-                        StatusMessage = $"✅ เข้าสู่ระบบสำเร็จและปิดสตูดิโอเรียบร้อย! @{info.DisplayId} ({info.Nickname})";
-                        AppendConsole($"[{DateTime.Now:HH:mm:ss}] 💾 เซสชันและคุกกี้ถูกบันทึกเรียบร้อย สามารถเปิดใช้งานหรือสั่งรันในโหมดต่างๆ ได้ทันที");
+                        StatusMessage = $"เข้าสู่ระบบสำเร็จและปิดสตูดิโอเรียบร้อย: @{info.DisplayId} ({info.Nickname})";
+                        AppendConsole($"[{DateTime.Now:HH:mm:ss}] เซสชันและคุกกี้ถูกบันทึกเรียบร้อย สามารถเปิดใช้งานหรือสั่งรันในโหมดต่างๆ ได้ทันที");
                         Logger.Info("Login", $"Profile saved and studio stopped automatically: @{info.DisplayId}");
                     }
                     else
                     {
-                        StatusMessage = $"✅ เข้าสู่ระบบสำเร็จเรียบร้อย! @{info.DisplayId} ({info.Nickname})";
+                        StatusMessage = $"เข้าสู่ระบบสำเร็จเรียบร้อย: @{info.DisplayId} ({info.Nickname})";
                     }
                 }
 
@@ -887,7 +887,7 @@ public partial class InstanceCardViewModel : ObservableObject
         Logger.Info("Protocol", $"Binding protocol live-studio-app:// to profile '{ProfileFolderName}'...");
         bool ok = ProcessLauncher.BindProtocolToProfile(Profile, _settings);
         StatusMessage = ok 
-            ? $"🎯 ตั้งค่า Windows ให้ส่ง Browser Login มาที่โปรไฟล์นี้แล้ว! เมื่อกดยืนยันในเบราว์เซอร์จะเด้งเข้าจอนี้โดยตรง" 
+            ? $"ตั้งค่า Windows ให้ส่ง Browser Login มาที่โปรไฟล์นี้แล้ว เมื่อกดยืนยันในเบราว์เซอร์จะเด้งเข้าจอนี้โดยตรง" 
             : "ไม่สามารถตั้งค่า Protocol ใน Windows ได้";
         Logger.Info("Protocol", $"Bind protocol result: {ok}");
     }

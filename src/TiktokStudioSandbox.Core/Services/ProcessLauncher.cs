@@ -217,7 +217,7 @@ public class ProcessLauncher : IProcessLauncher
 
             instance.Status = InstanceStatus.Running;
             instance.StatusMessage = ultraLight 
-                ? $"⚡ Ultra-Light Active (Port {instance.CdpPort}, Hidden 0% GPU)" 
+                ? $"Ultra-Light (Port {instance.CdpPort}, Hidden)" 
                 : $"Running on port {instance.CdpPort}";
             logger.Info("Process", $"Instance '{instance.Name}' is now RUNNING. (PID: {instance.ProcessId}, Port: {instance.CdpPort})");
             return process;

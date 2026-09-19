@@ -364,18 +364,18 @@
                                 <TextBlock FontSize="11" FontWeight="SemiBold" VerticalAlignment="Center">
                                     <TextBlock.Style>
                                         <Style TargetType="TextBlock">
-                                            <Setter Property="Text" Value="⚪ สแตนด์บาย" />
+                                            <Setter Property="Text" Value="สแตนด์บาย" />
                                             <Setter Property="Foreground" Value="#94A3B8" />
                                             <Style.Triggers>
                                                 <DataTrigger Binding="{Binding HasAnyCaptchaAlert}" Value="True">
-                                                    <Setter Property="Text" Value="{Binding TotalCaptchaAlertCount, StringFormat='🚨 พบ Captcha ({0})'}" />
+                                                    <Setter Property="Text" Value="{Binding TotalCaptchaAlertCount, StringFormat='พบ Captcha ({0})'}" />
                                                     <Setter Property="Foreground" Value="#EF4444" />
                                                 </DataTrigger>
                                             </Style.Triggers>
                                         </Style>
                                     </TextBlock.Style>
                                 </TextBlock>
-                                <TextBlock Text="{Binding RunningStatusSummary, StringFormat=' • 🟢 {0}'}" FontSize="11" FontWeight="SemiBold" Foreground="#10B981" VerticalAlignment="Center" Margin="4,0,0,0" />
+                                <TextBlock Text="{Binding RunningStatusSummary, StringFormat=' • {0}'}" FontSize="11" FontWeight="SemiBold" Foreground="#10B981" VerticalAlignment="Center" Margin="4,0,0,0" />
                             </StackPanel>
                         </Border>
                     </StackPanel>
@@ -478,7 +478,7 @@
                                                                 <Setter Property="Foreground" Value="#94A3B8" />
                                                                 <Style.Triggers>
                                                                     <DataTrigger Binding="{Binding HasAnyCaptchaAlert}" Value="True">
-                                                                        <Setter Property="Text" Value="{Binding TotalCaptchaAlertCount, StringFormat='🚨 {0}'}" />
+                                                                        <Setter Property="Text" Value="{Binding TotalCaptchaAlertCount}" />
                                                                         <Setter Property="Foreground" Value="White" />
                                                                     </DataTrigger>
                                                                 </Style.Triggers>
@@ -745,7 +745,7 @@
                                                                 <TextBlock Text="{Binding CdpPort, StringFormat='CDP: {0}'}" FontSize="11" Foreground="#94A3B8" Margin="0,0,8,0" />
 
                                                                 <TextBlock Text="•" FontSize="11" Foreground="#475569" Margin="0,0,8,0" />
-                                                                <TextBlock Text="{Binding ProfileFolderName, StringFormat='📁 {0}'}" FontSize="11" Foreground="#64748B" />
+                                                                <TextBlock Text="{Binding ProfileFolderName}" FontSize="11" Foreground="#64748B" />
                                                             </StackPanel>
                                                         </StackPanel>
 
@@ -782,7 +782,7 @@
                                                         <DockPanel LastChildFill="True">
                                                             <Button Style="{StaticResource MicroButton}" DockPanel.Dock="Right" Content="คัดลอก Error" Command="{Binding CopyErrorCommand}" />
                                                             <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                                                <TextBlock Text="⚠️ ข้อผิดพลาด: " FontWeight="Bold" FontSize="11" Foreground="#EF4444" VerticalAlignment="Center" />
+                                                                <TextBlock Text="ข้อผิดพลาด: " FontWeight="Bold" FontSize="11" Foreground="#EF4444" VerticalAlignment="Center" />
                                                                 <TextBlock Text="{Binding StatusMessage}" Foreground="#FCA5A5" FontSize="11" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
                                                             </StackPanel>
                                                         </DockPanel>
@@ -814,7 +814,7 @@
 
                                                                 <StackPanel VerticalAlignment="Center">
                                                                     <StackPanel Orientation="Horizontal">
-                                                                        <TextBlock Text="🚨 ตรวจพบ CAPTCHA!" FontWeight="Bold" FontSize="12" Foreground="#F59E0B" VerticalAlignment="Center" />
+                                                                        <TextBlock Text="ตรวจพบ CAPTCHA" FontWeight="Bold" FontSize="12" Foreground="#F59E0B" VerticalAlignment="Center" />
                                                                         <Border Background="#F59E0B" CornerRadius="4" Padding="6,1" Margin="8,0,0,0" VerticalAlignment="Center">
                                                                             <TextBlock Text="{Binding DetectedCaptchaCount, StringFormat='พบ {0} จุด'}" FontSize="10" FontWeight="Bold" Foreground="Black" />
                                                                         </Border>
@@ -951,12 +951,12 @@
                                                                                 </Grid.RowDefinitions>
                                                                                 <DockPanel Grid.Row="0" Margin="0,0,0,8">
                                                                                     <StackPanel Orientation="Horizontal" DockPanel.Dock="Right" VerticalAlignment="Center">
-                                                                                        <Button Style="{StaticResource PrimaryCtaButton}" Content="💾 บันทึกช่อง" Command="{Binding SaveStreamerUsernameCommand}" Padding="12,4" Margin="0,0,6,0" />
-                                                                                        <Button Style="{StaticResource ActionDarkButton}" Content="🔄 ใช้ช่องของโปรไฟล์นี้" Command="{Binding UseCurrentAccountAsChannelCommand}" ToolTip="ดึง Username จากบัญชีโปรไฟล์นี้ที่ล็อกอินอยู่" Margin="0,0,6,0" />
-                                                                                        <Button Style="{StaticResource ActionDarkButton}" Content="🌐 เปิดหน้าไลฟ์" Command="{Binding OpenChannelLivePageCommand}" ToolTip="เปิดหน้า TikTok Live ของช่องนี้" />
+                                                                                        <Button Style="{StaticResource PrimaryCtaButton}" Content="บันทึกช่อง" Command="{Binding SaveStreamerUsernameCommand}" Padding="12,4" Margin="0,0,6,0" />
+                                                                                        <Button Style="{StaticResource ActionDarkButton}" Content="ใช้ช่องของโปรไฟล์นี้" Command="{Binding UseCurrentAccountAsChannelCommand}" ToolTip="ดึง Username จากบัญชีโปรไฟล์นี้ที่ล็อกอินอยู่" Margin="0,0,6,0" />
+                                                                                        <Button Style="{StaticResource ActionDarkButton}" Content="เปิดหน้าไลฟ์" Command="{Binding OpenChannelLivePageCommand}" ToolTip="เปิดหน้า TikTok Live ของช่องนี้" />
                                                                                     </StackPanel>
                                                                                     <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                                                                        <TextBlock Text="🎯 ช่องตรวจจับเป้าหมาย (Channel Username):" FontWeight="SemiBold" FontSize="11" Foreground="#E2E8F0" VerticalAlignment="Center" Margin="0,0,8,0" />
+                                                                                        <TextBlock Text="ช่องตรวจจับเป้าหมาย (Channel Username):" FontWeight="SemiBold" FontSize="11" Foreground="#E2E8F0" VerticalAlignment="Center" Margin="0,0,8,0" />
                                                                                         <Border Background="#202020" CornerRadius="4" Padding="6,2" VerticalAlignment="Center">
                                                                                             <TextBlock Text="{Binding ActiveChannelDisplay}" FontSize="11" Foreground="#38BDF8" FontWeight="Medium" />
                                                                                         </Border>
@@ -981,7 +981,7 @@
                                                                         </Grid.RowDefinitions>
 
                                                                         <Border Grid.Row="0" Visibility="{Binding NotRunningVisibility}" Background="#242424" CornerRadius="6" Padding="12,8" Margin="0,0,0,8">
-                                                                            <TextBlock Text="⚠️ หน้าต่างนี้ยังไม่ได้เปิดทำงาน (กดเริ่มทำงานก่อนรันสคริปต์)" Foreground="#F59E0B" FontSize="12" />
+                                                                            <TextBlock Text="หน้าต่างนี้ยังไม่ได้เปิดทำงาน (กดเริ่มทำงานก่อนรันสคริปต์)" Foreground="#F59E0B" FontSize="12" />
                                                                         </Border>
 
                                                                         <Grid Grid.Row="1" Margin="0,0,0,8">
@@ -1033,7 +1033,7 @@
                                                                         </Grid.RowDefinitions>
 
                                                                         <Border Grid.Row="0" Visibility="{Binding NotRunningVisibility}" Background="#242424" CornerRadius="6" Padding="12,8" Margin="0,0,0,8">
-                                                                            <TextBlock Text="⚠️ หน้าต่างนี้ยังไม่ได้เปิดทำงาน (กดเริ่มทำงานก่อนดักจับ Network)" Foreground="#F59E0B" FontSize="12" />
+                                                                            <TextBlock Text="หน้าต่างนี้ยังไม่ได้เปิดทำงาน (กดเริ่มทำงานก่อนดักจับ Network)" Foreground="#F59E0B" FontSize="12" />
                                                                         </Border>
 
                                                                         <DockPanel Grid.Row="1" Margin="0,0,0,8">
@@ -1085,7 +1085,7 @@
                                                                         </Grid.RowDefinitions>
 
                                                                         <Border Grid.Row="0" Visibility="{Binding NotRunningVisibility}" Background="#242424" CornerRadius="6" Padding="12,8" Margin="0,0,0,8">
-                                                                            <TextBlock Text="⚠️ หน้าต่างนี้ยังไม่ได้เปิดทำงาน (กดเริ่มทำงานก่อนสแกนหา Captcha)" Foreground="#F59E0B" FontSize="12" />
+                                                                            <TextBlock Text="หน้าต่างนี้ยังไม่ได้เปิดทำงาน (กดเริ่มทำงานก่อนสแกนหา Captcha)" Foreground="#F59E0B" FontSize="12" />
                                                                         </Border>
 
                                                                         <Border Grid.Row="1" Background="#1A1A1A" BorderBrush="#282828" BorderThickness="1" CornerRadius="6" Padding="10,8" Margin="0,0,0,8">
@@ -1135,7 +1135,7 @@
                                                                                 <DockPanel Grid.Row="0" LastChildFill="False" Margin="0,0,0,8">
                                                                                     <StackPanel Orientation="Horizontal" DockPanel.Dock="Left" VerticalAlignment="Center">
                                                                                         <Border Background="#DC2626" CornerRadius="4" Padding="8,2" VerticalAlignment="Center">
-                                                                                            <TextBlock Text="🚨 ตรวจพบ CAPTCHA" FontWeight="Bold" FontSize="11" Foreground="White" />
+                                                                                            <TextBlock Text="ตรวจพบ CAPTCHA" FontWeight="Bold" FontSize="11" Foreground="White" />
                                                                                         </Border>
                                                                                         <Border Background="#242424" CornerRadius="4" Padding="6,2" Margin="8,0,0,0" VerticalAlignment="Center">
                                                                                             <TextBlock Text="{Binding DetectedCaptchaTypeDescription}" FontSize="11" Foreground="#F59E0B" FontWeight="SemiBold" />
@@ -1238,9 +1238,9 @@
                                                                         <Border Grid.Row="0" Background="#181818" BorderBrush="#282828" BorderThickness="1" CornerRadius="6" Padding="10,8" Margin="0,0,0,8">
                                                                             <DockPanel LastChildFill="True">
                                                                                 <StackPanel Orientation="Horizontal" DockPanel.Dock="Right" VerticalAlignment="Center">
-                                                                                    <Button Style="{StaticResource PrimaryCtaButton}" Content="💾 บันทึกช่อง" Command="{Binding SaveStreamerUsernameCommand}" Margin="0,0,6,0" Padding="12,4" />
-                                                                                    <Button Style="{StaticResource ActionDarkButton}" Content="🔄 ใช้ช่องของโปรไฟล์นี้" Command="{Binding UseCurrentAccountAsChannelCommand}" ToolTip="นำ username ของโปรไฟล์นี้มาเป็นช่องตรวจจับ" Margin="0,0,6,0" />
-                                                                                    <Button Style="{StaticResource ActionDarkButton}" Content="🌐 เปิดหน้าไลฟ์" Command="{Binding OpenChannelLivePageCommand}" ToolTip="เปิดหน้า TikTok Live ของช่องนี้" />
+                                                                                    <Button Style="{StaticResource PrimaryCtaButton}" Content="บันทึกช่อง" Command="{Binding SaveStreamerUsernameCommand}" Margin="0,0,6,0" Padding="12,4" />
+                                                                                    <Button Style="{StaticResource ActionDarkButton}" Content="ใช้ช่องของโปรไฟล์นี้" Command="{Binding UseCurrentAccountAsChannelCommand}" ToolTip="นำ username ของโปรไฟล์นี้มาเป็นช่องตรวจจับ" Margin="0,0,6,0" />
+                                                                                    <Button Style="{StaticResource ActionDarkButton}" Content="เปิดหน้าไลฟ์" Command="{Binding OpenChannelLivePageCommand}" ToolTip="เปิดหน้า TikTok Live ของช่องนี้" />
                                                                                 </StackPanel>
 
                                                                                 <Grid VerticalAlignment="Center">
@@ -1250,7 +1250,7 @@
                                                                                         <ColumnDefinition Width="Auto" />
                                                                                     </Grid.ColumnDefinitions>
                                                                                     <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,10,0">
-                                                                                        <TextBlock Text="🎯 ช่องตรวจจับเป้าหมาย:" FontSize="11" FontWeight="SemiBold" Foreground="#E2E8F0" VerticalAlignment="Center" Margin="0,0,6,0" />
+                                                                                        <TextBlock Text="ช่องตรวจจับเป้าหมาย:" FontSize="11" FontWeight="SemiBold" Foreground="#E2E8F0" VerticalAlignment="Center" Margin="0,0,6,0" />
                                                                                         <Border Background="#202020" CornerRadius="4" Padding="6,2" VerticalAlignment="Center">
                                                                                             <TextBlock Text="{Binding ActiveChannelDisplay}" FontSize="11" Foreground="#38BDF8" FontWeight="Medium" />
                                                                                         </Border>
@@ -1276,7 +1276,7 @@
                                                                                 </StackPanel>
 
                                                                                 <StackPanel Orientation="Horizontal" DockPanel.Dock="Right" VerticalAlignment="Center">
-                                                                                    <CheckBox Content="🤖 Auto Reply (ตามกฎ Rules)" IsChecked="{Binding IsAutoReplyEnabled}" VerticalAlignment="Center" Margin="0,0,10,0" />
+                                                                                    <CheckBox Content="Auto Reply (ตามกฎ Rules)" IsChecked="{Binding IsAutoReplyEnabled}" VerticalAlignment="Center" Margin="0,0,10,0" />
                                                                                 </StackPanel>
                                                                             </DockPanel>
                                                                         </Border>
@@ -1344,7 +1344,7 @@
                                                                                 </Grid.RowDefinitions>
                                                                                 <DockPanel Grid.Row="0" Margin="0,0,0,4">
                                                                                     <StackPanel Orientation="Horizontal" DockPanel.Dock="Right">
-                                                                                        <Button Style="{StaticResource MicroButton}" Content="📋 คัดลอก JSON รายการนี้" Command="{Binding CopySelectedChatMessageJsonCommand}" CommandParameter="{Binding SelectedChatMessage}" ToolTip="คัดลอก JSON ของรายการที่เลือก" />
+                                                                                        <Button Style="{StaticResource MicroButton}" Content="คัดลอก JSON รายการนี้" Command="{Binding CopySelectedChatMessageJsonCommand}" CommandParameter="{Binding SelectedChatMessage}" ToolTip="คัดลอก JSON ของรายการที่เลือก" />
                                                                                     </StackPanel>
                                                                                     <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                                                                                         <TextBlock Text="{}{ } Event JSON Viewer:" FontSize="11" FontWeight="SemiBold" Foreground="#94A3B8" Margin="0,0,6,0" />
@@ -1372,7 +1372,7 @@
 
                                                                         <!-- Send Message Input Dock -->
                                                                         <DockPanel Grid.Row="6" Margin="0,0,0,4">
-                                                                            <Button Style="{StaticResource PrimaryCtaButton}" DockPanel.Dock="Right" Content="🚀 ส่งข้อความสด" Command="{Binding SendLiveChatCommand}" IsEnabled="{Binding IsRunning}" Padding="12,4" />
+                                                                            <Button Style="{StaticResource PrimaryCtaButton}" DockPanel.Dock="Right" Content="ส่งข้อความสด" Command="{Binding SendLiveChatCommand}" IsEnabled="{Binding IsRunning}" Padding="12,4" />
                                                                             <ui:TextBox Text="{Binding TestChatMessage, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="พิมพ์ข้อความตอบกลับ หรือส่งเข้าห้องไลฟ์สด..." Margin="0,0,6,0" Padding="8,4" FontSize="11" />
                                                                         </DockPanel>
 
@@ -1444,7 +1444,7 @@
                                 <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
                                     <TextBlock Text="ศูนย์ตรวจจับ Captcha" FontSize="18" FontWeight="Bold" Foreground="#FFFFFF" VerticalAlignment="Center" />
                                     <Border Background="#2B0D0D" BorderBrush="#DC2626" BorderThickness="1" CornerRadius="10" Padding="8,2" Margin="10,0,0,0" VerticalAlignment="Center" Visibility="{Binding HasAnyCaptchaAlert, Converter={StaticResource BoolToVis}}">
-                                        <TextBlock Text="{Binding TotalCaptchaAlertCount, StringFormat='🚨 พบ {0} บัญชี'}" FontSize="11" FontWeight="SemiBold" Foreground="#EF4444" />
+                                        <TextBlock Text="{Binding TotalCaptchaAlertCount, StringFormat='พบ {0} บัญชี'}" FontSize="11" FontWeight="SemiBold" Foreground="#EF4444" />
                                     </Border>
                                 </StackPanel>
 
@@ -1514,11 +1514,11 @@
                                                             <TextBlock FontSize="10" FontWeight="SemiBold">
                                                                 <TextBlock.Style>
                                                                     <Style TargetType="TextBlock">
-                                                                        <Setter Property="Text" Value="⚪ สแตนด์บาย" />
+                                                                        <Setter Property="Text" Value="สแตนด์บาย" />
                                                                         <Setter Property="Foreground" Value="#94A3B8" />
                                                                         <Style.Triggers>
                                                                             <DataTrigger Binding="{Binding IsCaptchaAlertVisible}" Value="True">
-                                                                                <Setter Property="Text" Value="{Binding DetectedCaptchaCount, StringFormat='🚨 พบ Captcha ({0})'}" />
+                                                                                <Setter Property="Text" Value="{Binding DetectedCaptchaCount, StringFormat='พบ Captcha ({0})'}" />
                                                                                 <Setter Property="Foreground" Value="#F87171" />
                                                                             </DataTrigger>
                                                                             <MultiDataTrigger>
@@ -1526,7 +1526,7 @@
                                                                                     <Condition Binding="{Binding IsRunning}" Value="True" />
                                                                                     <Condition Binding="{Binding IsCaptchaAlertVisible}" Value="False" />
                                                                                 </MultiDataTrigger.Conditions>
-                                                                                <Setter Property="Text" Value="🟢 ปกติ (เฝ้าระวัง)" />
+                                                                                <Setter Property="Text" Value="ปกติ (เฝ้าระวัง)" />
                                                                                 <Setter Property="Foreground" Value="#34D399" />
                                                                             </MultiDataTrigger>
                                                                         </Style.Triggers>
@@ -1631,7 +1631,7 @@
                                                     <StackPanel Grid.Column="2" VerticalAlignment="Center">
                                                         <DockPanel LastChildFill="False" Margin="0,0,0,6">
                                                             <Border Background="#DC2626" CornerRadius="4" Padding="8,2" VerticalAlignment="Center">
-                                                                <TextBlock Text="🚨 ตรวจพบ CAPTCHA" FontWeight="Bold" FontSize="11" Foreground="White" />
+                                                                <TextBlock Text="ตรวจพบ CAPTCHA" FontWeight="Bold" FontSize="11" Foreground="White" />
                                                             </Border>
                                                             <Border Background="#242424" CornerRadius="4" Padding="6,2" Margin="8,0,0,0" VerticalAlignment="Center">
                                                                 <TextBlock Text="{Binding DetectedCaptchaTypeDescription}" FontSize="11" Foreground="#F59E0B" FontWeight="SemiBold" />

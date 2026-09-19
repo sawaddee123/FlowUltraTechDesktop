@@ -118,7 +118,7 @@ public class TelegramNotificationService : ITelegramNotificationService
             catch { }
 
             // 2. Send Test Message to Chat ID
-            string testMsg = $"🤖 <b>[TikTok LIVE Studio Sandbox]</b>\n\n✅ <b>ทดสอบการเชื่อมต่อ Telegram สำเร็จ!</b>\n• บอท: @{botUsername}\n• เวลา: {DateTime.Now:dd/MM/yyyy HH:mm:ss}\n• สถานะ: พร้อมรับการแจ้งเตือน CAPTCHA และเหตุการณ์สตรีม";
+            string testMsg = $"<b>[TikTok LIVE Studio Sandbox]</b>\n\n<b>ทดสอบการเชื่อมต่อ Telegram สำเร็จ</b>\n• บอท: @{botUsername}\n• เวลา: {DateTime.Now:dd/MM/yyyy HH:mm:ss}\n• สถานะ: พร้อมรับการแจ้งเตือน CAPTCHA และเหตุการณ์สตรีม";
             bool sendOk = await SendMessageAsync(botToken, chatId, testMsg, cancellationToken).ConfigureAwait(false);
 
             if (sendOk)

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
@@ -1190,7 +1190,7 @@ public partial class CdpAutomationService
                 if (root.TryGetProperty("target_x", out var txElem))
                 {
                     targetX = txElem.GetDouble();
-                    log($"[{DateTime.Now:HH:mm:ss}] 🎯 [SOLVER API] คำนวณตำแหน่งสไลเดอร์สำเร็จ: X={targetX:F1}px (ID: {captchaId})");
+                    log($"[{DateTime.Now:HH:mm:ss}] [SOLVER API] คำนวณตำแหน่งสไลเดอร์สำเร็จ: X={targetX:F1}px (ID: {captchaId})");
                     return (true, targetX, clickPoints, captchaId);
                 }
             }
@@ -1207,7 +1207,7 @@ public partial class CdpAutomationService
                     }
                     if (clickPoints.Count > 0)
                     {
-                        log($"[{DateTime.Now:HH:mm:ss}] 🎯 [SOLVER API] คำนวณพิกัดสัญลักษณ์สำเร็จ {clickPoints.Count} จุด (ID: {captchaId})");
+                        log($"[{DateTime.Now:HH:mm:ss}] [SOLVER API] คำนวณพิกัดสัญลักษณ์สำเร็จ {clickPoints.Count} จุด (ID: {captchaId})");
                         return (true, targetX, clickPoints, captchaId);
                     }
                 }
@@ -1215,7 +1215,7 @@ public partial class CdpAutomationService
         }
         catch (Exception ex)
         {
-            log($"[{DateTime.Now:HH:mm:ss}] ⚠️ [SOLVER API] ไม่สามารถ Parse JSON จาก Solver Server: {ex.Message}");
+            log($"[{DateTime.Now:HH:mm:ss}] [SOLVER API] ไม่สามารถ Parse JSON จาก Solver Server: {ex.Message}");
         }
 
         return (false, targetX, clickPoints, captchaId);

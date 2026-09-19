@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Diagnostics;
@@ -19,7 +19,7 @@ namespace TiktokStudioSandbox.App.ViewModels;
 public partial class InstanceCardViewModel : ObservableObject
 {
     // ==========================================
-    // 📋 Real-time Debug Logs Properties
+    // Debug Logs Properties
     // ==========================================
     public IInstanceLogger Logger { get; }
     public ObservableCollection<InstanceLogEntry> Logs { get; } = new();

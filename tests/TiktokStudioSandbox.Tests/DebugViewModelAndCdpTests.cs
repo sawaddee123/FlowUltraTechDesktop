@@ -285,16 +285,16 @@ public class DebugViewModelAndCdpTests
 
         // Auto refresh should be true by default
         Assert.True(vm.IsStorageAutoRefresh);
-        Assert.Equal("▶ เริ่มดักจับ Network API", vm.NetworkHookButtonText);
-        Assert.Equal("⚪ พักการดักจับ", vm.NetworkHookBadgeText);
+        Assert.Equal("เริ่มดักจับ Network API", vm.NetworkHookButtonText);
+        Assert.Equal("พักการดักจับ", vm.NetworkHookBadgeText);
 
         // When auto monitoring starts
         await vm.StartAutoMonitoringAsync();
 
         Assert.True(vm.IsStorageAutoRefresh);
         Assert.True(vm.IsNetworkHooking);
-        Assert.Equal("🔴 หยุดดักจับ API ชั่วคราว", vm.NetworkHookButtonText);
-        Assert.Equal("🟢 Auto Monitor (เปิดอยู่)", vm.NetworkHookBadgeText);
+        Assert.Equal("หยุดดักจับ API ชั่วคราว", vm.NetworkHookButtonText);
+        Assert.Equal("Auto Monitor (เปิดอยู่)", vm.NetworkHookBadgeText);
 
         // Stopping instance should cleanly stop network hook
         await vm.StopNetworkHookInternalAsync();
@@ -424,7 +424,7 @@ public class DebugViewModelAndCdpTests
 
             Assert.Equal(tempFile, vm.LastExportedHtmlPath);
             Assert.Contains("Export Full HTML สำเร็จ", vm.StatusMessage);
-            Assert.Contains("✅ Export Full HTML สำเร็จเรียบร้อย!", vm.ConsoleOutput);
+            Assert.Contains("Export Full HTML สำเร็จเรียบร้อย!", vm.ConsoleOutput);
         }
         finally
         {
