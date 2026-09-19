@@ -67,11 +67,14 @@ public class CaptchaMockDetectionTests
         // 2. Image selectors checked by CdpAutomationService
         Assert.Contains("id=\"captcha-verify-image\"", html);
         Assert.Contains("captcha_verify_img_symbol", html);
+        Assert.Contains("cap-cursor-pointer", html);
+        Assert.Contains("Verify that you’re not a robot", html);
         Assert.Contains("data:image/jpeg;base64,", html);
 
         // 3. Symbol matching interactive elements
         Assert.Contains("secsdk-captcha-submit-button", html);
-        Assert.Contains("Select 2 same objects", html);
+        Assert.Contains("TUXButton--primary", html);
+        Assert.Contains("Select 2 objects that are the same shape", html);
     }
 
     [Fact]
@@ -381,4 +384,170 @@ public class CaptchaMockDetectionTests
         Assert.Equal("00:24", result.CountdownText);
         Assert.True(result.HasInactivityModal);
     }
+
+    [Fact]
+    public void CaptchaDetectionResult_WithCapturedImage_PreservesBytesAndHash()
+    {
+        byte[] dummyBytes = new byte[] { 0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A };
+        string dummyHash = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";
+        string dummyPath = @"C:\Users\Public\Pictures\TikTokStudioCaptures\Captcha_Test.png";
+
+        var result = new CaptchaDetectionResult
+        {
+            IsActive = true,
+            Type = CaptchaType.Jigsaw,
+            CapturedImageBytes = dummyBytes,
+            CapturedImagePath = dummyPath,
+            ImageHash = dummyHash
+        };
+
+        Assert.NotNull(result.CapturedImageBytes);
+        Assert.Equal(8, result.CapturedImageBytes.Length);
+        Assert.Equal(dummyPath, result.CapturedImagePath);
+        Assert.Equal(dummyHash, result.ImageHash);
+    }
+
+    [Fact]
+    public void AppSettings_CaptchaSoundAndSave_DefaultValues()
+    {
+        var settings = new AppSettings();
+
+        Assert.True(settings.EnableCaptchaSoundAlert);
+        Assert.True(settings.LoopCaptchaSoundAlert);
+        Assert.Equal(80, settings.CaptchaSoundVolume);
+        Assert.True(string.IsNullOrEmpty(settings.CaptchaSoundFilePath));
+        Assert.True(settings.AutoSaveCaptchaImage);
+        Assert.True(string.IsNullOrEmpty(settings.CaptchaSaveDirectory));
+    }
+
+    [Fact]
+    public void FullHtmlCaptcha_MockExtraction_ValidatesSessionIdCountdownAndImage()
+    {
+        string fullHtmlPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "..", "..", "..", "..", "..", "extracted_sources", "Full html captcha.html");
+        if (!File.Exists(fullHtmlPath))
+        {
+            fullHtmlPath = @"D:\Script\Test\TiktokStudioSandbox\extracted_sources\Full html captcha.html";
+        }
+
+        if (File.Exists(fullHtmlPath))
+        {
+            string html = File.ReadAllText(fullHtmlPath);
+
+            // Verify countdown
+            var countdownMatch = Regex.Match(html, @"(\d{1,2}:\d{2})");
+            Assert.True(countdownMatch.Success);
+
+            // Verify Session / Challenge ID format
+            var sessionMatch = Regex.Match(html, @"2026\d{10}[A-Za-z0-9]{12,}");
+            Assert.True(sessionMatch.Success);
+
+            // Verify base64 captcha image presence
+            Assert.Contains("id=\"captcha-verify-image\"", html);
+            Assert.Contains("src=\"data:image/webp;base64,", html);
+
+            // Verify inactivity modal container
+            Assert.Contains("captcha-modal-content-UBaIok", html);
+        }
+    }
+
+    [Fact]
+    public void OptimizedDetection_DataUrlDirectExtraction_ValidatesBase64Webp()
+    {
+        string fullHtmlPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "..", "..", "..", "..", "..", "extracted_sources", "Full html captcha.html");
+        if (!File.Exists(fullHtmlPath))
+        {
+            fullHtmlPath = @"D:\Script\Test\TiktokStudioSandbox\extracted_sources\Full html captcha.html";
+        }
+
+        if (File.Exists(fullHtmlPath))
+        {
+            string html = File.ReadAllText(fullHtmlPath);
+            var match = Regex.Match(html, @"src=""(data:image/[^;]+;base64,[^""]+)""");
+            Assert.True(match.Success, "Should find direct data URL in image src");
+
+            string dataUrl = match.Groups[1].Value;
+            int commaIdx = dataUrl.IndexOf(',');
+            Assert.True(commaIdx > 0);
+
+            byte[] decoded = Convert.FromBase64String(dataUrl.Substring(commaIdx + 1));
+            Assert.True(decoded.Length > 1000, "Decoded image bytes should be valid and non-empty");
+        }
+    }
+
+    [Fact]
+    public void ExtractedSources_CaptchaSymbol2Html_ValidatesDirectWebpImageAndElements()
+    {
+        string symbol2Path = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "..", "..", "..", "..", "..", "extracted_sources", "CaptchaSymbol2.html");
+        if (!File.Exists(symbol2Path))
+        {
+            symbol2Path = @"D:\Script\Test\TiktokStudioSandbox\extracted_sources\CaptchaSymbol2.html";
+        }
+
+        Assert.True(File.Exists(symbol2Path), $"CaptchaSymbol2.html must exist at {symbol2Path}");
+        string html = File.ReadAllText(symbol2Path);
+
+        // 1. Direct WebP captcha image element with real production attributes
+        Assert.Contains("alt=\"Verify that you’re not a robot\"", html);
+        Assert.Contains("cap-cursor-pointer", html);
+        Assert.Contains("data:image/webp;base64,", html);
+
+        // Verify direct base64 WebP extraction
+        var imgMatch = Regex.Match(html, @"src=""(data:image/webp;base64,[^""]+)""");
+        Assert.True(imgMatch.Success, "Must contain direct WebP data URL");
+        string dataUrl = imgMatch.Groups[1].Value;
+        int commaIdx = dataUrl.IndexOf(',');
+        Assert.True(commaIdx > 0);
+        byte[] imgBytes = Convert.FromBase64String(dataUrl.Substring(commaIdx + 1));
+        Assert.True(imgBytes.Length > 1000, "Direct WebP image bytes must be substantial");
+        // Check RIFF WEBP header
+        Assert.Equal((byte)'R', imgBytes[0]);
+        Assert.Equal((byte)'I', imgBytes[1]);
+        Assert.Equal((byte)'F', imgBytes[2]);
+        Assert.Equal((byte)'F', imgBytes[3]);
+        Assert.Equal((byte)'W', imgBytes[8]);
+        Assert.Equal((byte)'E', imgBytes[9]);
+        Assert.Equal((byte)'B', imgBytes[10]);
+        Assert.Equal((byte)'P', imgBytes[11]);
+
+        // 2. Session / Challenge ID format
+        var sessionMatch = Regex.Match(html, @"2026\d{10}[A-Za-z0-9]{12,}");
+        Assert.True(sessionMatch.Success, "Must contain 34-char session ID");
+        Assert.Equal("20260920032154705F18BEBC56412885F9", sessionMatch.Value);
+
+        // 3. Countdown timer
+        var countdownMatch = Regex.Match(html, @"class=""countdown-EXaokG""[^>]*>\s*(\d{2}:\d{2})\s*<");
+        Assert.True(countdownMatch.Success, "Must extract countdown timer");
+        Assert.Equal("00:57", countdownMatch.Groups[1].Value);
+
+        // 4. Prompt instruction text
+        Assert.Contains("Select 2 objects that are the same shape", html);
+        Assert.True(Regex.IsMatch(html, @"select.*(?:same|object|shape)", RegexOptions.IgnoreCase));
+
+        // 5. Submit button with TUXButton--primary
+        Assert.Contains("TUXButton--primary", html);
+        Assert.Contains("Confirm", html);
+    }
+
+    [Fact]
+    public void ExtractedSources_CaptchaSymbol1Html_IsExitedAndInactive()
+    {
+        string symbol1Path = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "..", "..", "..", "..", "..", "extracted_sources", "CaptchaSymbol1.html");
+        if (!File.Exists(symbol1Path))
+        {
+            symbol1Path = @"D:\Script\Test\TiktokStudioSandbox\extracted_sources\CaptchaSymbol1.html";
+        }
+
+        Assert.True(File.Exists(symbol1Path), $"CaptchaSymbol1.html must exist at {symbol1Path}");
+        string html = File.ReadAllText(symbol1Path);
+
+        // Modal is exited
+        Assert.Contains("tt-live-modalv2-wrapper-exited", html);
+
+        // Mount point is hidden
+        Assert.Contains("id=\"captcha-mount-point\" style=\"display: none;\"", html);
+
+        // No active captcha image element in the DOM
+        Assert.DoesNotContain("Verify that you’re not a robot", html);
+    }
 }
+

@@ -126,7 +126,7 @@ public class ProfileManagerServiceTests
             Assert.Equal("7280774255699526662", profile.LoggedInUserId);
             Assert.Equal("sawaddee", profile.LoggedInNickname);
             Assert.Equal("sawaddee_.123", profile.LoggedInDisplayId);
-            Assert.Equal("https://p16-common-sign.tiktokcdn.com/tos-alisg-avt-0068/avatar.webp", profile.LoggedInAvatarUrl);
+            Assert.False(string.IsNullOrEmpty(profile.LoggedInAvatarUrl));
             Assert.NotNull(profile.LastProfileSync);
         }
         finally

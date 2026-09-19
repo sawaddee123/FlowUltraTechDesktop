@@ -42,14 +42,61 @@ public class ProfileManagerService : IProfileManagerService
 
     public UserProfileInfo? ReadProfileFromDirectory(string profileDirectory)
     {
-        if (string.IsNullOrWhiteSpace(profileDirectory) || !Directory.Exists(profileDirectory))
+        if (string.IsNullOrWhiteSpace(profileDirectory))
         {
             return null;
         }
 
-        string ttStoreDir = Path.Combine(profileDirectory, "TTStore");
+        string resolvedDir = profileDirectory;
+        if (!Directory.Exists(resolvedDir))
+        {
+            if (string.Equals(profileDirectory, "Default", StringComparison.OrdinalIgnoreCase) || 
+                string.Equals(profileDirectory, "DefaultProfile", StringComparison.OrdinalIgnoreCase))
+            {
+                resolvedDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "TikTok LIVE Studio");
+            }
+            else
+            {
+                resolvedDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "TikTokStudioProfiles", profileDirectory);
+            }
+        }
+
+        if (!Directory.Exists(resolvedDir))
+        {
+            return null;
+        }
+
+        string ttStoreDir = Path.Combine(resolvedDir, "TTStore");
         string servicesPath = Path.Combine(ttStoreDir, "services.json");
         string localAvatar = Path.Combine(ttStoreDir, "avatarGaussian.png");
+        if (!File.Exists(localAvatar))
+        {
+            localAvatar = Path.Combine(ttStoreDir, "avatar.png");
+        }
+        if (!File.Exists(localAvatar) && Directory.Exists(ttStoreDir))
+        {
+            var anyPng = Directory.GetFiles(ttStoreDir, "*avatar*.png", SearchOption.TopDirectoryOnly).FirstOrDefault();
+            if (anyPng != null) localAvatar = anyPng;
+        }
+
+        // Fallback: If target folder doesn't have avatar yet, check Default Profile
+        if (!File.Exists(localAvatar))
+        {
+            string defaultAvatar = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+                "TikTok LIVE Studio", "TTStore", "avatarGaussian.png");
+            if (File.Exists(defaultAvatar))
+            {
+                try
+                {
+                    Directory.CreateDirectory(ttStoreDir);
+                    string targetAvatarPath = Path.Combine(ttStoreDir, "avatarGaussian.png");
+                    File.Copy(defaultAvatar, targetAvatarPath, true);
+                    localAvatar = targetAvatarPath;
+                }
+                catch { }
+            }
+        }
 
         if (!File.Exists(servicesPath))
         {
@@ -128,7 +175,9 @@ public class ProfileManagerService : IProfileManagerService
             profile.LoggedInUserId = info.UserId;
             profile.LoggedInNickname = info.Nickname;
             profile.LoggedInDisplayId = info.DisplayId;
-            profile.LoggedInAvatarUrl = info.AvatarUrl;
+            profile.LoggedInAvatarUrl = !string.IsNullOrWhiteSpace(info.LocalAvatarPath) && File.Exists(info.LocalAvatarPath)
+                ? info.LocalAvatarPath
+                : info.AvatarUrl;
             profile.IsLoggedIn = true;
             profile.LastProfileSync = DateTime.Now;
             logger.Info("Profile", $"Found login session: @{profile.LoggedInDisplayId} ({profile.LoggedInNickname}), UID: {profile.LoggedInUserId}");
@@ -179,6 +228,21 @@ public class ProfileManagerService : IProfileManagerService
 
         object lockObj = new object();
         CancellationTokenSource? debouncer = null;
+        string? lastNotifiedSignature = null;
+
+        void CheckAndNotify()
+        {
+            var updated = ReadProfile(profile);
+            if (updated != null && updated.IsLoggedIn)
+            {
+                string sig = $"{updated.UserId}_{updated.DisplayId}_{updated.Nickname}_{updated.LocalAvatarPath ?? updated.AvatarUrl}";
+                if (sig != lastNotifiedSignature)
+                {
+                    lastNotifiedSignature = sig;
+                    onProfileChanged(updated);
+                }
+            }
+        }
 
         void TriggerUpdate()
         {
@@ -193,11 +257,7 @@ public class ProfileManagerService : IProfileManagerService
                 {
                     if (!token.IsCancellationRequested && !cts.IsCancellationRequested)
                     {
-                        var updated = ReadProfile(profile);
-                        if (updated != null && updated.IsLoggedIn)
-                        {
-                            onProfileChanged(updated);
-                        }
+                        CheckAndNotify();
                     }
                 }, TaskScheduler.Default);
             }
@@ -205,7 +265,9 @@ public class ProfileManagerService : IProfileManagerService
 
         FileSystemEventHandler fileHandler = (s, e) =>
         {
-            if (e.Name != null && (e.Name.Contains("services", StringComparison.OrdinalIgnoreCase) || e.Name.Contains("login", StringComparison.OrdinalIgnoreCase)))
+            if (e.Name != null && (e.Name.Contains("services", StringComparison.OrdinalIgnoreCase) || 
+                                   e.Name.Contains("login", StringComparison.OrdinalIgnoreCase) ||
+                                   e.Name.Contains("avatar", StringComparison.OrdinalIgnoreCase)))
             {
                 TriggerUpdate();
             }
@@ -213,7 +275,9 @@ public class ProfileManagerService : IProfileManagerService
 
         RenamedEventHandler renameHandler = (s, e) =>
         {
-            if (e.Name != null && (e.Name.Contains("services", StringComparison.OrdinalIgnoreCase) || e.Name.Contains("login", StringComparison.OrdinalIgnoreCase)))
+            if (e.Name != null && (e.Name.Contains("services", StringComparison.OrdinalIgnoreCase) || 
+                                   e.Name.Contains("login", StringComparison.OrdinalIgnoreCase) ||
+                                   e.Name.Contains("avatar", StringComparison.OrdinalIgnoreCase)))
             {
                 TriggerUpdate();
             }
@@ -226,20 +290,15 @@ public class ProfileManagerService : IProfileManagerService
             watcher.Renamed += renameHandler;
         }
 
-        // Safety Net: Polling loop every 1 second while watching (guarantees detection even if FileSystemWatcher misses atomic replace)
+        // Safety Net: Polling loop every 1.5 seconds while watching (guarantees detection even if FileSystemWatcher misses atomic replace)
         _ = Task.Run(async () =>
         {
             while (!cts.IsCancellationRequested)
             {
                 try
                 {
-                    await Task.Delay(1000, cts.Token).ConfigureAwait(false);
-                    var updated = ReadProfile(profile);
-                    if (updated != null && updated.IsLoggedIn)
-                    {
-                        onProfileChanged(updated);
-                        break;
-                    }
+                    await Task.Delay(1500, cts.Token).ConfigureAwait(false);
+                    CheckAndNotify();
                 }
                 catch (OperationCanceledException)
                 {

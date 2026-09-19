@@ -4,7 +4,7 @@
 publish/
 dist/
 TestResults/
-models/
+/models/
 *.onnx
 
 # Visual Studio / VS Code
@@ -31,3 +31,7 @@ ehthumbs.db
 # Temporary files
 *.tmp
 *~
+
+# Decompiled / extracted sources
+extract_sourcemap.py
+extracted_sources/

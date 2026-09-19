@@ -48,6 +48,7 @@ public class ProxifierServiceTests
         
         Assert.NotNull(proxyRule);
         Assert.Contains("TikTok LIVE Studio.exe", (string?)proxyRule.Element("Applications"));
+        Assert.Contains("TikTok LIVE Studio_Acc01.exe", (string?)proxyRule.Element("Applications"));
         Assert.Null(proxyRule.Element("SandboxName"));
         Assert.Equal("105", (string?)proxyRule.Element("Action"));
 

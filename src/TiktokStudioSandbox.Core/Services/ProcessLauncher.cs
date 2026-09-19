@@ -116,10 +116,34 @@ public class ProcessLauncher : IProcessLauncher
             // Direct Profile Mode (isolated profile folder)
             Directory.CreateDirectory(profileDir);
 
+            string launchExe = studioExe;
+            try
+            {
+                string folderTag = !string.IsNullOrWhiteSpace(instance.ProfileFolderName) ? instance.ProfileFolderName : instance.Name;
+                string studioDir = Path.GetDirectoryName(studioExe) ?? string.Empty;
+                string isolatedExe = Path.Combine(studioDir, $"TikTok LIVE Studio_{folderTag}.exe");
+                if (!File.Exists(isolatedExe))
+                {
+                    try
+                    {
+                        File.CreateSymbolicLink(isolatedExe, studioExe);
+                    }
+                    catch
+                    {
+                        // Fallback safely to studioExe if symlink creation is not permitted
+                    }
+                }
+                if (File.Exists(isolatedExe))
+                {
+                    launchExe = isolatedExe;
+                }
+            }
+            catch { }
+
             string fullArgs = $"--user-data-dir=\"{profileDir}\" {chromiumArgs}";
             startInfo = new ProcessStartInfo
             {
-                FileName = studioExe,
+                FileName = launchExe,
                 Arguments = fullArgs,
                 UseShellExecute = true,
                 WindowStyle = ultraLight ? ProcessWindowStyle.Hidden : ProcessWindowStyle.Normal,
@@ -538,6 +562,24 @@ public class ProcessLauncher : IProcessLauncher
                 CopyDirectoryRecursive(srcStorage, dstStorage);
             }
 
+            // 3. Copy Session Storage
+            string srcSessionStorage = Path.Combine(defaultProfilePath, "Session Storage");
+            string dstSessionStorage = Path.Combine(targetDir, "Session Storage");
+            if (Directory.Exists(srcSessionStorage))
+            {
+                Directory.CreateDirectory(dstSessionStorage);
+                CopyDirectoryRecursive(srcSessionStorage, dstSessionStorage);
+            }
+
+            // 4. Copy TTStore (AccountService, services.json, login.json, avatarGaussian.png, localStore.json)
+            string srcTTStore = Path.Combine(defaultProfilePath, "TTStore");
+            string dstTTStore = Path.Combine(targetDir, "TTStore");
+            if (Directory.Exists(srcTTStore))
+            {
+                Directory.CreateDirectory(dstTTStore);
+                CopyDirectoryRecursive(srcTTStore, dstTTStore);
+            }
+
             return true;
         }
         catch
@@ -559,41 +601,52 @@ public class ProcessLauncher : IProcessLauncher
         }
     }
 
+    private static readonly object _protocolBindLock = new();
+
     public static bool BindProtocolToProfile(StudioInstanceProfile instance, AppSettings settings)
     {
-        try
+        lock (_protocolBindLock)
         {
-            if (!OperatingSystem.IsWindows()) return false;
-
-            string studioExe = TikTokStudioPathResolver.ResolveValidStudioPath(settings.TikTokStudioExePath);
-            if (!File.Exists(studioExe)) return false;
-
-            string command;
-            if (instance.LaunchMode == InstanceLaunchMode.DefaultProfile)
+            try
             {
-                string dir = Path.GetDirectoryName(studioExe) ?? "";
-                string parentDir = Path.GetDirectoryName(dir) ?? "";
-                string launcherExe = Path.Combine(parentDir, "TikTok LIVE Studio Launcher.exe");
-                if (!File.Exists(launcherExe)) launcherExe = studioExe;
-                command = $"\"{launcherExe}\" \"%1\"";
-            }
-            else
-            {
-                string profileDir = ProfileManagerService.ResolveProfileDirectoryStatic(instance);
-                Directory.CreateDirectory(profileDir);
-                command = $"\"{studioExe}\" --user-data-dir=\"{profileDir}\" \"%1\"";
-            }
+                if (!OperatingSystem.IsWindows()) return false;
 
-            using var rootKey = Microsoft.Win32.Registry.CurrentUser.CreateSubKey(@"Software\Classes\live-studio-app");
-            rootKey?.SetValue("", "URL:live-studio-app");
-            rootKey?.SetValue("URL Protocol", "");
-            using var cmdKey = rootKey?.CreateSubKey(@"shell\open\command");
-            cmdKey?.SetValue("", command);
-            return true;
-        }
-        catch
-        {
-            return false;
+                string studioExe = TikTokStudioPathResolver.ResolveValidStudioPath(settings.TikTokStudioExePath);
+                if (!File.Exists(studioExe)) return false;
+
+                string command;
+                if (instance.LaunchMode == InstanceLaunchMode.DefaultProfile)
+                {
+                    string dir = Path.GetDirectoryName(studioExe) ?? "";
+                    string parentDir = Path.GetDirectoryName(dir) ?? "";
+                    string launcherExe = Path.Combine(parentDir, "TikTok LIVE Studio Launcher.exe");
+                    if (!File.Exists(launcherExe)) launcherExe = studioExe;
+                    command = $"\"{launcherExe}\" \"%1\"";
+                }
+                else
+                {
+                    string profileDir = ProfileManagerService.ResolveProfileDirectoryStatic(instance);
+                    Directory.CreateDirectory(profileDir);
+                    command = $"\"{studioExe}\" --user-data-dir=\"{profileDir}\" \"%1\"";
+                }
+
+                using var rootKey = Microsoft.Win32.Registry.CurrentUser.CreateSubKey(@"Software\Classes\live-studio-app");
+                rootKey?.SetValue("", "URL:live-studio-app");
+                rootKey?.SetValue("URL Protocol", "");
+                using var cmdKey = rootKey?.CreateSubKey(@"shell\open\command");
+
+                // Only rewrite if command changed to minimize registry collisions
+                string? existingCmd = cmdKey?.GetValue("")?.ToString();
+                if (!string.Equals(existingCmd, command, StringComparison.OrdinalIgnoreCase))
+                {
+                    cmdKey?.SetValue("", command);
+                }
+                return true;
+            }
+            catch
+            {
+                return false;
+            }
         }
     }
 }

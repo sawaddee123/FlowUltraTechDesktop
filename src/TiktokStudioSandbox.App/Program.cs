@@ -11,6 +11,7 @@ public static class Program
     [DllImport("user32.dll", CharSet = CharSet.Auto)]
     private static extern int MessageBox(IntPtr hWnd, string text, string caption, uint type);
 
+    [STAThread]
     public static void Main(string[] args)
     {
         try
@@ -19,35 +20,12 @@ public static class Program
             App.Log($"[Program] CommandLine: {Environment.CommandLine}");
             App.Log($"[Program] User: {Environment.UserName}, Machine: {Environment.MachineName}");
 
-            // Run WPF on a dedicated STA thread.
-            // A brand new thread has no OLE apartment or window hooks yet,
-            // allowing SetThreadDesktop('Default') to succeed cleanly without error 170.
-            Exception? threadException = null;
+            DesktopHelper.EnsureInteractiveDesktop(App.Log);
 
-            var uiThread = new Thread(() =>
-            {
-                try
-                {
-                    DesktopHelper.EnsureInteractiveDesktop(App.Log);
-
-                    var app = new App();
-                    app.InitializeComponent();
-                    app.Run();
-                }
-                catch (Exception ex)
-                {
-                    threadException = ex;
-                }
-            });
-
-            uiThread.SetApartmentState(ApartmentState.STA);
-            uiThread.Start();
-            uiThread.Join();
-
-            if (threadException != null)
-            {
-                throw threadException;
-            }
+            var app = new App();
+            app.InitializeComponent();
+            var mainWindow = new MainWindow();
+            app.Run(mainWindow);
         }
         catch (Exception ex)
         {

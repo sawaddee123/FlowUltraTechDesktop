@@ -44,9 +44,42 @@ public partial class App : Application
         };
     }
 
+    private static System.Threading.Mutex? _singleInstanceMutex;
+    private static bool _ownsMutex = false;
+
     protected override void OnStartup(StartupEventArgs e)
     {
         Log("[App] OnStartup begin");
+
+        const string mutexName = @"Global\TiktokStudioSandbox_SingleInstance_Mutex_2026";
+        try
+        {
+            _singleInstanceMutex = new System.Threading.Mutex(true, mutexName, out bool createdNew);
+            _ownsMutex = createdNew;
+
+            if (!createdNew)
+            {
+                Log("[App] Multi-process detected via mutex! Shutting down.");
+                MessageBox.Show(
+                    "โปรแกรม TikTok LIVE Studio Sandbox กำลังทำงานอยู่แล้วในระบบ\nไม่สามารถเปิดโปรแกรมซ้ำซ้อนได้",
+                    "แจ้งเตือนความปลอดภัย",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Warning
+                );
+                if (MainWindow != null)
+                {
+                    MainWindow.Visibility = Visibility.Collapsed;
+                    MainWindow.Close();
+                }
+                Current.Shutdown();
+                return;
+            }
+        }
+        catch (Exception ex)
+        {
+            Log($"[App] Mutex initialization error: {ex.Message}");
+        }
+
         base.OnStartup(e);
         Log("[App] OnStartup end");
     }
@@ -54,6 +87,19 @@ public partial class App : Application
     protected override void OnExit(ExitEventArgs e)
     {
         Log($"[App] OnExit called with ApplicationExitCode={e.ApplicationExitCode}");
+        if (_singleInstanceMutex != null)
+        {
+            if (_ownsMutex)
+            {
+                try
+                {
+                    _singleInstanceMutex.ReleaseMutex();
+                }
+                catch { }
+            }
+            _singleInstanceMutex.Dispose();
+            _singleInstanceMutex = null;
+        }
         base.OnExit(e);
     }
 }

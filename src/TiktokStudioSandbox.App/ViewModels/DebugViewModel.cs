@@ -351,7 +351,7 @@ public partial class DebugViewModel : ObservableObject
 
         try
         {
-            var result = await _cdpService.DetectCaptchaElementsAsync(TargetPort);
+            var result = await _cdpService.DetectCaptchaElementsAsync(TargetPort, forceFullHtml: true);
             if (result.Found && !string.IsNullOrWhiteSpace(result.CombinedHtml))
             {
                 try
@@ -388,7 +388,7 @@ public partial class DebugViewModel : ObservableObject
 
         try
         {
-            var result = await _cdpService.DetectCaptchaElementsAsync(TargetPort);
+            var result = await _cdpService.DetectCaptchaElementsAsync(TargetPort, forceFullHtml: true);
             CaptchaElements.Clear();
             foreach (var el in result.Elements)
             {

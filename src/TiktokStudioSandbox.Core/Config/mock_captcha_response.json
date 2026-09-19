@@ -1,0 +1,17 @@
+{
+  "_comment": "Mock JSON response simulating the captcha solving server (e.g. SimpleSolveCaptchaProject). Used for local testing of the detect and solve pipeline.",
+  "slide": {
+    "target_x": 228,
+    "position": [228, 100],
+    "time": 0.152,
+    "confidence": 0.98
+  },
+  "symbol": {
+    "symbol_positions": [
+      [100, 110],
+      [215, 140]
+    ],
+    "time": 0.245,
+    "confidence": 0.95
+  }
+}

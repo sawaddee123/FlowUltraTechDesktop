@@ -68,14 +68,20 @@ public class ProxifierService : IProxifierService
             var matchingProxy = proxies.FirstOrDefault(p => p.Id == inst.ProxyId);
             if (matchingProxy != null)
             {
-                string ruleName = !string.IsNullOrWhiteSpace(inst.ProfileFolderName)
-                    ? $"TikTok_{inst.ProfileFolderName}"
-                    : $"TikTok_{inst.Name}";
+                string folderTag = !string.IsNullOrWhiteSpace(inst.ProfileFolderName)
+                    ? inst.ProfileFolderName
+                    : inst.Name;
+
+                string ruleName = $"TikTok_{folderTag}";
+
+                // Provide per-instance isolated executable filter (TikTok LIVE Studio_{folderTag}.exe)
+                // along with general executable name so Proxifier routes traffic distinctly per profile
+                string appTargets = $"TikTok LIVE Studio_{folderTag}.exe; TikTok LIVE Studio.exe; live-studio.exe";
 
                 var rule = new XElement("Rule",
                     new XAttribute("enabled", "true"),
                     new XElement("Name", ruleName),
-                    new XElement("Applications", "TikTok LIVE Studio.exe; live-studio.exe"),
+                    new XElement("Applications", appTargets),
                     new XElement("Action", new XAttribute("type", "Proxy"), matchingProxy.ProxifierId)
                 );
                 ruleList.Add(rule);

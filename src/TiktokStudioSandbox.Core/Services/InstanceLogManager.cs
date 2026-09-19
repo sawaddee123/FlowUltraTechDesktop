@@ -68,6 +68,10 @@ public class InstanceLogManager : IInstanceLogManager
         {
             return logger;
         }
+        if (cdpPort > 100 && _loggersByPort.TryGetValue(cdpPort - 100, out logger))
+        {
+            return logger;
+        }
         return null;
     }
 }

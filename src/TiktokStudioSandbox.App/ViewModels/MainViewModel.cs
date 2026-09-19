@@ -2,11 +2,17 @@ using System;
 using System.Collections.ObjectModel;
 using System.IO;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
+using System.Windows;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using TiktokStudioSandbox.App.Services;
+using TiktokStudioSandbox.Core;
 using TiktokStudioSandbox.Core.Interfaces;
 using TiktokStudioSandbox.Core.Models;
+using TiktokStudioSandbox.Core.Security;
+using TiktokStudioSandbox.Core.Services;
 
 namespace TiktokStudioSandbox.App.ViewModels;
 
@@ -17,8 +23,36 @@ public partial class MainViewModel : ObservableObject
     private readonly IProxifierService _proxifierService;
     private readonly ICdpAutomationService _cdpService;
     private readonly IProfileManagerService _profileManager;
+    private readonly ITelegramNotificationService _telegramService;
+    private readonly ITikTokLiveListenerService _liveListenerService;
+    private readonly ISlotLeaseClientService _slotLeaseService;
+    private readonly IAuthClientService _authService;
+    private readonly IRealtimeClientService _realtimeService;
 
     public AppSettings Settings { get; }
+
+    [ObservableProperty]
+    private int _selectedNavIndex = 0;
+
+    public bool IsNavInstances => SelectedNavIndex == 0;
+    public bool IsNavCaptcha => SelectedNavIndex == 1;
+    public bool IsNavProxies => SelectedNavIndex == 2;
+    public bool IsNavRules => SelectedNavIndex == 3;
+    public bool IsNavSettings => SelectedNavIndex == 4;
+
+    partial void OnSelectedNavIndexChanged(int value)
+    {
+        OnPropertyChanged(nameof(IsNavInstances));
+        OnPropertyChanged(nameof(IsNavCaptcha));
+        OnPropertyChanged(nameof(IsNavProxies));
+        OnPropertyChanged(nameof(IsNavRules));
+        OnPropertyChanged(nameof(IsNavSettings));
+    }
+
+    public int RunningInstancesCount => Instances.Count(i => i.Status == InstanceStatus.Running);
+    public int TotalCaptchaAlertCount => Instances.Count(i => i.IsCaptchaAlertVisible);
+    public bool HasAnyCaptchaAlert => Instances.Any(i => i.IsCaptchaAlertVisible);
+    public string RunningStatusSummary => $"{RunningInstancesCount}/{Instances.Count} บัญชีทำงานอยู่";
 
     [ObservableProperty]
     private ObservableCollection<InstanceCardViewModel> _instances = new();
@@ -44,6 +78,103 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty]
     private bool _autoHideOnLaunch;
 
+    // Captcha Sound & Capture Settings
+    [ObservableProperty]
+    private bool _enableCaptchaSoundAlert = true;
+
+    [ObservableProperty]
+    private bool _loopCaptchaSoundAlert = true;
+
+    [ObservableProperty]
+    private int _captchaSoundVolume = 80;
+
+    [ObservableProperty]
+    private string _captchaSoundFilePath = string.Empty;
+
+    [ObservableProperty]
+    private string _captchaSaveDirectory = string.Empty;
+
+    [ObservableProperty]
+    private bool _autoSaveCaptchaImage = true;
+
+    [ObservableProperty]
+    private bool _autoSolveCaptcha = true;
+
+    [ObservableProperty]
+    private int _autoSolveDelaySeconds = 5;
+
+    // Captcha Solver API Settings (SimpleSolveCaptchaProject)
+    [ObservableProperty]
+    private CaptchaSolverType _captchaSolverMode = CaptchaSolverType.LocalApiServer;
+
+    public bool IsLocalApiSolverMode
+    {
+        get => CaptchaSolverMode == CaptchaSolverType.LocalApiServer;
+        set
+        {
+            if (value)
+            {
+                CaptchaSolverMode = CaptchaSolverType.LocalApiServer;
+                OnPropertyChanged();
+                OnPropertyChanged(nameof(IsMockSolverMode));
+            }
+        }
+    }
+
+    public bool IsMockSolverMode
+    {
+        get => CaptchaSolverMode == CaptchaSolverType.MockResponse;
+        set
+        {
+            if (value)
+            {
+                CaptchaSolverMode = CaptchaSolverType.MockResponse;
+                OnPropertyChanged();
+                OnPropertyChanged(nameof(IsLocalApiSolverMode));
+            }
+        }
+    }
+
+    partial void OnCaptchaSolverModeChanged(CaptchaSolverType value)
+    {
+        OnPropertyChanged(nameof(IsLocalApiSolverMode));
+        OnPropertyChanged(nameof(IsMockSolverMode));
+    }
+
+    [ObservableProperty]
+    private string _captchaSolverEndpoint = "http://127.0.0.1:8001";
+
+    [ObservableProperty]
+    private string _captchaSolverJwtToken = string.Empty;
+
+    [ObservableProperty]
+    private string _solverApiTestStatus = string.Empty;
+
+    // Telegram Notification Settings
+    [ObservableProperty]
+    private bool _enableTelegramAlert = false;
+
+    [ObservableProperty]
+    private string _telegramBotToken = string.Empty;
+
+    [ObservableProperty]
+    private string _telegramChatId = string.Empty;
+
+    [ObservableProperty]
+    private bool _telegramAlertOnDetected = true;
+
+    [ObservableProperty]
+    private bool _telegramAlertOnSolved = true;
+
+    [ObservableProperty]
+    private bool _telegramAlertOnFailed = true;
+
+    [ObservableProperty]
+    private bool _telegramSendPhoto = true;
+
+    [ObservableProperty]
+    private string _telegramTestStatus = string.Empty;
+
     [ObservableProperty]
     private DebugViewModel _debug;
 
@@ -59,30 +190,145 @@ public partial class MainViewModel : ObservableObject
         OnPropertyChanged(nameof(NoSelectedCaptchaVisibility));
     }
 
+    // License Quota & Slot Auth Settings
+    [ObservableProperty]
+    private int _maxTiktokAccounts = 1;
+
+    [ObservableProperty]
+    private string _authApiEndpoint = AppConstants.DefaultServerEndpoint;
+
+    [ObservableProperty]
+    private string _authToken = string.Empty;
+
+    [ObservableProperty]
+    private string _usernameInput = string.Empty;
+
+    [ObservableProperty]
+    private string _passwordInput = string.Empty;
+
+    [ObservableProperty]
+    private string _loginErrorMessage = string.Empty;
+
+    [ObservableProperty]
+    private bool _isLoggingIn;
+
+    [ObservableProperty]
+    private string _loggedInUsername = string.Empty;
+
+    [ObservableProperty]
+    private string _licenseRole = string.Empty;
+
+    [ObservableProperty]
+    private string _licensePlan = "ยังไม่ได้เข้าสู่ระบบ";
+
+    [ObservableProperty]
+    private string _licenseExpiryText = "-";
+
+    public bool IsUserLoggedIn => !string.IsNullOrWhiteSpace(AuthToken);
+    public bool IsUserNotLoggedIn => !IsUserLoggedIn;
+
+    [ObservableProperty]
+    private string _currentMachineHwid = "กำลังโหลด...";
+
+    partial void OnAuthTokenChanged(string value)
+    {
+        OnPropertyChanged(nameof(IsUserLoggedIn));
+        OnPropertyChanged(nameof(IsUserNotLoggedIn));
+    }
+
+    public bool IsQuotaFull => Settings.MaxTiktokAccounts > 0 && RunningInstancesCount >= Settings.MaxTiktokAccounts;
+    public string QuotaStatusSummary => $"โควต้า: {RunningInstancesCount}/{MaxTiktokAccounts} จอ";
+
+    partial void OnMaxTiktokAccountsChanged(int value)
+    {
+        Settings.MaxTiktokAccounts = value;
+        UpdateQuotaState();
+    }
+
     public MainViewModel(
         IConfigStorageService storageService,
         IInstanceOrchestrator orchestrator,
         IProxifierService proxifierService,
         ICdpAutomationService cdpService,
-        IProfileManagerService? profileManager = null)
+        IProfileManagerService? profileManager = null,
+        ITelegramNotificationService? telegramService = null,
+        ITikTokLiveListenerService? liveListenerService = null,
+        ISlotLeaseClientService? slotLeaseService = null,
+        IAuthClientService? authClientService = null,
+        IRealtimeClientService? realtimeService = null)
     {
         _storageService = storageService;
         _orchestrator = orchestrator;
         _proxifierService = proxifierService;
         _cdpService = cdpService;
         _profileManager = profileManager ?? new Core.Services.ProfileManagerService();
+        _telegramService = telegramService ?? new TelegramNotificationService();
+        _liveListenerService = liveListenerService ?? new TikTokLiveListenerService();
         _debug = new DebugViewModel(cdpService);
 
         Settings = _storageService.LoadSettings();
+        _realtimeService = realtimeService ?? new RealtimeClientService();
+        _slotLeaseService = slotLeaseService ?? new SlotLeaseClientService(defaultBaseEndpoint: AppConstants.DefaultServerEndpoint, realtimeService: _realtimeService);
+        if (_slotLeaseService.RealtimeService == null)
+        {
+            _slotLeaseService.RealtimeService = _realtimeService;
+        }
+        _authService = authClientService ?? new AuthClientService(defaultBaseEndpoint: AppConstants.DefaultServerEndpoint);
+
+        _realtimeService.OnQuotaReduced += HandleRealtimeQuotaReduced;
+        _realtimeService.OnLicenseKickout += HandleRealtimeLicenseKickout;
+        _realtimeService.OnLicenseUpdated += HandleRealtimeLicenseUpdated;
 
         StudioExePath = Settings.TikTokStudioExePath;
         ProxifierExePath = Settings.ProxifierExePath;
         ProxifierProfilePath = Settings.ProxifierProfilePath;
         AutoHideOnLaunch = Settings.AutoHideOnLaunch;
+        EnableCaptchaSoundAlert = Settings.EnableCaptchaSoundAlert;
+        LoopCaptchaSoundAlert = Settings.LoopCaptchaSoundAlert;
+        CaptchaSoundVolume = Settings.CaptchaSoundVolume;
+        CaptchaSoundFilePath = Settings.CaptchaSoundFilePath;
+        CaptchaSaveDirectory = !string.IsNullOrWhiteSpace(Settings.CaptchaSaveDirectory)
+            ? Settings.CaptchaSaveDirectory
+            : Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonPictures), "TikTokStudioCaptures");
+        AutoSaveCaptchaImage = Settings.AutoSaveCaptchaImage;
+        AutoSolveCaptcha = Settings.AutoSolveCaptcha;
+        AutoSolveDelaySeconds = Settings.AutoSolveDelaySeconds > 0 ? Settings.AutoSolveDelaySeconds : 5;
+
+        CaptchaSolverMode = Settings.CaptchaSolverMode;
+        CaptchaSolverEndpoint = AppConstants.DefaultServerEndpoint;
+        CaptchaSolverJwtToken = Settings.CaptchaSolverJwtToken ?? string.Empty;
+
+        MaxTiktokAccounts = Settings.MaxTiktokAccounts > 0 ? Settings.MaxTiktokAccounts : 1;
+        AuthApiEndpoint = AppConstants.DefaultServerEndpoint;
+        AuthToken = Settings.AuthToken ?? string.Empty;
+
+        LoggedInUsername = Settings.LoggedInUsername ?? string.Empty;
+        LicenseRole = Settings.LicenseRole ?? string.Empty;
+        LicensePlan = !string.IsNullOrWhiteSpace(Settings.LicensePlan) ? Settings.LicensePlan : "ยังไม่ได้เข้าสู่ระบบ";
+        LicenseExpiryText = Settings.LicenseExpiresAt.HasValue ? Settings.LicenseExpiresAt.Value.ToString("dd/MM/yyyy HH:mm") : "-";
+
+        if (!string.IsNullOrWhiteSpace(AuthToken))
+        {
+            _ = _realtimeService.ConnectAsync(AuthApiEndpoint, AuthToken);
+            _ = Task.Run(async () =>
+            {
+                try { await RefreshLicenseAsync(); } catch { }
+            });
+        }
+
+        EnableTelegramAlert = Settings.EnableTelegramAlert;
+        TelegramBotToken = Settings.TelegramBotToken ?? string.Empty;
+        TelegramChatId = Settings.TelegramChatId ?? string.Empty;
+        TelegramAlertOnDetected = Settings.TelegramAlertOnDetected;
+        TelegramAlertOnSolved = Settings.TelegramAlertOnSolved;
+        TelegramAlertOnFailed = Settings.TelegramAlertOnFailed;
+        TelegramSendPhoto = Settings.TelegramSendPhoto;
 
         foreach (var inst in Settings.Instances)
         {
-            Instances.Add(new InstanceCardViewModel(inst, Settings, _orchestrator, _cdpService, _profileManager));
+            var card = new InstanceCardViewModel(inst, Settings, _orchestrator, _cdpService, _profileManager, telegramService: _telegramService, liveListenerService: _liveListenerService, slotLeaseService: _slotLeaseService);
+            AttachCardEvents(card);
+            Instances.Add(card);
         }
 
         foreach (var p in Settings.Proxies)
@@ -96,7 +342,74 @@ public partial class MainViewModel : ObservableObject
         }
 
         SelectedCaptchaInstance = Instances.FirstOrDefault();
+        UpdateQuotaState();
+        StartLicenseWatchdog();
+
+        // Initialize HWID asynchronously to prevent blocking the UI thread during launch
+        _ = Task.Run(async () =>
+        {
+            string hwid = await DeepHwidGenerator.GenerateDeepHwidAsync();
+            if (Application.Current?.Dispatcher != null)
+            {
+                _ = Application.Current.Dispatcher.InvokeAsync(() => CurrentMachineHwid = hwid);
+            }
+            else
+            {
+                CurrentMachineHwid = hwid;
+            }
+        });
     }
+
+    public void UpdateQuotaState()
+    {
+        bool isFull = Settings.MaxTiktokAccounts > 0 && RunningInstancesCount >= Settings.MaxTiktokAccounts;
+        foreach (var card in Instances)
+        {
+            card.IsQuotaReached = isFull && card.Status != InstanceStatus.Running;
+        }
+        OnPropertyChanged(nameof(IsQuotaFull));
+        OnPropertyChanged(nameof(QuotaStatusSummary));
+        OnPropertyChanged(nameof(RunningStatusSummary));
+    }
+
+    private void AttachCardEvents(InstanceCardViewModel card)
+    {
+        card.PropertyChanged += (s, e) =>
+        {
+            if (e.PropertyName is nameof(InstanceCardViewModel.Status) or nameof(InstanceCardViewModel.IsCaptchaAlertVisible))
+            {
+                OnPropertyChanged(nameof(RunningInstancesCount));
+                OnPropertyChanged(nameof(TotalCaptchaAlertCount));
+                OnPropertyChanged(nameof(HasAnyCaptchaAlert));
+                OnPropertyChanged(nameof(RunningStatusSummary));
+                UpdateQuotaState();
+            }
+        };
+    }
+
+    [RelayCommand]
+    public void NavigateTo(string? indexStr)
+    {
+        if (int.TryParse(indexStr, out int idx))
+        {
+            SelectedNavIndex = idx;
+        }
+    }
+
+    [RelayCommand]
+    public void NavigateInstances() => SelectedNavIndex = 0;
+
+    [RelayCommand]
+    public void NavigateCaptcha() => SelectedNavIndex = 1;
+
+    [RelayCommand]
+    public void NavigateProxies() => SelectedNavIndex = 2;
+
+    [RelayCommand]
+    public void NavigateRules() => SelectedNavIndex = 3;
+
+    [RelayCommand]
+    public void NavigateSettings() => SelectedNavIndex = 4;
 
     [RelayCommand]
     public async Task ScanAllCaptchasAsync()
@@ -116,13 +429,13 @@ public partial class MainViewModel : ObservableObject
 
         if (runningCount == 0)
         {
-            StatusNotification = "⚠️ ไม่มีบัญชีใดเปิดทำงานอยู่ (กรุณากด Start บัญชีก่อนสแกน)";
+            StatusNotification = "ไม่มีบัญชีใดเปิดทำงานอยู่ (กรุณากดเริ่มทำงานก่อนสแกน)";
         }
         else
         {
             StatusNotification = foundCount > 0
-                ? $"🚨 สแกนเสร็จสิ้น: ตรวจพบ Captcha ใน {foundCount} บัญชี!"
-                : $"🟢 สแกนเสร็จสิ้น ({runningCount} บัญชี): ไม่พบ Captcha ในบัญชีใดๆ";
+                ? $"สแกนเสร็จสิ้น: ตรวจพบ Captcha ใน {foundCount} บัญชี"
+                : $"สแกนเสร็จสิ้น ({runningCount} บัญชี): ไม่พบ Captcha";
         }
     }
 
@@ -130,9 +443,19 @@ public partial class MainViewModel : ObservableObject
     public async Task StartAllAsync()
     {
         StatusNotification = "กำลังเริ่มทุก Instance...";
+        int started = 0;
         foreach (var card in Instances)
         {
-            await card.StartAsync();
+            if (Settings.MaxTiktokAccounts > 0 && RunningInstancesCount >= Settings.MaxTiktokAccounts)
+            {
+                StatusNotification = $"เริ่มได้ {started} บัญชี (ครบโควต้าสูงสุด {Settings.MaxTiktokAccounts} จอ)";
+                return;
+            }
+            if (card.IsNotRunning)
+            {
+                await card.StartAsync();
+                if (card.IsRunning) started++;
+            }
         }
         StatusNotification = "เริ่มทำงานทุก Instance สำเร็จ";
     }
@@ -189,8 +512,15 @@ public partial class MainViewModel : ObservableObject
         };
 
         Settings.Instances.Add(newProfile);
-        Instances.Add(new InstanceCardViewModel(newProfile, Settings, _orchestrator, _cdpService, _profileManager));
+        var card = new InstanceCardViewModel(newProfile, Settings, _orchestrator, _cdpService, _profileManager, telegramService: _telegramService, liveListenerService: _liveListenerService, slotLeaseService: _slotLeaseService);
+        AttachCardEvents(card);
+        Instances.Add(card);
         _storageService.SaveSettings(Settings);
+        UpdateQuotaState();
+        OnPropertyChanged(nameof(RunningInstancesCount));
+        OnPropertyChanged(nameof(TotalCaptchaAlertCount));
+        OnPropertyChanged(nameof(HasAnyCaptchaAlert));
+        OnPropertyChanged(nameof(RunningStatusSummary));
         StatusNotification = $"เพิ่ม {newProfile.Name} (พอร์ต {newProfile.CdpPort})";
     }
 
@@ -202,6 +532,11 @@ public partial class MainViewModel : ObservableObject
         Instances.Remove(card);
         Settings.Instances.Remove(card.Profile);
         _storageService.SaveSettings(Settings);
+        UpdateQuotaState();
+        OnPropertyChanged(nameof(RunningInstancesCount));
+        OnPropertyChanged(nameof(TotalCaptchaAlertCount));
+        OnPropertyChanged(nameof(HasAnyCaptchaAlert));
+        OnPropertyChanged(nameof(RunningStatusSummary));
         StatusNotification = $"ลบ {card.Name} เรียบร้อยแล้ว";
     }
 
@@ -300,8 +635,494 @@ public partial class MainViewModel : ObservableObject
         Settings.ProxifierExePath = ProxifierExePath;
         Settings.ProxifierProfilePath = ProxifierProfilePath;
         Settings.AutoHideOnLaunch = AutoHideOnLaunch;
+        Settings.EnableCaptchaSoundAlert = EnableCaptchaSoundAlert;
+        Settings.LoopCaptchaSoundAlert = LoopCaptchaSoundAlert;
+        Settings.CaptchaSoundVolume = CaptchaSoundVolume;
+        Settings.CaptchaSoundFilePath = CaptchaSoundFilePath;
+        Settings.CaptchaSaveDirectory = CaptchaSaveDirectory;
+        Settings.AutoSaveCaptchaImage = AutoSaveCaptchaImage;
+        Settings.AutoSolveCaptcha = AutoSolveCaptcha;
+        Settings.AutoSolveDelaySeconds = AutoSolveDelaySeconds;
+
+        Settings.CaptchaSolverMode = CaptchaSolverMode;
+        Settings.CaptchaSolverEndpoint = AppConstants.DefaultServerEndpoint;
+        Settings.CaptchaSolverJwtToken = CaptchaSolverJwtToken;
+
+        Settings.EnableTelegramAlert = EnableTelegramAlert;
+        Settings.TelegramBotToken = TelegramBotToken;
+        Settings.TelegramChatId = TelegramChatId;
+        Settings.TelegramAlertOnDetected = TelegramAlertOnDetected;
+        Settings.TelegramAlertOnSolved = TelegramAlertOnSolved;
+        Settings.TelegramAlertOnFailed = TelegramAlertOnFailed;
+        Settings.TelegramSendPhoto = TelegramSendPhoto;
+
+        Settings.MaxTiktokAccounts = MaxTiktokAccounts;
+        Settings.AuthApiEndpoint = AppConstants.DefaultServerEndpoint;
+        Settings.AuthToken = AuthToken;
 
         await _storageService.SaveSettingsAsync(Settings);
-        StatusNotification = "บันทึกการตั้งค่าเรียบร้อยแล้ว";
+        UpdateQuotaState();
+        StatusNotification = "บันทึกการตั้งค่าทั้งหมดเรียบร้อยแล้ว";
+    }
+
+    [RelayCommand]
+    public async Task LoginAsync()
+    {
+        if (string.IsNullOrWhiteSpace(UsernameInput) || string.IsNullOrWhiteSpace(PasswordInput))
+        {
+            LoginErrorMessage = "กรุณากรอกชื่อผู้ใช้และรหัสผ่าน";
+            return;
+        }
+
+        IsLoggingIn = true;
+        LoginErrorMessage = "กำลังตรวจสอบสิทธิ์และเชื่อมต่อเซิร์ฟเวอร์...";
+
+        string hwid = DeepHwidGenerator.GenerateDeepHwid();
+        var res = await _authService.LoginAsync(UsernameInput, PasswordInput, hwid);
+
+        IsLoggingIn = false;
+        if (res.Success && !string.IsNullOrWhiteSpace(res.AccessToken))
+        {
+            AuthToken = res.AccessToken;
+            Settings.AuthToken = res.AccessToken;
+            Settings.RefreshToken = res.RefreshToken ?? string.Empty;
+            CaptchaSolverJwtToken = res.AccessToken;
+            Settings.CaptchaSolverJwtToken = res.AccessToken;
+
+            MaxTiktokAccounts = res.MaxTiktokAccounts;
+            Settings.MaxTiktokAccounts = res.MaxTiktokAccounts;
+
+            LoggedInUsername = res.Username ?? UsernameInput;
+            Settings.LoggedInUsername = LoggedInUsername;
+
+            LicenseRole = res.Role ?? "user";
+            Settings.LicenseRole = LicenseRole;
+
+            LicensePlan = res.Plan ?? "standard";
+            Settings.LicensePlan = LicensePlan;
+
+            Settings.LicenseExpiresAt = res.ExpiredAt;
+            LicenseExpiryText = res.ExpiredAt.HasValue ? res.ExpiredAt.Value.ToString("dd/MM/yyyy HH:mm") : "ไม่มีวันหมดอายุ";
+
+            LoginErrorMessage = string.Empty;
+            PasswordInput = string.Empty;
+
+            await _storageService.SaveSettingsAsync(Settings);
+            UpdateQuotaState();
+            if (!string.IsNullOrWhiteSpace(res.AccessToken))
+            {
+                _ = _realtimeService.ConnectAsync(AuthApiEndpoint, res.AccessToken);
+            }
+            StatusNotification = $"เข้าสู่ระบบสำเร็จในชื่อ @{LoggedInUsername} (โควต้า {MaxTiktokAccounts} จอ)";
+        }
+        else
+        {
+            LoginErrorMessage = res.Message;
+        }
+    }
+
+    [RelayCommand]
+    public async Task LogoutAsync()
+    {
+        _ = _realtimeService.DisconnectAsync();
+        AuthToken = string.Empty;
+        Settings.AuthToken = string.Empty;
+        Settings.RefreshToken = string.Empty;
+        CaptchaSolverJwtToken = string.Empty;
+        Settings.CaptchaSolverJwtToken = string.Empty;
+        LoggedInUsername = string.Empty;
+        Settings.LoggedInUsername = string.Empty;
+        LicensePlan = "ยังไม่ได้เข้าสู่ระบบ";
+        Settings.LicensePlan = LicensePlan;
+        LicenseRole = string.Empty;
+        LicenseExpiryText = "-";
+        MaxTiktokAccounts = 1;
+        Settings.MaxTiktokAccounts = 1;
+
+        await _storageService.SaveSettingsAsync(Settings);
+        UpdateQuotaState();
+        StatusNotification = "ออกจากระบบเรียบร้อยแล้ว";
+    }
+
+    [RelayCommand]
+    public async Task RefreshLicenseAsync()
+    {
+        if (string.IsNullOrWhiteSpace(AuthToken)) return;
+        var res = await _authService.GetProfileAsync(AuthToken);
+        if (res.Success)
+        {
+            MaxTiktokAccounts = res.MaxTiktokAccounts;
+            Settings.MaxTiktokAccounts = res.MaxTiktokAccounts;
+            LicensePlan = res.Plan ?? LicensePlan;
+            Settings.LicensePlan = LicensePlan;
+            LicenseExpiryText = res.ExpiredAt.HasValue ? res.ExpiredAt.Value.ToString("dd/MM/yyyy HH:mm") : "ไม่มีวันหมดอายุ";
+            LoginErrorMessage = string.Empty;
+            await _storageService.SaveSettingsAsync(Settings);
+            UpdateQuotaState();
+            StatusNotification = $"อัปเดตสิทธิ์สำเร็จ: ได้รับโควต้า {MaxTiktokAccounts} จอ";
+        }
+        else
+        {
+            LoginErrorMessage = res.Message;
+        }
+    }
+
+    private Timer? _licenseWatchdogTimer;
+    private bool _isCheckingWatchdog;
+    private readonly object _watchdogLock = new();
+
+    public void StartLicenseWatchdog(TimeSpan? interval = null)
+    {
+        var period = interval ?? TimeSpan.FromSeconds(15);
+        _licenseWatchdogTimer?.Dispose();
+        _licenseWatchdogTimer = new Timer(async _ =>
+        {
+            try
+            {
+                await CheckLicenseAndQuotaWatchdogAsync();
+            }
+            catch { }
+        }, null, period, period);
+    }
+
+    public void StopLicenseWatchdog()
+    {
+        _licenseWatchdogTimer?.Change(Timeout.Infinite, Timeout.Infinite);
+    }
+
+    public async Task CheckLicenseAndQuotaWatchdogAsync()
+    {
+        if (string.IsNullOrWhiteSpace(AuthToken) || !IsUserLoggedIn) return;
+
+        lock (_watchdogLock)
+        {
+            if (_isCheckingWatchdog) return;
+            _isCheckingWatchdog = true;
+        }
+
+        try
+        {
+            // 1. Local expiry check
+            if (Settings.LicenseExpiresAt.HasValue && DateTime.UtcNow > Settings.LicenseExpiresAt.Value)
+            {
+                await HandleLicenseExpiredKickoutAsync("ใบอนุญาตใช้งานของคุณหมดอายุแล้ว ระบบทำการปิดหน้าต่าง TikTok Studio ทั้งหมดและออกจากระบบทันที กรุณาติดต่อแอดมินเพื่อต่ออายุ (หรือขอขยายเวลา 2 ชม.)");
+                return;
+            }
+
+            // 2. Query remote server for real-time license & quota status
+            var res = await _authService.GetProfileAsync(AuthToken, AuthApiEndpoint);
+            if (!res.Success)
+            {
+                if (res.Message.Contains("LICENSE_EXPIRED") || res.Message.Contains("หมดอายุ"))
+                {
+                    await HandleLicenseExpiredKickoutAsync($"ใบอนุญาตของคุณหมดอายุแล้ว ({res.Message})\nระบบทำการปิดหน้าต่าง TikTok Studio ทั้งหมดและออกจากระบบทันที");
+                    return;
+                }
+            }
+            else
+            {
+                // Verify remote expiry date
+                if (res.ExpiredAt.HasValue && DateTime.UtcNow > res.ExpiredAt.Value)
+                {
+                    await HandleLicenseExpiredKickoutAsync("ใบอนุญาตใช้งานของคุณหมดอายุแล้ว ระบบทำการปิดหน้าต่าง TikTok Studio ทั้งหมดและออกจากระบบทันที กรุณาติดต่อแอดมินเพื่อต่ออายุ (หรือขอขยายเวลา 2 ชม.)");
+                    return;
+                }
+
+                // Update local expiration info
+                Settings.LicenseExpiresAt = res.ExpiredAt;
+                RunOnUi(() =>
+                {
+                    LicenseExpiryText = res.ExpiredAt.HasValue
+                        ? res.ExpiredAt.Value.ToString("dd/MM/yyyy HH:mm")
+                        : "ไม่มีวันหมดอายุ";
+                });
+
+                // Check quota reduction
+                int serverMax = res.MaxTiktokAccounts;
+                if (serverMax != MaxTiktokAccounts)
+                {
+                    RunOnUi(() =>
+                    {
+                        MaxTiktokAccounts = serverMax;
+                        Settings.MaxTiktokAccounts = serverMax;
+                        UpdateQuotaState();
+                    });
+                }
+
+                // Real Quota Reduction Enforcement: If currently running instances exceed allowed quota, terminate excess screens immediately!
+                var running = Instances.Where(i => i.Status == InstanceStatus.Running).ToList();
+                if (running.Count > serverMax)
+                {
+                    int excessCount = running.Count - serverMax;
+                    var excessInstances = running.TakeLast(excessCount).ToList();
+                    foreach (var inst in excessInstances)
+                    {
+                        RunOnUi(async () =>
+                        {
+                            StatusNotification = $"โควต้าจอถูกลดเหลือ {serverMax} จอ สั่งปิดหน้าต่าง '{inst.Name}' ทันที";
+                            await inst.StopAsync();
+                        });
+                    }
+
+                    RunOnUi(() =>
+                    {
+                        MessageBox.Show(
+                            $"โควต้าบัญชีของคุณถูกปรับลดลงเหลือ {serverMax} จอ\nระบบจึงทำการปิดหน้าต่าง TikTok Studio ส่วนเกินจำนวน {excessCount} จอโดยอัตโนมัติ",
+                            "ปรับลดโควต้าบัญชี (Account Quota Reduced)",
+                            MessageBoxButton.OK,
+                            MessageBoxImage.Warning
+                        );
+                    });
+                }
+            }
+        }
+        catch { }
+        finally
+        {
+            lock (_watchdogLock)
+            {
+                _isCheckingWatchdog = false;
+            }
+        }
+    }
+
+    private async Task HandleLicenseExpiredKickoutAsync(string message)
+    {
+        RunOnUi(async () =>
+        {
+            StatusNotification = "ใบอนุญาตหมดอายุ กำลังปิดหน้าต่างและออกจากระบบ...";
+
+            // 1. Stop all instance view models
+            foreach (var inst in Instances.ToList())
+            {
+                if (inst.Status == InstanceStatus.Running)
+                {
+                    try { await inst.StopAsync(); } catch { }
+                }
+            }
+
+            // 2. Kill all TikTok LIVE Studio processes just in case
+            try
+            {
+                var procs = System.Diagnostics.Process.GetProcessesByName("TikTok LIVE Studio");
+                foreach (var p in procs)
+                {
+                    try { p.Kill(true); } catch { }
+                }
+            }
+            catch { }
+
+            // 3. Force logout
+            await LogoutAsync();
+
+            // 4. Alert user
+            MessageBox.Show(
+                message,
+                "ใบอนุญาตหมดอายุ (License Expired)",
+                MessageBoxButton.OK,
+                MessageBoxImage.Warning
+            );
+        });
+    }
+
+    private void HandleRealtimeQuotaReduced(object? sender, QuotaReducedEventArgs e)
+    {
+        RunOnUi(async () =>
+        {
+            int serverMax = e.NewMax;
+            if (serverMax != MaxTiktokAccounts)
+            {
+                MaxTiktokAccounts = serverMax;
+                Settings.MaxTiktokAccounts = serverMax;
+                await _storageService.SaveSettingsAsync(Settings);
+                UpdateQuotaState();
+            }
+
+            var running = Instances.Where(i => i.Status == InstanceStatus.Running).ToList();
+            if (running.Count > serverMax)
+            {
+                int excessCount = running.Count - serverMax;
+                var excessInstances = running.TakeLast(excessCount).ToList();
+                foreach (var inst in excessInstances)
+                {
+                    StatusNotification = $"โควต้าจอถูกลดเหลือ {serverMax} จอ สั่งปิดหน้าต่าง '{inst.Name}' ทันที";
+                    try { await inst.StopAsync(); } catch { }
+                }
+
+                MessageBox.Show(
+                    $"โควต้าบัญชีของคุณถูกปรับลดลงเหลือ {serverMax} จอ\nระบบทำการปิดหน้าต่าง TikTok Studio ส่วนเกินจำนวน {excessCount} จอเรียบร้อยแล้ว",
+                    "ปรับลดโควต้าบัญชี (Quota Reduced)",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Warning
+                );
+            }
+        });
+    }
+
+    private void HandleRealtimeLicenseKickout(object? sender, LicenseKickoutEventArgs e)
+    {
+        _ = HandleLicenseExpiredKickoutAsync($"บัญชีของคุณถูกระงับหรือสิ้นสุดการใช้งาน ({e.Reason})\nระบบทำการปิดหน้าต่าง TikTok Studio ทั้งหมดและออกจากระบบ");
+    }
+
+    private void HandleRealtimeLicenseUpdated(object? sender, LicenseUpdateEventArgs e)
+    {
+        RunOnUi(async () =>
+        {
+            if (e.ExpiredAt.HasValue)
+            {
+                Settings.LicenseExpiresAt = e.ExpiredAt;
+                LicenseExpiryText = e.ExpiredAt.Value.ToString("dd/MM/yyyy HH:mm");
+            }
+            if (e.MaxTiktokAccounts.HasValue && e.MaxTiktokAccounts.Value != MaxTiktokAccounts)
+            {
+                MaxTiktokAccounts = e.MaxTiktokAccounts.Value;
+                Settings.MaxTiktokAccounts = MaxTiktokAccounts;
+            }
+            if (!string.IsNullOrEmpty(e.Plan))
+            {
+                LicensePlan = e.Plan;
+                Settings.LicensePlan = e.Plan;
+            }
+            await _storageService.SaveSettingsAsync(Settings);
+            UpdateQuotaState();
+            StatusNotification = "ได้รับการอัปเดตสิทธิ์ใบอนุญาตเรียบร้อยแล้ว";
+        });
+    }
+
+    private void RunOnUi(Action action)
+    {
+        if (Application.Current != null && Application.Current.Dispatcher != null && !Application.Current.Dispatcher.CheckAccess())
+        {
+            Application.Current.Dispatcher.Invoke(action);
+        }
+        else
+        {
+            action();
+        }
+    }
+
+    [RelayCommand]
+    public async Task TestTelegramAsync()
+    {
+        TelegramTestStatus = "กำลังทดสอบส่งข้อความแจ้งเตือนเข้า Telegram...";
+        var (ok, msg) = await _telegramService.TestConnectionAsync(TelegramBotToken, TelegramChatId);
+        TelegramTestStatus = msg;
+        StatusNotification = ok ? "ทดสอบ Telegram สำเร็จ" : "ทดสอบ Telegram ไม่สำเร็จ";
+    }
+
+    [RelayCommand]
+    public async Task TestSolverApiAsync()
+    {
+        SolverApiTestStatus = "กำลังทดสอบเชื่อมต่อ Captcha Solver Server...";
+        var (ok, msg) = await _cdpService.TestSolverApiConnectionAsync(AppConstants.DefaultServerEndpoint, CaptchaSolverJwtToken);
+        SolverApiTestStatus = msg;
+        StatusNotification = ok ? "เชื่อมต่อ Solver API สำเร็จ" : "เชื่อมต่อ Solver API ไม่สำเร็จ";
+    }
+
+    [RelayCommand]
+    public void TestSound()
+    {
+        AudioAlertService.PlayAlert(CaptchaSoundVolume, CaptchaSoundFilePath, LoopCaptchaSoundAlert);
+        StatusNotification = LoopCaptchaSoundAlert
+            ? $"กำลังทดสอบเสียงเตือนแบบ Loop (ความดัง {CaptchaSoundVolume}%)... กดปุ่มหยุดเพื่อหยุดเสียง"
+            : $"เล่นเสียงทดสอบความดัง {CaptchaSoundVolume}% เรียบร้อย";
+    }
+
+    [RelayCommand]
+    public void StopSound()
+    {
+        AudioAlertService.StopAlert();
+        StatusNotification = "ปิดเสียงแจ้งเตือนเรียบร้อย";
+    }
+
+    [RelayCommand]
+    public void BrowseSoundFile()
+    {
+        var dialog = new Microsoft.Win32.OpenFileDialog
+        {
+            Title = "เลือกไฟล์เสียงแจ้งเตือน Captcha",
+            Filter = "Audio Files (*.wav;*.mp3)|*.wav;*.mp3|WAV Files (*.wav)|*.wav|MP3 Files (*.mp3)|*.mp3|All Files (*.*)|*.*",
+            CheckFileExists = true
+        };
+
+        if (dialog.ShowDialog() == true)
+        {
+            CaptchaSoundFilePath = dialog.FileName;
+            Settings.CaptchaSoundFilePath = dialog.FileName;
+            _storageService.SaveSettings(Settings);
+            StatusNotification = $"เลือกไฟล์เสียง: {Path.GetFileName(dialog.FileName)}";
+        }
+    }
+
+    [RelayCommand]
+    public void BrowseSaveDirectory()
+    {
+        var dialog = new Microsoft.Win32.OpenFolderDialog
+        {
+            Title = "เลือกโฟลเดอร์สำหรับบันทึกภาพ Captcha"
+        };
+
+        if (dialog.ShowDialog() == true)
+        {
+            CaptchaSaveDirectory = dialog.FolderName;
+            Settings.CaptchaSaveDirectory = dialog.FolderName;
+            _storageService.SaveSettings(Settings);
+            StatusNotification = $"เปลี่ยนโฟลเดอร์บันทึกภาพ: {dialog.FolderName}";
+        }
+    }
+
+    [RelayCommand]
+    public void OpenCaptchaFolder()
+    {
+        try
+        {
+            string dir = !string.IsNullOrWhiteSpace(CaptchaSaveDirectory)
+                ? CaptchaSaveDirectory
+                : Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonPictures), "TikTokStudioCaptures");
+
+            if (!Directory.Exists(dir))
+            {
+                Directory.CreateDirectory(dir);
+            }
+
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+            {
+                FileName = dir,
+                UseShellExecute = true
+            });
+            StatusNotification = "เปิดโฟลเดอร์ภาพ Captcha เรียบร้อย";
+        }
+        catch (Exception ex)
+        {
+            StatusNotification = $"เปิดโฟลเดอร์ไม่สำเร็จ: {ex.Message}";
+        }
+    }
+
+    [RelayCommand]
+    public void OpenLogsFolder()
+    {
+        try
+        {
+            string dir = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+                "TiktokStudioSandbox",
+                "Logs");
+
+            if (!Directory.Exists(dir))
+            {
+                Directory.CreateDirectory(dir);
+            }
+
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+            {
+                FileName = dir,
+                UseShellExecute = true
+            });
+            StatusNotification = "เปิดโฟลเดอร์ Logs เรียบร้อย";
+        }
+        catch (Exception ex)
+        {
+            StatusNotification = $"เปิดโฟลเดอร์ Log ไม่สำเร็จ: {ex.Message}";
+        }
     }
 }

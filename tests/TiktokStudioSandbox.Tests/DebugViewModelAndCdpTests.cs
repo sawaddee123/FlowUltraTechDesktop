@@ -767,6 +767,270 @@ public class DebugViewModelAndCdpTests
         Assert.Contains("ซ่อน/ปิดอยู่", vm.CaptchaStatusText);
     }
 
+    [Fact]
+    public void LiveChatMessageItem_FormattingAndColor_AreCorrect()
+    {
+        var chat = new LiveChatMessageItem
+        {
+            Type = LiveChatMessageType.Chat,
+            Username = "user123",
+            Nickname = "User 123",
+            Message = "Hello World"
+        };
+        Assert.Equal("💬 แชท", chat.TypeDisplay);
+        Assert.Equal("#38BDF8", chat.TypeColor);
+        Assert.Equal("User 123 (@user123)", chat.SenderDisplay);
+
+        var gift = new LiveChatMessageItem
+        {
+            Type = LiveChatMessageType.Gift,
+            Username = "fan99",
+            Nickname = "Big Fan",
+            GiftName = "Galaxy",
+            DiamondCount = 1000,
+            RepeatCount = 2
+        };
+        Assert.Equal("🎁 Galaxy (1000 💎)", gift.TypeDisplay);
+        Assert.Equal("#F59E0B", gift.TypeColor);
+        Assert.Contains("Galaxy x2", gift.FullText);
+
+        chat.IsAutoReplied = true;
+        chat.AutoReplyContent = "ยินดีต้อนรับครับ";
+        Assert.Equal("🤖 ยินดีต้อนรับครับ", chat.AutoReplyDisplay);
+        Assert.Contains("บอท: ยินดีต้อนรับครับ", chat.FullText);
+    }
+
+    [Fact]
+    public void InstanceCardViewModel_LiveChatMockAndCommands_WorkProperly()
+    {
+        var profile = new StudioInstanceProfile { Name = "Test Profile", CdpPort = 9222 };
+        var settings = new AppSettings();
+        var fakeCdp = new TestFakeCdpService();
+        var orch = new InstanceOrchestrator(new ProcessLauncher(), new WindowController(), fakeCdp);
+
+        var vm = new TiktokStudioSandbox.App.ViewModels.InstanceCardViewModel(profile, settings, orch, fakeCdp);
+
+        Assert.Empty(vm.LiveChatMessages);
+        Assert.Equal(0, vm.TotalChatCount);
+
+        // Generate 5 mock chat messages
+        for (int i = 0; i < 5; i++)
+        {
+            vm.SendMockChatCommand.Execute(null);
+        }
+
+        Assert.Equal(5, vm.LiveChatMessages.Count);
+        Assert.Contains("ทั้งหมด 5 รายการ", vm.LiveChatCountSummary);
+
+        // Test reply to message
+        var firstMsg = vm.LiveChatMessages[0];
+        vm.ReplyToChatMessageCommand.Execute(firstMsg);
+        Assert.StartsWith("@", vm.TestChatMessage);
+
+        // Test clear
+        vm.ClearLiveChatCommand.Execute(null);
+        Assert.Empty(vm.LiveChatMessages);
+        Assert.Equal(0, vm.TotalChatCount);
+        Assert.Equal(0, vm.TotalGiftCount);
+    }
+
+    [Fact]
+    public async Task InstanceCardViewModel_LiveChatAutoReply_EvaluatesConfiguredRules()
+    {
+        var profile = new StudioInstanceProfile { Name = "Test Streamer", CdpPort = 9222, Status = InstanceStatus.Running };
+        var settings = new AppSettings
+        {
+            Rules = new List<AutomationRule>
+            {
+                new AutomationRule
+                {
+                    Name = "Greeting Rule",
+                    TriggerType = RuleTriggerType.ChatKeyword,
+                    Pattern = "สวัสดี",
+                    ResponseTemplate = "สวัสดีครับคุณ @{User} ขอบคุณที่แวะมาชมไลฟ์!",
+                    IsEnabled = true
+                }
+            }
+        };
+        var fakeCdp = new TestFakeCdpService
+        {
+            LiveChatMessagesToReturn =
+            {
+                new LiveChatMessageItem
+                {
+                    Type = LiveChatMessageType.Chat,
+                    Username = "viewer_somchai",
+                    Nickname = "สมชาย",
+                    Message = "สวัสดีครับทุกคน",
+                    Timestamp = DateTime.Now
+                }
+            }
+        };
+        var orch = new InstanceOrchestrator(new ProcessLauncher(), new WindowController(), fakeCdp);
+
+        var vm = new TiktokStudioSandbox.App.ViewModels.InstanceCardViewModel(profile, settings, orch, fakeCdp);
+
+        await vm.PollLiveChatInternalAsync();
+
+        Assert.Single(vm.LiveChatMessages);
+        var msg = vm.LiveChatMessages[0];
+        Assert.True(msg.IsAutoReplied);
+        Assert.Equal("สวัสดีครับคุณ @viewer_somchai ขอบคุณที่แวะมาชมไลฟ์!", msg.AutoReplyContent);
+        Assert.Equal(1, vm.TotalAutoRepliesCount);
+    }
+
+    [Theory]
+    [InlineData("@somchai_pro", "somchai_pro")]
+    [InlineData("somchai_pro", "somchai_pro")]
+    [InlineData("  @somchai_pro  ", "somchai_pro")]
+    [InlineData("https://www.tiktok.com/@somchai_pro/live", "somchai_pro")]
+    [InlineData("https://www.tiktok.com/@somchai_pro", "somchai_pro")]
+    [InlineData("https://tiktok.com/@somchai_pro?lang=th", "somchai_pro")]
+    [InlineData("", "")]
+    [InlineData("   ", "")]
+    [InlineData(null, "")]
+    public void NormalizeUsername_HandlesVariousInputFormats(string? raw, string expected)
+    {
+        string result = TiktokStudioSandbox.App.ViewModels.InstanceCardViewModel.NormalizeUsername(raw);
+        Assert.Equal(expected, result);
+    }
+
+    [Fact]
+    public void ChannelTarget_SaveAndSync_UpdatesActiveChannelDisplay()
+    {
+        var profile = new StudioInstanceProfile
+        {
+            Name = "ChannelTestProfile",
+            CdpPort = 9222,
+            LoggedInDisplayId = "my_original_user",
+            StreamerUsername = "initial_streamer"
+        };
+        var settings = new AppSettings();
+        var fakeCdp = new TestFakeCdpService();
+        var orch = new InstanceOrchestrator(new ProcessLauncher(), new WindowController(), fakeCdp);
+
+        var vm = new TiktokStudioSandbox.App.ViewModels.InstanceCardViewModel(profile, settings, orch, fakeCdp);
+
+        Assert.Equal("initial_streamer", vm.StreamerUsername);
+        Assert.Contains("initial_streamer", vm.ActiveChannelDisplay);
+
+        // Change and save
+        vm.StreamerUsername = "https://www.tiktok.com/@target_streamer_live/live";
+        vm.SaveStreamerUsername();
+
+        Assert.Equal("target_streamer_live", vm.StreamerUsername);
+        Assert.Equal("target_streamer_live", profile.StreamerUsername);
+        Assert.Contains("@target_streamer_live", vm.ActiveChannelDisplay);
+        Assert.Contains("target_streamer_live", vm.ChannelStatusText);
+
+        // Use current account
+        string expectedUser = !string.IsNullOrWhiteSpace(vm.LoggedInDisplayId) ? vm.LoggedInDisplayId : "my_original_user";
+        vm.UseCurrentAccountAsChannel();
+        Assert.Equal(expectedUser, vm.StreamerUsername);
+        Assert.Equal(expectedUser, profile.StreamerUsername);
+        Assert.Contains($"@{expectedUser}", vm.ActiveChannelDisplay);
+    }
+
+    [Fact]
+    public async Task PollLiveChat_PassesTargetChannelToCdpService()
+    {
+        var profile = new StudioInstanceProfile
+        {
+            Name = "ChannelPollTest",
+            CdpPort = 9222,
+            Status = InstanceStatus.Running,
+            StreamerUsername = "@streamer_target"
+        };
+        var settings = new AppSettings();
+        
+        string? capturedTargetChannel = null;
+        var fakeCdp = new TestFakeCdpService
+        {
+            OnFetchLiveChat = ch => capturedTargetChannel = ch
+        };
+        var orch = new InstanceOrchestrator(new ProcessLauncher(), new WindowController(), fakeCdp);
+
+        var vm = new TiktokStudioSandbox.App.ViewModels.InstanceCardViewModel(profile, settings, orch, fakeCdp);
+        await vm.PollLiveChatInternalAsync();
+
+        Assert.Equal("streamer_target", capturedTargetChannel);
+    }
+
+    [Fact]
+    public void InstanceCardViewModel_StreamerUsername_DefaultsToAccountUsername_WhenNotSet()
+    {
+        var profile = new StudioInstanceProfile
+        {
+            Name = "DefaultUserTestProfile",
+            CdpPort = 9223,
+            LoggedInDisplayId = "default_streamer_account",
+            LoggedInNickname = "สตรีมเมอร์หลัก",
+            StreamerUsername = "" // Not set
+        };
+        var settings = new AppSettings();
+        var fakeCdp = new TestFakeCdpService();
+        var orch = new InstanceOrchestrator(new ProcessLauncher(), new WindowController(), fakeCdp);
+
+        var vm = new TiktokStudioSandbox.App.ViewModels.InstanceCardViewModel(profile, settings, orch, fakeCdp);
+
+        // Should default to account's LoggedInDisplayId (or disk-resolved displayId)
+        string expected = !string.IsNullOrWhiteSpace(vm.LoggedInDisplayId) ? vm.LoggedInDisplayId : "default_streamer_account";
+        Assert.Equal(expected, vm.StreamerUsername);
+        Assert.Contains(expected, vm.ActiveChannelDisplay);
+    }
+
+    [Fact]
+    public async Task LiveChatMonitor_CanMonitorBeforeOpeningAccount_WhenStopped()
+    {
+        var profile = new StudioInstanceProfile
+        {
+            Name = "OfflineMonitorProfile",
+            CdpPort = 9224,
+            Status = InstanceStatus.Stopped, // Instance NOT opened yet!
+            LoggedInDisplayId = "offline_user",
+            StreamerUsername = "offline_streamer"
+        };
+        var settings = new AppSettings();
+        
+        string? capturedTarget = null;
+        var fakeCdp = new TestFakeCdpService
+        {
+            OnFetchLiveChat = ch => capturedTarget = ch
+        };
+        fakeCdp.LiveChatMessagesToReturn.Add(new LiveChatMessageItem
+        {
+            Type = LiveChatMessageType.Chat,
+            Username = "viewer_1",
+            Nickname = "ผู้ชมเบอร์หนึ่ง",
+            Message = "มอนิเตอร์ตอนออฟไลน์สำเร็จ!",
+            Timestamp = DateTime.Now
+        });
+
+        var orch = new InstanceOrchestrator(new ProcessLauncher(), new WindowController(), fakeCdp);
+        var vm = new TiktokStudioSandbox.App.ViewModels.InstanceCardViewModel(profile, settings, orch, fakeCdp);
+
+        // Verify monitor is active by default and can be toggled before opening account
+        Assert.True(vm.IsLiveChatMonitoring);
+        Assert.Contains("ก่อนเปิดแอป", vm.LiveChatMonitorBadgeText);
+
+        // Toggle off
+        vm.ToggleLiveChatMonitorCommand.Execute(null);
+        Assert.False(vm.IsLiveChatMonitoring);
+        Assert.Contains("พักการมอนิเตอร์", vm.LiveChatMonitorBadgeText);
+
+        // Toggle back on
+        vm.ToggleLiveChatMonitorCommand.Execute(null);
+        Assert.True(vm.IsLiveChatMonitoring);
+        Assert.Contains("ก่อนเปิดแอป", vm.LiveChatMonitorBadgeText);
+
+        // Poll chat while stopped
+        await vm.PollLiveChatInternalAsync();
+
+        Assert.Equal("offline_streamer", capturedTarget);
+        Assert.Single(vm.LiveChatMessages);
+        Assert.Equal("มอนิเตอร์ตอนออฟไลน์สำเร็จ!", vm.LiveChatMessages[0].Message);
+    }
+
     private class FakeDomNode
     {
         public string Name { get; set; } = string.Empty;
@@ -800,7 +1064,26 @@ public class DebugViewModelAndCdpTests
         public Task StopNetworkHookAsync(int cdpPort) => Task.CompletedTask;
         public Task<StorageDumpResult> GetCookiesAndStorageAsync(int cdpPort) => Task.FromResult(new StorageDumpResult());
         public Task<PageHtmlResult?> GetFullHtmlAsync(int cdpPort) => Task.FromResult(ResultToReturn);
-        public Task<CaptchaDetectionResult> DetectCaptchaElementsAsync(int cdpPort) => Task.FromResult(CaptchaResultToReturn ?? new CaptchaDetectionResult());
+        public Task<CaptchaDetectionResult> DetectCaptchaElementsAsync(int cdpPort, bool forceFullHtml = false) => Task.FromResult(CaptchaResultToReturn ?? new CaptchaDetectionResult());
+        public Task<CaptchaSolveResult> SolveCaptchaWithMockAsync(int cdpPort, CaptchaDetectionResult? currentDetection = null, string? mockFilePath = null, Action<string>? logCallback = null, int delaySeconds = 0, string? instanceLeaseId = null)
+        {
+            return Task.FromResult(new CaptchaSolveResult { Success = true, Message = "Mock solved", CaptchaType = "Jigsaw" });
+        }
+        public Task<CaptchaSolveResult> SolveCaptchaAsync(int cdpPort, CaptchaDetectionResult? currentDetection = null, CaptchaSolverType solverMode = CaptchaSolverType.LocalApiServer, string? solverApiEndpoint = null, string? solverJwtToken = null, string? mockFilePath = null, Action<string>? logCallback = null, int delaySeconds = 0, string? instanceLeaseId = null)
+        {
+            return Task.FromResult(new CaptchaSolveResult { Success = true, Message = "API solved", CaptchaType = "Jigsaw" });
+        }
+        public Task<(bool Success, string Message)> TestSolverApiConnectionAsync(string? endpoint = null, string? jwtToken = null)
+        {
+            return Task.FromResult((true, "Connected"));
+        }
+        public List<LiveChatMessageItem> LiveChatMessagesToReturn { get; set; } = new();
+        public Action<string?>? OnFetchLiveChat { get; set; }
+        public Task<List<LiveChatMessageItem>> FetchLiveChatMessagesAsync(int cdpPort, string? targetChannel = null)
+        {
+            OnFetchLiveChat?.Invoke(targetChannel);
+            return Task.FromResult(LiveChatMessagesToReturn);
+        }
         public void Dispose() { }
     }
 }
