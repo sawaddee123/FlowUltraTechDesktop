@@ -57,6 +57,7 @@ public class InstanceOrchestrator : IInstanceOrchestrator
             {
                 logger.Info("Window", $"Waiting for TikTok Studio UI window to appear (Port: {profile.CdpPort}, Max timeout: 30s)...");
                 bool realWindowShown = false;
+                bool splashDetected = false;
                 for (int i = 0; i < 60; i++)
                 {
                     await Task.Delay(500);
@@ -70,6 +71,7 @@ public class InstanceOrchestrator : IInstanceOrchestrator
                             var sb = new System.Text.StringBuilder(256);
                             Native.Win32.GetWindowText(h, sb, 256);
                             string title = sb.ToString();
+                            if (string.IsNullOrWhiteSpace(title)) return false;
                             if (title.Contains("Make Your Day", StringComparison.OrdinalIgnoreCase) ||
                                 title.Contains("For You", StringComparison.OrdinalIgnoreCase) ||
                                 title.Contains("tiktok.com", StringComparison.OrdinalIgnoreCase))
@@ -82,18 +84,31 @@ public class InstanceOrchestrator : IInstanceOrchestrator
 
                         if (realUi != IntPtr.Zero)
                         {
-                            logger.Info("Window", $"Found TikTok Studio UI window (HWND: {realUi}) after {(i + 1) * 0.5:F1}s for port {profile.CdpPort}. Restoring window to front.");
-                            _windowController.SetWindowVisibilityForInstance(profile.ProcessId, profile.CdpPort, true);
-                            realWindowShown = true;
+                            bool hasRect = Native.Win32.GetWindowRect(realUi, out var rect);
+                            int area = hasRect ? rect.Width * rect.Height : 0;
+                            bool isMainDashboard = area >= 500000 || (rect.Width >= 900 && rect.Height >= 550);
 
-                            // ย้ำการดึงขึ้นมาหน้าสุดเฉพาะหน้าต่างหลัก อีก 3 วินาที เพื่อป้องกันจังหวะที่ splash screen หรือ webview สลับหน้าแล้วแย่ง Focus คืน
-                            for (int r = 0; r < 3; r++)
+                            if (isMainDashboard || i >= 30) // Main UI dashboard found or >= 15 seconds elapsed
                             {
-                                await Task.Delay(1000);
-                                if (profile.Status != InstanceStatus.Running) break;
+                                logger.Info("Window", $"Found TikTok Studio Main UI window (HWND: {realUi}, {rect.Width}x{rect.Height}) after {(i + 1) * 0.5:F1}s for port {profile.CdpPort}. Restoring window to front.");
+                                _windowController.SetWindowVisibilityForInstance(profile.ProcessId, profile.CdpPort, true);
+                                realWindowShown = true;
+
+                                // ย้ำการดึงขึ้นมาหน้าสุดเฉพาะหน้าต่างหลัก อีก 3 วินาที เพื่อป้องกันจังหวะที่ splash screen หรือ webview สลับหน้าแล้วแย่ง Focus คืน
+                                for (int r = 0; r < 3; r++)
+                                {
+                                    await Task.Delay(1000);
+                                    if (profile.Status != InstanceStatus.Running) break;
+                                    _windowController.SetWindowVisibilityForInstance(profile.ProcessId, profile.CdpPort, true);
+                                }
+                                break;
+                            }
+                            else if (!splashDetected)
+                            {
+                                splashDetected = true;
+                                logger.Info("Window", $"Detected TikTok Studio startup/splash window (HWND: {realUi}, {rect.Width}x{rect.Height}) after {(i + 1) * 0.5:F1}s. Showing splash and waiting for main dashboard UI...");
                                 _windowController.SetWindowVisibilityForInstance(profile.ProcessId, profile.CdpPort, true);
                             }
-                            break;
                         }
                     }
 

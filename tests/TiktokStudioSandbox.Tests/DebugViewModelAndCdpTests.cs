@@ -994,6 +994,29 @@ public class DebugViewModelAndCdpTests
     }
 
     [Fact]
+    public void InstanceCardViewModel_StreamerUsername_DoesNotDefaultToGenericAccountName_WhenUnauthenticated()
+    {
+        var profile = new StudioInstanceProfile
+        {
+            Name = "Account 99",
+            ProfileFolderName = "NonExistentFolder_Unauth_99",
+            CdpPort = 9228,
+            LoggedInDisplayId = "",
+            LoggedInNickname = "",
+            StreamerUsername = "",
+            IsLoggedIn = false
+        };
+        var settings = new AppSettings();
+        var fakeCdp = new TestFakeCdpService();
+        var orch = new InstanceOrchestrator(new ProcessLauncher(), new WindowController(), fakeCdp);
+
+        var vm = new TiktokStudioSandbox.App.ViewModels.InstanceCardViewModel(profile, settings, orch, fakeCdp);
+
+        Assert.Equal(string.Empty, vm.StreamerUsername);
+        Assert.Contains("ยังไม่ได้ระบุช่อง", vm.ActiveChannelDisplay);
+    }
+
+    [Fact]
     public async Task LiveChatMonitor_CanMonitorBeforeOpeningAccount_WhenStopped()
     {
         var profile = new StudioInstanceProfile

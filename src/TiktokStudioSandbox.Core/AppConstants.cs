@@ -33,7 +33,7 @@ public static class AppConstants
             }
         }
         catch { }
-        return "0.1.6";
+        return "0.1.7";
     });
 
     /// <summary>

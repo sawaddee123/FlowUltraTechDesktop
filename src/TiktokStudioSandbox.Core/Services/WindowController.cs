@@ -41,6 +41,12 @@ public class WindowController : IWindowController
         Win32.GetWindowText(hWnd, sbTitle, 256);
         string title = sbTitle.ToString();
 
+        // Must have a non-empty title! Background CEF helper/render windows in Chrome_WidgetWin_1 have empty title.
+        if (string.IsNullOrWhiteSpace(title))
+        {
+            return false;
+        }
+
         // Strictly disqualify background webviews / browser navigation pages / sandboxes
         if (title.Contains("Make Your Day", StringComparison.OrdinalIgnoreCase) ||
             title.Contains("For You", StringComparison.OrdinalIgnoreCase) ||
@@ -109,13 +115,24 @@ public class WindowController : IWindowController
         {
             score += 1000000;
         }
+        else
+        {
+            score -= 5000000;
+        }
 
         if (Win32.IsWindowVisible(hWnd))
         {
             score += 2000000;
         }
 
-        score += Math.Min(GetWindowArea(hWnd), 2000000);
+        int area = GetWindowArea(hWnd);
+        // Bonus for large main dashboard windows (e.g. >= 900x550 = 495,000)
+        if (area >= 500000)
+        {
+            score += 3000000;
+        }
+
+        score += Math.Min(area, 2000000);
         return score;
     }
 

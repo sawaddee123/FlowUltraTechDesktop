@@ -343,7 +343,9 @@ public partial class InstanceCardViewModel : ObservableObject
             ? profile.StreamerUsername
             : (!string.IsNullOrWhiteSpace(profile.LoggedInDisplayId)
                 ? profile.LoggedInDisplayId
-                : (!string.IsNullOrWhiteSpace(profile.LoggedInNickname) ? profile.LoggedInNickname : profile.Name));
+                : (!string.IsNullOrWhiteSpace(profile.LoggedInNickname)
+                    ? profile.LoggedInNickname
+                    : (!string.IsNullOrWhiteSpace(profile.Name) && !profile.Name.StartsWith("Account", StringComparison.OrdinalIgnoreCase) ? profile.Name : string.Empty)));
         _streamerUsername = NormalizeUsername(defaultChannel);
 
         // Auto load existing profile info from disk if present
@@ -818,7 +820,9 @@ public partial class InstanceCardViewModel : ObservableObject
             ? Profile.StreamerUsername
             : (!string.IsNullOrWhiteSpace(Profile.LoggedInDisplayId)
                 ? Profile.LoggedInDisplayId
-                : (!string.IsNullOrWhiteSpace(Profile.LoggedInNickname) ? Profile.LoggedInNickname : Profile.Name));
+                : (!string.IsNullOrWhiteSpace(Profile.LoggedInNickname)
+                    ? Profile.LoggedInNickname
+                    : (!string.IsNullOrWhiteSpace(Profile.Name) && !Profile.Name.StartsWith("Account", StringComparison.OrdinalIgnoreCase) ? Profile.Name : string.Empty)));
         StreamerUsername = NormalizeUsername(defaultChannel);
         OnPropertyChanged(nameof(ActiveChannelDisplay));
         OnPropertyChanged(nameof(LiveChatMonitorBadgeText));
@@ -963,6 +967,11 @@ public partial class InstanceCardViewModel : ObservableObject
             SyncFromProfile();
             StatusMessage = "เปิด TikTok LIVE Studio เรียบร้อย! กรุณาสแกน QR Code หรือเข้าสู่ระบบบนหน้าจอ (ระบบจะบันทึกโปรไฟล์และปิดสตูดิโอให้อัตโนมัติ)";
             Logger.Info("Login", "Opened TikTok LIVE Studio for user login.");
+
+            // Explicitly disable chat monitoring during interactive login
+            IsLiveChatMonitoring = false;
+            _chatMonitorTimer?.Stop();
+
             _ = StartAutoMonitoringAsync();
         }
         else

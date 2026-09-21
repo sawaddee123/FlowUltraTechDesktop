@@ -283,7 +283,8 @@ public partial class InstanceCardViewModel : ObservableObject
         });
 
         // 5. Ensure Live Chat Monitoring timer is running (every 2 seconds)
-        if (IsLiveChatMonitoring)
+        // Only start chat monitoring if account is logged in AND a valid streamer username is configured
+        if (IsLiveChatMonitoring && IsLoggedIn && !string.IsNullOrWhiteSpace(StreamerUsername) && !StreamerUsername.StartsWith("Account", StringComparison.OrdinalIgnoreCase))
         {
             EnsureChatTimer();
             _chatMonitorTimer?.Start();

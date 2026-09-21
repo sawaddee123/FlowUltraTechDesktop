@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
@@ -123,7 +123,10 @@ public partial class CdpAutomationService
 
             if (browser == null)
             {
-                logger?.Debug("Chat", $"ไม่สามารถเชื่อมต่อเบราว์เซอร์ผ่าน CDP Port {cdpPort} ได้ (เป้าหมาย: @{targetChannel ?? "ยังไม่ระบุ"})");
+                if (!string.IsNullOrWhiteSpace(targetChannel) && !targetChannel.StartsWith("Account", StringComparison.OrdinalIgnoreCase))
+                {
+                    logger?.Debug("Chat", $"ไม่สามารถเชื่อมต่อเบราว์เซอร์ผ่าน CDP Port {cdpPort} ได้ (เป้าหมาย: @{targetChannel})");
+                }
                 return messages;
             }
 
