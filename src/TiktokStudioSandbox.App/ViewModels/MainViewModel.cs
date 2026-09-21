@@ -607,27 +607,31 @@ public partial class MainViewModel : ObservableObject
     [RelayCommand]
     public void HideAllWindows()
     {
+        int count = 0;
         foreach (var card in Instances)
         {
-            if (!card.IsWindowHidden && card.Status == InstanceStatus.Running)
+            if (card.Status == InstanceStatus.Running || card.Status == InstanceStatus.Starting)
             {
-                card.ToggleVisibility();
+                card.HideWindow();
+                count++;
             }
         }
-        StatusNotification = "ซ่อนหน้าต่างทั้งหมด (Pseudo-Headless Active)";
+        StatusNotification = $"ซ่อนหน้าต่างทั้งหมดเรียบร้อย ({count} หน้าต่าง)";
     }
 
     [RelayCommand]
     public void ShowAllWindows()
     {
+        int count = 0;
         foreach (var card in Instances)
         {
-            if (card.IsWindowHidden && card.Status == InstanceStatus.Running)
+            if (card.Status == InstanceStatus.Running || card.Status == InstanceStatus.Starting)
             {
-                card.ToggleVisibility();
+                card.ShowWindow();
+                count++;
             }
         }
-        StatusNotification = "แสดงหน้าต่างทั้งหมดเรียบร้อย";
+        StatusNotification = $"แสดงหน้าต่างทั้งหมดเรียบร้อย ({count} หน้าต่าง)";
     }
 
     [RelayCommand]

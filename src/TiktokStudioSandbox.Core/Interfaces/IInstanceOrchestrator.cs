@@ -11,6 +11,7 @@ public interface IInstanceOrchestrator
     Task<bool> StopInstanceAsync(StudioInstanceProfile profile);
     bool ToggleWindowVisibility(StudioInstanceProfile profile);
     bool ShowWindow(StudioInstanceProfile profile);
+    bool HideWindow(StudioInstanceProfile profile);
     Task<bool> SendChatAsync(StudioInstanceProfile profile, string message);
     void RefreshStatus(StudioInstanceProfile profile);
 }

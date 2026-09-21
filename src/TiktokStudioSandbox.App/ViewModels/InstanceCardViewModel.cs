@@ -600,6 +600,24 @@ public partial class InstanceCardViewModel : ObservableObject
     }
 
     [RelayCommand]
+    public void ShowWindow()
+    {
+        Logger.Info("Window", $"ShowWindow command triggered for '{Name}' (Status: {Status})");
+        Profile.IsWindowHidden = false;
+        _orchestrator.ShowWindow(Profile);
+        SyncFromProfile();
+    }
+
+    [RelayCommand]
+    public void HideWindow()
+    {
+        Logger.Info("Window", $"HideWindow command triggered for '{Name}' (Status: {Status})");
+        Profile.IsWindowHidden = true;
+        _orchestrator.HideWindow(Profile);
+        SyncFromProfile();
+    }
+
+    [RelayCommand]
     public async Task SendTestChatAsync()
     {
         if (Status != InstanceStatus.Running)
