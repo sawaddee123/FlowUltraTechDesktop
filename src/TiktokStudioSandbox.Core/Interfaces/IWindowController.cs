@@ -12,4 +12,5 @@ public interface IWindowController
     bool IsAnyWindowVisible(int processId);
     bool IsAnyWindowVisibleForInstance(int? processId, int cdpPort);
     void BringToFront(int processId);
+    void ClearCacheForPort(int cdpPort);
 }

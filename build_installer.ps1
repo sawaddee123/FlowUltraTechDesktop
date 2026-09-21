@@ -19,7 +19,7 @@ $installerOutputDir = Join-Path $rootDir "dist\installer"
 $issPath = Join-Path $rootDir "installer\setup.iss"
 
 # 1. Detect Current Version from Project File
-$currentVersion = "0.1.5"
+$currentVersion = "0.1.6"
 if (Test-Path $projectPath) {
     $projContent = Get-Content $projectPath -Raw
     if ($projContent -match "<Version>(.*?)</Version>") {

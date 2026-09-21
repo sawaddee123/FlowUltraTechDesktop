@@ -64,14 +64,20 @@ public class InstanceOrchestrator : IInstanceOrchestrator
                     var handles = _windowController.FindWindowHandlesForPort(profile.CdpPort, profile.ProcessId);
                     if (handles.Count > 0)
                     {
-                        // ตรวจสอบว่าพบหน้าต่าง UI จริงที่มี Title ของ TikTok Studio แล้วหรือไม่
+                        // ตรวจสอบว่าพบหน้าต่าง UI จริงที่มี Title ของ TikTok Studio แล้วหรือไม่ (ไม่รวม background webview)
                         var realUi = handles.FirstOrDefault(h =>
                         {
                             var sb = new System.Text.StringBuilder(256);
                             Native.Win32.GetWindowText(h, sb, 256);
                             string title = sb.ToString();
-                            return title.Contains("TikTok", StringComparison.OrdinalIgnoreCase) ||
-                                   title.Contains("Studio", StringComparison.OrdinalIgnoreCase);
+                            if (title.Contains("Make Your Day", StringComparison.OrdinalIgnoreCase) ||
+                                title.Contains("For You", StringComparison.OrdinalIgnoreCase) ||
+                                title.Contains("tiktok.com", StringComparison.OrdinalIgnoreCase))
+                            {
+                                return false;
+                            }
+                            return title.Contains("Studio", StringComparison.OrdinalIgnoreCase) ||
+                                   title.Contains("TikTok LIVE", StringComparison.OrdinalIgnoreCase);
                         });
 
                         if (realUi != IntPtr.Zero)
@@ -80,7 +86,7 @@ public class InstanceOrchestrator : IInstanceOrchestrator
                             _windowController.SetWindowVisibilityForInstance(profile.ProcessId, profile.CdpPort, true);
                             realWindowShown = true;
 
-                            // ย้ำการดึงขึ้นมาหน้าสุด (Reinforce foreground) อีก 3 วินาที เพื่อป้องกันจังหวะที่ splash screen หรือ webview สลับหน้าแล้วแย่ง Focus คืน
+                            // ย้ำการดึงขึ้นมาหน้าสุดเฉพาะหน้าต่างหลัก อีก 3 วินาที เพื่อป้องกันจังหวะที่ splash screen หรือ webview สลับหน้าแล้วแย่ง Focus คืน
                             for (int r = 0; r < 3; r++)
                             {
                                 await Task.Delay(1000);
@@ -88,11 +94,6 @@ public class InstanceOrchestrator : IInstanceOrchestrator
                                 _windowController.SetWindowVisibilityForInstance(profile.ProcessId, profile.CdpPort, true);
                             }
                             break;
-                        }
-                        else
-                        {
-                            // หน้าต่างเบื้องต้นเพิ่งถูกสร้างขึ้นแต่ยังโหลด Title ไม่เสร็จ ให้สั่ง Show ไว้ก่อนและเฝ้าดูลูปต่อไป
-                            _windowController.SetWindowVisibilityForInstance(profile.ProcessId, profile.CdpPort, true);
                         }
                     }
 
@@ -163,7 +164,9 @@ public class InstanceOrchestrator : IInstanceOrchestrator
         var logger = _logManager.GetLogger(profile);
         logger.Info("Orchestrator", $"Stopping instance '{profile.Name}' (Port: {profile.CdpPort}, PID: {profile.ProcessId})...");
         bool result = _launcher.KillInstance(profile);
+        _windowController.ClearCacheForPort(profile.CdpPort);
         profile.Status = InstanceStatus.Stopped;
+        profile.ProcessId = null;
         profile.StatusMessage = "Stopped";
         profile.IsWindowHidden = false;
         logger.Info("Orchestrator", $"Instance '{profile.Name}' stopped. (Result: {result})");

@@ -37,6 +37,20 @@ public class WindowController : IWindowController
             return false;
         }
 
+        var sbTitle = new StringBuilder(256);
+        Win32.GetWindowText(hWnd, sbTitle, 256);
+        string title = sbTitle.ToString();
+
+        // Strictly disqualify background webviews / browser navigation pages / sandboxes
+        if (title.Contains("Make Your Day", StringComparison.OrdinalIgnoreCase) ||
+            title.Contains("For You", StringComparison.OrdinalIgnoreCase) ||
+            title.Contains("tiktok.com", StringComparison.OrdinalIgnoreCase) ||
+            title.Contains("Chrome Legacy Window", StringComparison.OrdinalIgnoreCase) ||
+            title.Contains("Sandbox", StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
         // Minimized windows (IsIconic) are real windows that need to be restored
         if (Win32.IsIconic(hWnd))
         {
@@ -72,13 +86,28 @@ public class WindowController : IWindowController
         var sbTitle = new StringBuilder(256);
         Win32.GetWindowText(hWnd, sbTitle, 256);
         string title = sbTitle.ToString();
-        if (title.Contains("TikTok", StringComparison.OrdinalIgnoreCase))
+
+        // Disqualify webviews immediately
+        if (title.Contains("Make Your Day", StringComparison.OrdinalIgnoreCase) ||
+            title.Contains("For You", StringComparison.OrdinalIgnoreCase) ||
+            title.Contains("tiktok.com", StringComparison.OrdinalIgnoreCase))
         {
-            score += 1000000;
+            return -1000000;
+        }
+
+        // Highest priority: Genuine TikTok Studio main window
+        if (title.Contains("TikTok", StringComparison.OrdinalIgnoreCase) && 
+            (title.Contains("Studio", StringComparison.OrdinalIgnoreCase) || title.Contains("Live", StringComparison.OrdinalIgnoreCase)))
+        {
+            score += 10000000;
         }
         else if (title.Contains("Studio", StringComparison.OrdinalIgnoreCase) || title.Contains("Live", StringComparison.OrdinalIgnoreCase))
         {
-            score += 500000;
+            score += 5000000;
+        }
+        else if (title.Contains("TikTok", StringComparison.OrdinalIgnoreCase))
+        {
+            score += 1000000;
         }
 
         if (Win32.IsWindowVisible(hWnd))
@@ -86,7 +115,7 @@ public class WindowController : IWindowController
             score += 2000000;
         }
 
-        score += Math.Min(GetWindowArea(hWnd), 500000);
+        score += Math.Min(GetWindowArea(hWnd), 2000000);
         return score;
     }
 
@@ -164,7 +193,11 @@ public class WindowController : IWindowController
             {
                 if (Win32.IsWindow(h) && IsRealStudioWindow(h))
                 {
-                    liveCache.Add(h);
+                    Win32.GetWindowThreadProcessId(h, out uint wPid);
+                    if (targetPids.Contains((int)wPid))
+                    {
+                        liveCache.Add(h);
+                    }
                 }
             }
         }
@@ -223,7 +256,11 @@ public class WindowController : IWindowController
             {
                 if (Win32.IsWindow(h) && IsRealStudioWindow(h))
                 {
-                    liveCache.Add(h);
+                    Win32.GetWindowThreadProcessId(h, out uint wPid);
+                    if (targetPids.Contains((int)wPid))
+                    {
+                        liveCache.Add(h);
+                    }
                 }
             }
         }
@@ -233,22 +270,35 @@ public class WindowController : IWindowController
         return liveCache.OrderByDescending(GetWindowScore).ToList();
     }
 
+    public void ClearCacheForPort(int cdpPort)
+    {
+        _cachedPortHandles.TryRemove(cdpPort, out _);
+    }
+
     public bool SetWindowVisibilityForInstance(int? processId, int cdpPort, bool visible)
     {
         var handles = FindWindowHandlesForPort(cdpPort, processId);
         if (handles.Count == 0) return false;
 
-        int command = visible ? Win32.SW_SHOWNORMAL : Win32.SW_HIDE;
-        foreach (var hWnd in handles)
-        {
-            Win32.ShowWindow(hWnd, command);
-            Win32.ShowWindowAsync(hWnd, command);
-        }
-
         if (visible)
         {
+            // CRITICAL: Only restore and bring to front the SINGLE PRIMARY Studio window (index 0).
+            // NEVER call ShowWindow on secondary internal webviews (like TikTok - Make Your Day) or offscreen helpers!
             var primary = handles.First();
+            Win32.ShowWindow(primary, Win32.SW_SHOWNORMAL);
+            Win32.ShowWindowAsync(primary, Win32.SW_SHOWNORMAL);
             BringToFrontRockSolid(primary);
+        }
+        else
+        {
+            foreach (var hWnd in handles)
+            {
+                if (Win32.IsWindowVisible(hWnd))
+                {
+                    Win32.ShowWindow(hWnd, Win32.SW_HIDE);
+                    Win32.ShowWindowAsync(hWnd, Win32.SW_HIDE);
+                }
+            }
         }
         return true;
     }
@@ -258,17 +308,23 @@ public class WindowController : IWindowController
         var handles = FindWindowHandlesForProcess(processId);
         if (handles.Count == 0) return false;
 
-        int command = visible ? Win32.SW_SHOWNORMAL : Win32.SW_HIDE;
-        foreach (var hWnd in handles)
-        {
-            Win32.ShowWindow(hWnd, command);
-            Win32.ShowWindowAsync(hWnd, command);
-        }
-
         if (visible)
         {
             var primary = handles.First();
+            Win32.ShowWindow(primary, Win32.SW_SHOWNORMAL);
+            Win32.ShowWindowAsync(primary, Win32.SW_SHOWNORMAL);
             BringToFrontRockSolid(primary);
+        }
+        else
+        {
+            foreach (var hWnd in handles)
+            {
+                if (Win32.IsWindowVisible(hWnd))
+                {
+                    Win32.ShowWindow(hWnd, Win32.SW_HIDE);
+                    Win32.ShowWindowAsync(hWnd, Win32.SW_HIDE);
+                }
+            }
         }
         return true;
     }
