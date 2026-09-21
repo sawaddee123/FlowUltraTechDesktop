@@ -118,7 +118,7 @@ public partial class InstanceCardViewModel : ObservableObject
             {
                 _storageRefreshTimer = new System.Windows.Threading.DispatcherTimer
                 {
-                    Interval = TimeSpan.FromSeconds(3)
+                    Interval = TimeSpan.FromSeconds(10)
                 };
                 _storageRefreshTimer.Tick += async (_, _) =>
                 {
@@ -314,7 +314,9 @@ public partial class InstanceCardViewModel : ObservableObject
 
                 if (Application.Current != null)
                 {
-                    Application.Current.Dispatcher.Invoke(AddItem);
+                    Application.Current.Dispatcher.BeginInvoke(
+                        System.Windows.Threading.DispatcherPriority.Background,
+                        (Action)AddItem);
                 }
                 else
                 {

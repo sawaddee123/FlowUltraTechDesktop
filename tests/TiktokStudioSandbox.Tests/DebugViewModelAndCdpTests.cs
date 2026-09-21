@@ -215,6 +215,20 @@ public class DebugViewModelAndCdpTests
     }
 
     [Fact]
+    public void InstanceCardViewModel_WhenProfileStatusIsStarting_SanitizesToStoppedOnInstantiation()
+    {
+        var profile = new StudioInstanceProfile { Status = InstanceStatus.Starting, Name = "Account 03" };
+        var settings = new AppSettings();
+        var orchestrator = new InstanceOrchestrator(new ProcessLauncher(), new WindowController(), new CdpAutomationService());
+        var vm = new InstanceCardViewModel(profile, settings, orchestrator);
+
+        Assert.Equal(InstanceStatus.Stopped, vm.Status);
+        Assert.True(vm.CanStart);
+        Assert.False(vm.IsStarting);
+        Assert.Equal("⚪ หยุดทำงาน", vm.StatusDisplay);
+    }
+
+    [Fact]
     public void InstanceCardViewModel_NetworkMonitor_FilterByMethodAndUrl_WorksProperly()
     {
         var profile = new StudioInstanceProfile();

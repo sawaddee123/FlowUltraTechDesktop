@@ -15,6 +15,121 @@ public class WindowController : IWindowController
     private readonly ConcurrentDictionary<int, HashSet<IntPtr>> _cachedPortHandles = new();
     private readonly ConcurrentDictionary<int, HashSet<IntPtr>> _cachedPidHandles = new();
 
+    public static bool IsRealStudioWindow(IntPtr hWnd)
+    {
+        if (hWnd == IntPtr.Zero || !Win32.IsWindow(hWnd)) return false;
+
+        var sbClass = new StringBuilder(256);
+        Win32.GetClassName(hWnd, sbClass, 256);
+        string className = sbClass.ToString();
+
+        // Strictly ignore background utility/worker/system classes
+        if (className.Equals("Chrome_WidgetWin_0", StringComparison.OrdinalIgnoreCase) ||
+            className.Equals("IME", StringComparison.OrdinalIgnoreCase) ||
+            className.StartsWith("Cicero", StringComparison.OrdinalIgnoreCase) ||
+            className.StartsWith("CicLoader", StringComparison.OrdinalIgnoreCase) ||
+            className.StartsWith("Base_Power", StringComparison.OrdinalIgnoreCase) ||
+            className.StartsWith("Electron_System", StringComparison.OrdinalIgnoreCase) ||
+            className.StartsWith("Touch Tooltip", StringComparison.OrdinalIgnoreCase) ||
+            className.StartsWith("GDI+", StringComparison.OrdinalIgnoreCase) ||
+            className.StartsWith("UAC", StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        // Minimized windows (IsIconic) are real windows that need to be restored
+        if (Win32.IsIconic(hWnd))
+        {
+            return true;
+        }
+
+        if (!Win32.GetWindowRect(hWnd, out var rect)) return false;
+
+        // In Electron apps, the primary UI window has class Chrome_WidgetWin_1 with substantial size
+        if (className.Equals("Chrome_WidgetWin_1", StringComparison.OrdinalIgnoreCase))
+        {
+            return rect.Width >= 400 && rect.Height >= 250;
+        }
+
+        // Other windows (e.g. popups or dialogs): only consider if substantial UI size
+        return rect.Width >= 500 && rect.Height >= 300;
+    }
+
+    public static int GetWindowArea(IntPtr hWnd)
+    {
+        if (Win32.GetWindowRect(hWnd, out var rect))
+        {
+            return rect.Width * rect.Height;
+        }
+        return 0;
+    }
+
+    public static int GetWindowScore(IntPtr hWnd)
+    {
+        if (hWnd == IntPtr.Zero || !Win32.IsWindow(hWnd)) return 0;
+        int score = 0;
+
+        var sbTitle = new StringBuilder(256);
+        Win32.GetWindowText(hWnd, sbTitle, 256);
+        string title = sbTitle.ToString();
+        if (title.Contains("TikTok", StringComparison.OrdinalIgnoreCase))
+        {
+            score += 1000000;
+        }
+        else if (title.Contains("Studio", StringComparison.OrdinalIgnoreCase) || title.Contains("Live", StringComparison.OrdinalIgnoreCase))
+        {
+            score += 500000;
+        }
+
+        if (Win32.IsWindowVisible(hWnd))
+        {
+            score += 2000000;
+        }
+
+        score += Math.Min(GetWindowArea(hWnd), 500000);
+        return score;
+    }
+
+    public static void BringToFrontRockSolid(IntPtr hWnd)
+    {
+        if (hWnd == IntPtr.Zero || !Win32.IsWindow(hWnd)) return;
+
+        if (Win32.IsIconic(hWnd))
+        {
+            Win32.ShowWindow(hWnd, Win32.SW_RESTORE);
+        }
+        Win32.ShowWindow(hWnd, Win32.SW_SHOWNORMAL);
+        Win32.ShowWindow(hWnd, Win32.SW_SHOW);
+
+        // Check if window coordinates are off-screen (e.g. negative coordinates or disconnected monitor)
+        if (Win32.GetWindowRect(hWnd, out var rect))
+        {
+            if (rect.Left < -5000 || rect.Top < -5000)
+            {
+                Win32.SetWindowPos(hWnd, Win32.HWND_TOP, 100, 100, 0, 0,
+                    Win32.SWP_NOSIZE | Win32.SWP_SHOWWINDOW);
+            }
+        }
+
+        IntPtr fgWnd = Win32.GetForegroundWindow();
+        uint fgThread = 0;
+        Win32.GetWindowThreadProcessId(fgWnd, out fgThread);
+        uint curThread = Win32.GetCurrentThreadId();
+
+        if (fgThread != curThread && fgThread != 0)
+        {
+            Win32.AttachThreadInput(curThread, fgThread, true);
+            Win32.BringWindowToTop(hWnd);
+            Win32.SetForegroundWindow(hWnd);
+            Win32.AttachThreadInput(curThread, fgThread, false);
+        }
+        else
+        {
+            Win32.BringWindowToTop(hWnd);
+            Win32.SetForegroundWindow(hWnd);
+        }
+    }
+
     public List<IntPtr> FindWindowHandlesForProcess(int processId)
     {
         if (processId <= 0 || processId == Environment.ProcessId) return new List<IntPtr>();
@@ -26,39 +141,37 @@ public class WindowController : IWindowController
         Win32.EnumWindows((hWnd, lParam) =>
         {
             Win32.GetWindowThreadProcessId(hWnd, out uint windowPid);
-            if (windowPid == (uint)selfPid)
-            {
-                return true;
-            }
+            if (windowPid == (uint)selfPid) return true;
+
+            if (!targetPids.Contains((int)windowPid)) return true;
 
             var sb = new StringBuilder(256);
             Win32.GetWindowText(hWnd, sb, 256);
             string title = sb.ToString();
-            if (title.Contains("Sandbox", StringComparison.OrdinalIgnoreCase))
-            {
-                return true;
-            }
+            if (title.Contains("Sandbox", StringComparison.OrdinalIgnoreCase)) return true;
 
-            if (targetPids.Contains((int)windowPid))
+            if (IsRealStudioWindow(hWnd))
             {
                 handles.Add(hWnd);
             }
             return true;
         }, IntPtr.Zero);
 
+        var liveCache = new HashSet<IntPtr>();
         if (_cachedPidHandles.TryGetValue(processId, out var cached))
         {
             foreach (var h in cached)
             {
-                if (!handles.Contains(h)) handles.Add(h);
+                if (Win32.IsWindow(h) && IsRealStudioWindow(h))
+                {
+                    liveCache.Add(h);
+                }
             }
         }
-        else
-        {
-            _cachedPidHandles[processId] = new HashSet<IntPtr>(handles);
-        }
+        foreach (var h in handles) liveCache.Add(h);
+        _cachedPidHandles[processId] = liveCache;
 
-        return handles;
+        return liveCache.OrderByDescending(GetWindowScore).ToList();
     }
 
     public List<IntPtr> FindWindowHandlesForPort(int cdpPort, int? processId = null)
@@ -70,11 +183,15 @@ public class WindowController : IWindowController
             foreach (var p in pids) targetPids.Add(p);
         }
 
-        int? listeningPid = ProcessLauncher.GetPidListeningOnPort(cdpPort);
-        if (listeningPid.HasValue && listeningPid.Value != Environment.ProcessId)
+        // Only query netstat if we do not already have target PIDs from the process tree
+        if (targetPids.Count == 0)
         {
-            var (_, pids) = ProcessTreeHelper.GetProcessTree(listeningPid.Value);
-            foreach (var p in pids) targetPids.Add(p);
+            int? listeningPid = ProcessLauncher.GetPidListeningOnPort(cdpPort);
+            if (listeningPid.HasValue && listeningPid.Value != Environment.ProcessId)
+            {
+                var (_, pids) = ProcessTreeHelper.GetProcessTree(listeningPid.Value);
+                foreach (var p in pids) targetPids.Add(p);
+            }
         }
 
         var handles = new List<IntPtr>();
@@ -83,37 +200,37 @@ public class WindowController : IWindowController
         Win32.EnumWindows((hWnd, lParam) =>
         {
             Win32.GetWindowThreadProcessId(hWnd, out uint windowPid);
-            if (windowPid == (uint)selfPid)
-            {
-                return true; // Strictly exclude Sandbox Manager itself!
-            }
+            if (windowPid == (uint)selfPid) return true;
+
+            if (!targetPids.Contains((int)windowPid)) return true;
 
             var sb = new StringBuilder(256);
             Win32.GetWindowText(hWnd, sb, 256);
             string title = sb.ToString();
-            if (title.Contains("Sandbox", StringComparison.OrdinalIgnoreCase))
-            {
-                return true; // Strictly exclude Sandbox Manager window!
-            }
+            if (title.Contains("Sandbox", StringComparison.OrdinalIgnoreCase)) return true;
 
-            if (targetPids.Contains((int)windowPid))
+            if (IsRealStudioWindow(hWnd))
             {
                 handles.Add(hWnd);
             }
             return true;
         }, IntPtr.Zero);
 
-        if (!_cachedPortHandles.ContainsKey(cdpPort))
+        var liveCache = new HashSet<IntPtr>();
+        if (_cachedPortHandles.TryGetValue(cdpPort, out var cached))
         {
-            _cachedPortHandles[cdpPort] = new HashSet<IntPtr>();
+            foreach (var h in cached)
+            {
+                if (Win32.IsWindow(h) && IsRealStudioWindow(h))
+                {
+                    liveCache.Add(h);
+                }
+            }
         }
+        foreach (var h in handles) liveCache.Add(h);
+        _cachedPortHandles[cdpPort] = liveCache;
 
-        foreach (var h in handles)
-        {
-            _cachedPortHandles[cdpPort].Add(h);
-        }
-
-        return _cachedPortHandles[cdpPort].ToList();
+        return liveCache.OrderByDescending(GetWindowScore).ToList();
     }
 
     public bool SetWindowVisibilityForInstance(int? processId, int cdpPort, bool visible)
@@ -121,16 +238,17 @@ public class WindowController : IWindowController
         var handles = FindWindowHandlesForPort(cdpPort, processId);
         if (handles.Count == 0) return false;
 
-        int command = visible ? Win32.SW_SHOW : Win32.SW_HIDE;
+        int command = visible ? Win32.SW_SHOWNORMAL : Win32.SW_HIDE;
         foreach (var hWnd in handles)
         {
             Win32.ShowWindow(hWnd, command);
             Win32.ShowWindowAsync(hWnd, command);
-            if (visible)
-            {
-                Win32.ShowWindow(hWnd, Win32.SW_RESTORE);
-                Win32.SetForegroundWindow(hWnd);
-            }
+        }
+
+        if (visible)
+        {
+            var primary = handles.First();
+            BringToFrontRockSolid(primary);
         }
         return true;
     }
@@ -140,16 +258,17 @@ public class WindowController : IWindowController
         var handles = FindWindowHandlesForProcess(processId);
         if (handles.Count == 0) return false;
 
-        int command = visible ? Win32.SW_SHOW : Win32.SW_HIDE;
+        int command = visible ? Win32.SW_SHOWNORMAL : Win32.SW_HIDE;
         foreach (var hWnd in handles)
         {
             Win32.ShowWindow(hWnd, command);
             Win32.ShowWindowAsync(hWnd, command);
-            if (visible)
-            {
-                Win32.ShowWindow(hWnd, Win32.SW_RESTORE);
-                Win32.SetForegroundWindow(hWnd);
-            }
+        }
+
+        if (visible)
+        {
+            var primary = handles.First();
+            BringToFrontRockSolid(primary);
         }
         return true;
     }
@@ -169,18 +288,10 @@ public class WindowController : IWindowController
     public void BringToFront(int processId)
     {
         var handles = FindWindowHandlesForProcess(processId);
-        foreach (var hWnd in handles)
+        var primary = handles.FirstOrDefault();
+        if (primary != IntPtr.Zero)
         {
-            Win32.ShowWindow(hWnd, Win32.SW_RESTORE);
-            Win32.SetForegroundWindow(hWnd);
-            break;
+            BringToFrontRockSolid(primary);
         }
-    }
-
-    private static HashSet<int> GetProcessTreePids(int rootPid)
-    {
-        if (rootPid <= 0 || rootPid == Environment.ProcessId) return new HashSet<int>();
-        var (_, pids) = ProcessTreeHelper.GetProcessTree(rootPid);
-        return pids;
     }
 }

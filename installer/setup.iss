@@ -1,6 +1,6 @@
 ; Script generated for TikTok Studio Sandbox
 #define MyAppName "TikTok Studio Sandbox"
-#define MyAppVersion "1.0.0"
+#define MyAppVersion "0.1.5"
 #define MyAppPublisher "TikTok Studio Sandbox"
 #define MyAppURL "https://github.com/sawaddee123/TiktokStudioSandbox"
 #define MyAppExeName "TiktokStudioSandbox.App.exe"

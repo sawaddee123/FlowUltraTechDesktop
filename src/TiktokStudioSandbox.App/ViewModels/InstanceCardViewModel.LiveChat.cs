@@ -332,6 +332,34 @@ public partial class InstanceCardViewModel : ObservableObject
                             });
                         }
                     }
+                    else if (item.Type == LiveChatMessageType.Follow)
+                    {
+                        var joinMsg = new LiveJoinMessage(item.Username, item.Nickname);
+                        string? replyText = _ruleEngine.EvaluateJoinRule(_settings.Rules, joinMsg);
+                        if (!string.IsNullOrWhiteSpace(replyText))
+                        {
+                            item.IsAutoReplied = true;
+                            item.AutoReplyContent = replyText;
+                            _ = Task.Run(async () =>
+                            {
+                                await _orchestrator.SendChatAsync(Profile, replyText);
+                            });
+                        }
+                    }
+                    else if (item.Type == LiveChatMessageType.Like)
+                    {
+                        var likeMsg = new LiveLikeMessage(item.Username, item.Nickname, item.RepeatCount, TotalLikeFollowCount);
+                        string? replyText = _ruleEngine.EvaluateLikeRule(_settings.Rules, likeMsg);
+                        if (!string.IsNullOrWhiteSpace(replyText))
+                        {
+                            item.IsAutoReplied = true;
+                            item.AutoReplyContent = replyText;
+                            _ = Task.Run(async () =>
+                            {
+                                await _orchestrator.SendChatAsync(Profile, replyText);
+                            });
+                        }
+                    }
                 }
             },
             onStatusChanged: (status) =>
@@ -443,6 +471,36 @@ public partial class InstanceCardViewModel : ObservableObject
                     {
                         var giftMsg = new LiveGiftMessage(item.Username, item.Nickname, item.GiftName ?? "Gift", item.DiamondCount, item.RepeatCount);
                         string? replyText = _ruleEngine.EvaluateGiftRule(_settings.Rules, giftMsg);
+                        if (!string.IsNullOrWhiteSpace(replyText))
+                        {
+                            item.IsAutoReplied = true;
+                            item.AutoReplyContent = replyText;
+
+                            _ = Task.Run(async () =>
+                            {
+                                await _orchestrator.SendChatAsync(Profile, replyText);
+                            });
+                        }
+                    }
+                    else if (item.Type == LiveChatMessageType.Follow)
+                    {
+                        var joinMsg = new LiveJoinMessage(item.Username, item.Nickname);
+                        string? replyText = _ruleEngine.EvaluateJoinRule(_settings.Rules, joinMsg);
+                        if (!string.IsNullOrWhiteSpace(replyText))
+                        {
+                            item.IsAutoReplied = true;
+                            item.AutoReplyContent = replyText;
+
+                            _ = Task.Run(async () =>
+                            {
+                                await _orchestrator.SendChatAsync(Profile, replyText);
+                            });
+                        }
+                    }
+                    else if (item.Type == LiveChatMessageType.Like)
+                    {
+                        var likeMsg = new LiveLikeMessage(item.Username, item.Nickname, item.RepeatCount, TotalLikeFollowCount);
+                        string? replyText = _ruleEngine.EvaluateLikeRule(_settings.Rules, likeMsg);
                         if (!string.IsNullOrWhiteSpace(replyText))
                         {
                             item.IsAutoReplied = true;
@@ -752,6 +810,26 @@ public partial class InstanceCardViewModel : ObservableObject
             {
                 var giftMsg = new LiveGiftMessage(mockItem.Username, mockItem.Nickname, mockItem.GiftName ?? "Gift", mockItem.DiamondCount, mockItem.RepeatCount);
                 string? replyText = _ruleEngine.EvaluateGiftRule(_settings.Rules, giftMsg);
+                if (!string.IsNullOrWhiteSpace(replyText))
+                {
+                    mockItem.IsAutoReplied = true;
+                    mockItem.AutoReplyContent = replyText;
+                }
+            }
+            else if (mockItem.Type == LiveChatMessageType.Follow)
+            {
+                var joinMsg = new LiveJoinMessage(mockItem.Username, mockItem.Nickname);
+                string? replyText = _ruleEngine.EvaluateJoinRule(_settings.Rules, joinMsg);
+                if (!string.IsNullOrWhiteSpace(replyText))
+                {
+                    mockItem.IsAutoReplied = true;
+                    mockItem.AutoReplyContent = replyText;
+                }
+            }
+            else if (mockItem.Type == LiveChatMessageType.Like)
+            {
+                var likeMsg = new LiveLikeMessage(mockItem.Username, mockItem.Nickname, mockItem.RepeatCount, TotalLikeFollowCount);
+                string? replyText = _ruleEngine.EvaluateLikeRule(_settings.Rules, likeMsg);
                 if (!string.IsNullOrWhiteSpace(replyText))
                 {
                     mockItem.IsAutoReplied = true;

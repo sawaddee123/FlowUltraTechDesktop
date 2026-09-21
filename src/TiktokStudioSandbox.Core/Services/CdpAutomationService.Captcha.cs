@@ -54,6 +54,10 @@ public partial class CdpAutomationService
                         if (style && (style.display === 'none' || style.visibility === 'hidden' || parseFloat(style.opacity || '1') <= 0.01)) {
                             return false;
                         }
+                        if (style && (style.position === 'fixed' || style.position === 'sticky')) {
+                            const rect = el.getBoundingClientRect();
+                            return rect.width > 0 && rect.height > 0;
+                        }
                     } catch(e) {}
 
                     // Check bounding rect dimensions
@@ -89,6 +93,20 @@ public partial class CdpAutomationService
                     // 4. Check known SecSDK / verification tags
                     if (el.id && (el.id.toLowerCase().includes('secsdk') || el.id.toLowerCase().includes('verify-bar') || el.id.toLowerCase().includes('verify_container') || el.id.toLowerCase().includes('verify-image'))) return true;
                     if (className && (className.toLowerCase().includes('secsdk') || className.toLowerCase().includes('verify-bar') || className.toLowerCase().includes('verify_container') || className.toLowerCase().includes('verify-image') || className.toLowerCase().includes('whirl'))) return true;
+
+                    // 5. Check text content for captcha / verification prompt
+                    const text = (el.innerText || el.textContent || '').trim();
+                    if (text.length > 0 && text.length < 300) {
+                        if (text.includes('detected inactivity during your current LIVE') ||
+                            text.includes('Complete the verification to continue your current LIVE') ||
+                            text.includes('LIVE will end in:') ||
+                            text.includes('Select 2 objects that are the same shape') ||
+                            /select.*2.*objects?/i.test(text) ||
+                            /same\s*shape/i.test(text) ||
+                            /drag the puzzle piece/i.test(text)) {
+                            return true;
+                        }
+                    }
 
                     return false;
                 }
@@ -263,21 +281,90 @@ public partial class CdpAutomationService
                         };
                     }
 
-                    // 2. Symbol (Icon match)
-                    const hasSymbolInstruction = /select.*same/i.test(docText) || /click.*same/i.test(docText) || /select.*object/i.test(docText) || /เลือก.*เหมือนกัน/i.test(docText);
-                    const symbolImg = doc.querySelector('#captcha-verify-image, img.captcha_verify_img_symbol, .captcha_verify_img--bg, canvas.captcha_verify_img--bg, img[class*=""symbol""]');
-                    const submitBtn = doc.querySelector('.secsdk-captcha-submit-button, [class*=""secsdk-captcha-submit""], button[class*=""verify-btn""]');
+                    // 2. Symbol (Icon / Shape match) — Strict Text & Element Detection
+                    const symbolPatterns = [
+                        /select\s*(?:2|two)\s*objects\s*(?:that\s*are\s*)?(?:the\s*)?same\s*shape/i,
+                        /choose\s*(?:2|two)\s*objects\s*(?:that\s*are\s*)?(?:the\s*)?same\s*shape/i,
+                        /select\s*(?:2|two)\s*(?:identical|matching)\s*objects/i,
+                        /click\s*(?:2|two)\s*objects\s*(?:that\s*are\s*)?(?:the\s*)?same\s*shape/i,
+                        /the\s*same\s*shape/i,
+                        /same\s*shape/i,
+                        /choose\s*2\s*objects/i,
+                        /เลือก\s*.*วัตถุ.*(?:2|สอง).*เหมือนกัน/i,
+                        /เลือก\s*(?:2|สอง)\s*วัตถุ.*เหมือนกัน/i,
+                        /รูปทรงเดียวกัน/i,
+                        /สัญลักษณ์.*เหมือนกัน/i
+                    ];
+
+                    let hasSymbolInstruction = false;
+                    let matchedSymbolPrompt = '';
+                    for (const pat of symbolPatterns) {
+                        if (pat.test(docText)) {
+                            hasSymbolInstruction = true;
+                            const m = docText.match(pat);
+                            matchedSymbolPrompt = m ? m[0] : '';
+                            break;
+                        }
+                    }
+
+                    // Also search in all child elements for symbol prompt text
+                    if (!hasSymbolInstruction) {
+                        const textNodes = Array.from(doc.querySelectorAll('div, p, span, h1, h2, h3, h4, section, [role=""dialog""]'));
+                        for (const node of textNodes) {
+                            if (!isElementVisible(node)) continue;
+                            const nt = (node.innerText || node.textContent || '').trim();
+                            if (nt.length > 0 && nt.length < 250) {
+                                for (const pat of symbolPatterns) {
+                                    if (pat.test(nt)) {
+                                        hasSymbolInstruction = true;
+                                        matchedSymbolPrompt = nt;
+                                        break;
+                                    }
+                                }
+                                if (hasSymbolInstruction) break;
+                            }
+                        }
+                    }
+
+                    let symbolImg = doc.querySelector('#captcha-verify-image, img.captcha_verify_img_symbol, .captcha_verify_img--bg, canvas.captcha_verify_img--bg, img[class*=""symbol""], img[src*=""captcha""], img[alt*=""captcha"" i]');
+                    let submitBtn = doc.querySelector('.secsdk-captcha-submit-button, [class*=""secsdk-captcha-submit""], button[class*=""verify-btn""], button[type=""submit""], button[class*=""submit""], button[class*=""confirm""]');
+                    
+                    if (!submitBtn) {
+                        const allBtns = Array.from(doc.querySelectorAll('button, div[role=""button""], a[role=""button""]'));
+                        submitBtn = allBtns.find(b => {
+                            const bt = (b.innerText || b.textContent || '').trim().toLowerCase();
+                            return bt === 'confirm' || bt === 'ยืนยัน' || bt.includes('confirm');
+                        }) || null;
+                    }
+
+                    if (!symbolImg && hasSymbolInstruction) {
+                        // Candidate images inside document or modal
+                        const candidateImgs = Array.from(doc.querySelectorAll('img, canvas')).filter(el => {
+                            if (!isElementVisible(el)) return false;
+                            const r = el.getBoundingClientRect();
+                            return r.width >= 120 && r.height >= 80;
+                        });
+                        if (candidateImgs.length > 0) symbolImg = candidateImgs[0];
+                    }
+
                     let prompt = '';
                     const promptEl = doc.querySelector('.secsdk-captcha-label, .captcha_verify_label, [class*=""tip-wrapper""], [class*=""prompt""], [class*=""title""]');
                     if (promptEl && isElementVisible(promptEl)) prompt = (promptEl.textContent || '').trim();
+                    if (!prompt && matchedSymbolPrompt) prompt = matchedSymbolPrompt;
 
-                    if (symbolImg && isElementVisible(symbolImg) && (submitBtn || /select|click|same|object|symbol/i.test(prompt) || hasSymbolInstruction)) {
+                    const captchaContainer = doc.querySelector('[id*=""captcha"" i], [class*=""captcha"" i], [class*=""secsdk"" i], .tt-live-modalv2-wrapper, [role=""dialog""]');
+                    const hasVisibleContainer = !!(captchaContainer && isElementVisible(captchaContainer));
+                    const hasValidSymbolImg = !!(symbolImg && isElementVisible(symbolImg));
+                    const hasValidSubmitBtn = !!(submitBtn && isElementVisible(submitBtn));
+
+                    if ((hasSymbolInstruction && (hasValidSymbolImg || hasValidSubmitBtn || hasVisibleContainer)) ||
+                        (hasValidSymbolImg && (hasValidSubmitBtn || /same\s*shape|same\s*object|symbol/i.test(prompt)))) {
                         return {
                             type: 'Symbol',
                             typeDescription: 'เลือกสัญลักษณ์ 2 รูปที่เหมือนกัน (Symbol Captcha)',
-                            imageSrc: symbolImg.src || symbolImg.getAttribute('src') || '',
-                            promptText: prompt || (hasSymbolInstruction ? 'Select 2 same objects' : 'คลิกเลือกรูปภาพสัญลักษณ์ที่เหมือนกัน 2 รูปแล้วกดยืนยัน'),
-                            hasWidgetLoaded: true
+                            imageSrc: (symbolImg && (symbolImg.src || symbolImg.getAttribute('src'))) || '',
+                            promptText: prompt || 'Select 2 objects that are the same shape',
+                            hasWidgetLoaded: !!(hasValidSymbolImg || hasValidSubmitBtn)
                         };
                     }
 
@@ -1139,8 +1226,10 @@ public partial class CdpAutomationService
             var payload = new
             {
                 captchaId = captchaId,
-                status = isSuccess ? "VERIFIED_SUCCESS" : "REJECTED_BY_TIKTOK",
+                status = isSuccess ? "VERIFIED_SUCCESS" : "VERIFIED_FAILED",
+                feedbackText = feedback,
                 feedback = feedback,
+                elapsedSeconds = durationTotalSec,
                 durationTotalSec = durationTotalSec
             };
             using var req = new HttpRequestMessage(HttpMethod.Post, url)

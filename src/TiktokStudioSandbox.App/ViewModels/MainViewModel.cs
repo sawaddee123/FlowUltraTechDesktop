@@ -8,9 +8,12 @@ using System.Windows;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using TiktokStudioSandbox.App.Services;
+using TiktokStudioSandbox.App.Views;
 using TiktokStudioSandbox.Core;
 using TiktokStudioSandbox.Core.Interfaces;
 using TiktokStudioSandbox.Core.Models;
+using System.Net.Http;
+using System.Text.Json;
 using TiktokStudioSandbox.Core.Security;
 using TiktokStudioSandbox.Core.Services;
 
@@ -28,6 +31,8 @@ public partial class MainViewModel : ObservableObject
     private readonly ISlotLeaseClientService _slotLeaseService;
     private readonly IAuthClientService _authService;
     private readonly IRealtimeClientService _realtimeService;
+    private System.Windows.Threading.DispatcherTimer? _telemetryReportTimer;
+    private System.Windows.Threading.DispatcherTimer? _telemetryDebounceTimer;
 
     public AppSettings Settings { get; }
 
@@ -53,6 +58,9 @@ public partial class MainViewModel : ObservableObject
     public int TotalCaptchaAlertCount => Instances.Count(i => i.IsCaptchaAlertVisible);
     public bool HasAnyCaptchaAlert => Instances.Any(i => i.IsCaptchaAlertVisible);
     public string RunningStatusSummary => $"{RunningInstancesCount}/{Instances.Count} บัญชีทำงานอยู่";
+    public string AppVersionText => $"Sandbox v{AppConstants.CurrentVersion}";
+    public string CdpCoreVersionText => $"CDP Core v{AppConstants.CurrentVersion}";
+    public string WindowTitle => $"TikTok LIVE Studio - Sandbox v{AppConstants.CurrentVersion}";
 
     [ObservableProperty]
     private ObservableCollection<InstanceCardViewModel> _instances = new();
@@ -278,6 +286,7 @@ public partial class MainViewModel : ObservableObject
         _realtimeService.OnQuotaReduced += HandleRealtimeQuotaReduced;
         _realtimeService.OnLicenseKickout += HandleRealtimeLicenseKickout;
         _realtimeService.OnLicenseUpdated += HandleRealtimeLicenseUpdated;
+        _realtimeService.OnAppUpdateBroadcast += HandleRealtimeAppUpdateBroadcast;
 
         StudioExePath = Settings.TikTokStudioExePath;
         ProxifierExePath = Settings.ProxifierExePath;
@@ -316,6 +325,13 @@ public partial class MainViewModel : ObservableObject
             });
         }
 
+        // Check for latest/mandatory version on startup
+        _ = Task.Run(async () =>
+        {
+            await Task.Delay(2000);
+            await CheckLatestVersionOnStartupAsync();
+        });
+
         EnableTelegramAlert = Settings.EnableTelegramAlert;
         TelegramBotToken = Settings.TelegramBotToken ?? string.Empty;
         TelegramChatId = Settings.TelegramChatId ?? string.Empty;
@@ -344,6 +360,7 @@ public partial class MainViewModel : ObservableObject
         SelectedCaptchaInstance = Instances.FirstOrDefault();
         UpdateQuotaState();
         StartLicenseWatchdog();
+        StartTelemetryReporting();
 
         // Initialize HWID asynchronously to prevent blocking the UI thread during launch
         _ = Task.Run(async () =>
@@ -384,7 +401,122 @@ public partial class MainViewModel : ObservableObject
                 OnPropertyChanged(nameof(RunningStatusSummary));
                 UpdateQuotaState();
             }
+
+            if (e.PropertyName is nameof(InstanceCardViewModel.Status)
+                or nameof(InstanceCardViewModel.IsCaptchaAlertVisible)
+                or nameof(InstanceCardViewModel.IsSolvingCaptcha)
+                or nameof(InstanceCardViewModel.DetectedCaptchaTypeDescription)
+                or nameof(InstanceCardViewModel.DetectedCaptchaCountdown)
+                or nameof(InstanceCardViewModel.LoggedInNickname)
+                or nameof(InstanceCardViewModel.LoggedInDisplayId)
+                or nameof(InstanceCardViewModel.IsLoggedIn)
+                or nameof(InstanceCardViewModel.ActiveLeaseId))
+            {
+                TriggerInstanceReportDebounced();
+            }
         };
+    }
+
+    private void StartTelemetryReporting()
+    {
+        _telemetryReportTimer = new System.Windows.Threading.DispatcherTimer
+        {
+            Interval = TimeSpan.FromSeconds(10)
+        };
+        _telemetryReportTimer.Tick += (s, e) => SendInstancesTelemetryReport();
+        _telemetryReportTimer.Start();
+
+        var initTimer = new System.Windows.Threading.DispatcherTimer { Interval = TimeSpan.FromSeconds(2) };
+        initTimer.Tick += (s, e) =>
+        {
+            initTimer.Stop();
+            SendInstancesTelemetryReport();
+        };
+        initTimer.Start();
+    }
+
+    private void TriggerInstanceReportDebounced()
+    {
+        if (_telemetryDebounceTimer == null)
+        {
+            _telemetryDebounceTimer = new System.Windows.Threading.DispatcherTimer
+            {
+                Interval = TimeSpan.FromMilliseconds(500)
+            };
+            _telemetryDebounceTimer.Tick += (s, e) =>
+            {
+                _telemetryDebounceTimer.Stop();
+                SendInstancesTelemetryReport();
+            };
+        }
+        _telemetryDebounceTimer.Stop();
+        _telemetryDebounceTimer.Start();
+    }
+
+    public void SendInstancesTelemetryReport()
+    {
+        if (!_realtimeService.IsConnected)
+            return;
+
+        try
+        {
+            var instList = new System.Collections.Generic.List<object>();
+            foreach (var inst in Instances)
+            {
+                long uptimeSec = 0;
+                if (inst.Status == InstanceStatus.Running && inst.Profile.StartedAt.HasValue)
+                {
+                    uptimeSec = Math.Max(0, (long)(DateTime.UtcNow - inst.Profile.StartedAt.Value.ToUniversalTime()).TotalSeconds);
+                }
+
+                string proxyStr = "Direct";
+                if (inst.Profile.ProxyId.HasValue)
+                {
+                    var p = Proxies.FirstOrDefault(x => x.Id == inst.Profile.ProxyId.Value);
+                    if (p != null)
+                    {
+                        proxyStr = $"{p.Host}:{p.Port}";
+                    }
+                }
+
+                instList.Add(new
+                {
+                    name = inst.Name,
+                    profileFolderName = inst.ProfileFolderName,
+                    cdpPort = inst.Profile.CdpPort,
+                    status = inst.Status.ToString(),
+                    processId = inst.Profile.ProcessId,
+                    startedAt = inst.Profile.StartedAt?.ToString("o"),
+                    uptimeSeconds = uptimeSec,
+                    proxy = proxyStr,
+                    isLoggedIn = inst.IsLoggedIn,
+                    channelName = inst.LoggedInNickname ?? string.Empty,
+                    channelHandle = inst.LoggedInDisplayId ?? string.Empty,
+                    channelAvatar = inst.LoggedInAvatarUrl ?? string.Empty,
+                    activeLeaseId = inst.ActiveLeaseId ?? string.Empty,
+                    captcha = new
+                    {
+                        hasAlert = inst.IsCaptchaAlertVisible,
+                        isSolving = inst.IsSolvingCaptcha,
+                        typeDescription = inst.DetectedCaptchaTypeDescription,
+                        countdown = inst.DetectedCaptchaCountdown,
+                        lastDetectedTime = inst.LastCaptchaDetectedTime,
+                        count = inst.DetectedCaptchaCount
+                    }
+                });
+            }
+
+            var payload = new
+            {
+                appVersion = AppConstants.CurrentVersion,
+                hwid = CurrentMachineHwid,
+                hostname = Environment.MachineName,
+                instances = instList
+            };
+
+            _ = _realtimeService.ReportInstancesAsync(payload);
+        }
+        catch { }
     }
 
     [RelayCommand]
@@ -663,6 +795,27 @@ public partial class MainViewModel : ObservableObject
         await _storageService.SaveSettingsAsync(Settings);
         UpdateQuotaState();
         StatusNotification = "บันทึกการตั้งค่าทั้งหมดเรียบร้อยแล้ว";
+
+        if (!string.IsNullOrWhiteSpace(AuthToken))
+        {
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    var cloudDto = new CloudSettingsDto
+                    {
+                        TelegramBotToken = TelegramBotToken,
+                        TelegramChatId = TelegramChatId,
+                        AutoSolveDelaySeconds = AutoSolveDelaySeconds,
+                        CaptchaSoundVolume = CaptchaSoundVolume,
+                        AutoSaveCaptchaImage = AutoSaveCaptchaImage,
+                        Rules = Rules.ToList()
+                    };
+                    await _authService.SaveCloudSettingsAsync(AuthToken, cloudDto, AuthApiEndpoint);
+                }
+                catch { }
+            });
+        }
     }
 
     [RelayCommand]
@@ -707,6 +860,49 @@ public partial class MainViewModel : ObservableObject
             LoginErrorMessage = string.Empty;
             PasswordInput = string.Empty;
 
+            // Check application version requirement
+            if (res.AppVersion != null && !string.IsNullOrWhiteSpace(res.AppVersion.MinRequiredVersion))
+            {
+                var appVer = typeof(MainViewModel).Assembly.GetName().Version ?? new Version(0, 1, 0);
+                var currentVerStr = $"{appVer.Major}.{appVer.Minor}.{Math.Max(0, appVer.Build)}";
+                if (Version.TryParse(res.AppVersion.MinRequiredVersion.Trim().TrimStart('v', 'V'), out var minVer) && appVer < minVer)
+                {
+                    RunOnUi(() =>
+                    {
+                        MessageBox.Show(
+                            $"เวอร์ชันของโปรแกรมล้าสมัย (เวอร์ชันปัจจุบัน {currentVerStr} ต่ำกว่าขั้นต่ำ {res.AppVersion.MinRequiredVersion})\nกรุณาดาวน์โหลดเวอร์ชันใหม่ได้ที่:\n{res.AppVersion.DownloadUrl}",
+                            "โปรดอัปเดตโปรแกรม (Update Required)",
+                            MessageBoxButton.OK,
+                            MessageBoxImage.Warning
+                        );
+                    });
+                }
+            }
+
+            // Sync cloud settings & rules if available
+            if (res.Settings != null)
+            {
+                if (Rules.Count == 0 && res.Settings.Rules != null && res.Settings.Rules.Count > 0)
+                {
+                    foreach (var r in res.Settings.Rules)
+                    {
+                        Rules.Add(r);
+                    }
+                    Settings.Rules = Rules.ToList();
+                }
+
+                if (string.IsNullOrWhiteSpace(TelegramBotToken) && !string.IsNullOrWhiteSpace(res.Settings.TelegramBotToken))
+                {
+                    TelegramBotToken = res.Settings.TelegramBotToken;
+                    Settings.TelegramBotToken = TelegramBotToken;
+                }
+                if (string.IsNullOrWhiteSpace(TelegramChatId) && !string.IsNullOrWhiteSpace(res.Settings.TelegramChatId))
+                {
+                    TelegramChatId = res.Settings.TelegramChatId;
+                    Settings.TelegramChatId = TelegramChatId;
+                }
+            }
+
             await _storageService.SaveSettingsAsync(Settings);
             UpdateQuotaState();
             if (!string.IsNullOrWhiteSpace(res.AccessToken))
@@ -748,7 +944,23 @@ public partial class MainViewModel : ObservableObject
     public async Task RefreshLicenseAsync()
     {
         if (string.IsNullOrWhiteSpace(AuthToken)) return;
-        var res = await _authService.GetProfileAsync(AuthToken);
+        var res = await _authService.GetProfileAsync(AuthToken, AuthApiEndpoint);
+        if (!res.Success && !string.IsNullOrWhiteSpace(Settings.RefreshToken))
+        {
+            var refreshRes = await _authService.RefreshTokenAsync(Settings.RefreshToken, AuthApiEndpoint);
+            if (refreshRes.Success && !string.IsNullOrWhiteSpace(refreshRes.AccessToken))
+            {
+                AuthToken = refreshRes.AccessToken;
+                Settings.AuthToken = refreshRes.AccessToken;
+                if (!string.IsNullOrWhiteSpace(refreshRes.RefreshToken))
+                {
+                    Settings.RefreshToken = refreshRes.RefreshToken;
+                }
+                await _storageService.SaveSettingsAsync(Settings);
+                res = refreshRes;
+            }
+        }
+
         if (res.Success)
         {
             MaxTiktokAccounts = res.MaxTiktokAccounts;
@@ -813,9 +1025,36 @@ public partial class MainViewModel : ObservableObject
             var res = await _authService.GetProfileAsync(AuthToken, AuthApiEndpoint);
             if (!res.Success)
             {
-                if (res.Message.Contains("LICENSE_EXPIRED") || res.Message.Contains("หมดอายุ"))
+                // If token expired (e.g. 1h access token), try refreshing using refresh token first
+                if (!string.IsNullOrWhiteSpace(Settings.RefreshToken))
                 {
-                    await HandleLicenseExpiredKickoutAsync($"ใบอนุญาตของคุณหมดอายุแล้ว ({res.Message})\nระบบทำการปิดหน้าต่าง TikTok Studio ทั้งหมดและออกจากระบบทันที");
+                    var refreshRes = await _authService.RefreshTokenAsync(Settings.RefreshToken, AuthApiEndpoint);
+                    if (refreshRes.Success && !string.IsNullOrWhiteSpace(refreshRes.AccessToken))
+                    {
+                        AuthToken = refreshRes.AccessToken;
+                        Settings.AuthToken = refreshRes.AccessToken;
+                        if (!string.IsNullOrWhiteSpace(refreshRes.RefreshToken))
+                        {
+                            Settings.RefreshToken = refreshRes.RefreshToken;
+                        }
+                        await _storageService.SaveSettingsAsync(Settings);
+                        res = refreshRes;
+                    }
+                    else if (refreshRes.Message.Contains("LICENSE_EXPIRED") || refreshRes.Message.Contains("User inactive"))
+                    {
+                        await HandleLicenseExpiredKickoutAsync($"ใบอนุญาตของคุณหมดอายุแล้ว ({refreshRes.Message})\nระบบทำการปิดหน้าต่าง TikTok Studio ทั้งหมดและออกจากระบบทันที");
+                        return;
+                    }
+                }
+
+                if (!res.Success)
+                {
+                    if (res.Message.Contains("LICENSE_EXPIRED"))
+                    {
+                        await HandleLicenseExpiredKickoutAsync($"ใบอนุญาตของคุณหมดอายุแล้ว ({res.Message})\nระบบทำการปิดหน้าต่าง TikTok Studio ทั้งหมดและออกจากระบบทันที");
+                        return;
+                    }
+                    // Transient network or server error - do not kick out
                     return;
                 }
             }
@@ -888,6 +1127,17 @@ public partial class MainViewModel : ObservableObject
 
     private async Task HandleLicenseExpiredKickoutAsync(string message)
     {
+        if (!string.IsNullOrWhiteSpace(AuthToken))
+        {
+            _ = _authService.ReportSecurityEventAsync(
+                AuthToken,
+                "LICENSE_EXPIRED_KICKOUT",
+                message,
+                CurrentMachineHwid ?? string.Empty,
+                endpoint: AuthApiEndpoint
+            );
+        }
+
         RunOnUi(async () =>
         {
             StatusNotification = "ใบอนุญาตหมดอายุ กำลังปิดหน้าต่างและออกจากระบบ...";
@@ -961,6 +1211,16 @@ public partial class MainViewModel : ObservableObject
 
     private void HandleRealtimeLicenseKickout(object? sender, LicenseKickoutEventArgs e)
     {
+        if (!string.IsNullOrWhiteSpace(AuthToken))
+        {
+            _ = _authService.ReportSecurityEventAsync(
+                AuthToken,
+                "REALTIME_LICENSE_KICKOUT",
+                e.Reason,
+                CurrentMachineHwid ?? string.Empty,
+                endpoint: AuthApiEndpoint
+            );
+        }
         _ = HandleLicenseExpiredKickoutAsync($"บัญชีของคุณถูกระงับหรือสิ้นสุดการใช้งาน ({e.Reason})\nระบบทำการปิดหน้าต่าง TikTok Studio ทั้งหมดและออกจากระบบ");
     }
 
@@ -987,6 +1247,116 @@ public partial class MainViewModel : ObservableObject
             UpdateQuotaState();
             StatusNotification = "ได้รับการอัปเดตสิทธิ์ใบอนุญาตเรียบร้อยแล้ว";
         });
+    }
+
+    private void HandleRealtimeAppUpdateBroadcast(object? sender, AppUpdateEventArgs e)
+    {
+        RunOnUi(() =>
+        {
+            if (string.IsNullOrWhiteSpace(e.Version)) return;
+
+            string currentVerStr = AppConstants.CurrentVersion;
+            
+            // If already up-to-date and not below min required version, NEVER PROMPT!
+            if (!VersionHelper.ShouldPromptUpdate(e.Version, e.MinRequiredVersion, currentVerStr, e.IsMandatory))
+            {
+                return;
+            }
+
+            bool isBelowMin = VersionHelper.IsVersionBelowMin(e.MinRequiredVersion, currentVerStr);
+            bool forceUpdate = e.IsMandatory || isBelowMin;
+
+            string targetUrl = e.DownloadUrl;
+            if (string.IsNullOrWhiteSpace(targetUrl))
+            {
+                targetUrl = $"{AppConstants.DefaultServerEndpoint.TrimEnd('/')}/api/v1/app/download";
+            }
+            else if (targetUrl.StartsWith("/"))
+            {
+                targetUrl = $"{AppConstants.DefaultServerEndpoint.TrimEnd('/')}{targetUrl}";
+            }
+
+            var dialog = new UpdateDialog(
+                currentVersion: currentVerStr,
+                newVersion: e.Version,
+                title: e.Title ?? string.Empty,
+                description: e.Description ?? string.Empty,
+                isMandatory: forceUpdate,
+                downloadUrl: targetUrl
+            );
+
+            bool? result = dialog.ShowDialog();
+
+            if (result == true)
+            {
+                try
+                {
+                    System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+                    {
+                        FileName = targetUrl,
+                        UseShellExecute = true
+                    });
+                }
+                catch (Exception ex)
+                {
+                    StatusNotification = $"เปิดลิงก์ดาวน์โหลดไม่สำเร็จ: {ex.Message}";
+                }
+
+                if (forceUpdate)
+                {
+                    Application.Current?.Shutdown();
+                }
+            }
+            else if (forceUpdate)
+            {
+                Application.Current?.Shutdown();
+            }
+        });
+    }
+
+    public async Task CheckLatestVersionOnStartupAsync()
+    {
+        try
+        {
+            using var httpClient = new HttpClient { Timeout = TimeSpan.FromSeconds(6) };
+            string url = $"{AppConstants.DefaultServerEndpoint.TrimEnd('/')}/api/v1/app/latest-release";
+            var resp = await httpClient.GetAsync(url);
+            if (!resp.IsSuccessStatusCode) return;
+
+            string json = await resp.Content.ReadAsStringAsync();
+            using var doc = JsonDocument.Parse(json);
+            JsonElement root = doc.RootElement;
+            JsonElement data = root;
+            if (root.TryGetProperty("data", out var dProp) && dProp.ValueKind == JsonValueKind.Object)
+            {
+                data = dProp;
+            }
+            else if (root.TryGetProperty("release", out var rProp) && rProp.ValueKind == JsonValueKind.Object)
+            {
+                data = rProp;
+            }
+
+            string ver = data.TryGetProperty("version", out var v) && v.ValueKind == JsonValueKind.String ? v.GetString() ?? "" : "";
+            string minVer = data.TryGetProperty("minRequiredVersion", out var mv) && mv.ValueKind == JsonValueKind.String ? mv.GetString() ?? "" : "";
+            string title = data.TryGetProperty("title", out var t) && t.ValueKind == JsonValueKind.String ? t.GetString() ?? "" : "";
+            string desc = data.TryGetProperty("description", out var ds) && ds.ValueKind == JsonValueKind.String ? ds.GetString() ?? "" : "";
+            string dlUrl = data.TryGetProperty("downloadUrl", out var du) && du.ValueKind == JsonValueKind.String ? du.GetString() ?? "" : "";
+            bool isMandatory = data.TryGetProperty("isMandatory", out var im) && (im.ValueKind == JsonValueKind.True || (im.ValueKind == JsonValueKind.String && im.GetString() == "true"));
+
+            if (!string.IsNullOrWhiteSpace(ver))
+            {
+                HandleRealtimeAppUpdateBroadcast(this, new AppUpdateEventArgs
+                {
+                    Version = ver,
+                    MinRequiredVersion = minVer,
+                    Title = title,
+                    Description = desc,
+                    DownloadUrl = dlUrl,
+                    IsMandatory = isMandatory
+                });
+            }
+        }
+        catch { }
     }
 
     private void RunOnUi(Action action)

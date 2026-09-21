@@ -12,6 +12,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using TiktokStudioSandbox.Core.Interfaces;
 using TiktokStudioSandbox.Core.Models;
+using TiktokStudioSandbox.Core.Security;
 using TiktokStudioSandbox.Core.Services;
 
 namespace TiktokStudioSandbox.App.ViewModels;
@@ -119,6 +120,9 @@ public partial class InstanceCardViewModel : ObservableObject
     private InstanceLaunchMode _launchMode;
 
     [ObservableProperty]
+    private string? _activeLeaseId;
+
+    [ObservableProperty]
     private string _testChatMessage = "สวัสดีครับจากระบบทดสอบ!";
 
     [ObservableProperty]
@@ -149,6 +153,7 @@ public partial class InstanceCardViewModel : ObservableObject
     public bool IsNotRunning => Status != InstanceStatus.Running;
     public bool IsStopped => Status == InstanceStatus.Stopped;
     public bool IsStarting => Status == InstanceStatus.Starting;
+    public bool IsRunningOrStarting => IsRunning || IsStarting;
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(CanStart))]
@@ -162,7 +167,7 @@ public partial class InstanceCardViewModel : ObservableObject
         get
         {
             if (IsRunning) return "หน้าต่างกำลังทำงานอยู่แล้ว";
-            if (IsStarting) return "กำลังเริ่มต้นทำงาน...";
+            if (IsStarting) return "กำลังเริ่มต้นทำงาน... (สามารถกดปุ่มหยุดเพื่อยกเลิกได้)";
             if (IsQuotaReached) return "เปิดครบโควต้าสูงสุดแล้ว (Quota Reached)";
             return "เริ่มเปิดใช้งาน TikTok Studio";
         }
@@ -170,6 +175,7 @@ public partial class InstanceCardViewModel : ObservableObject
 
     public Visibility DetailVisibility => IsDetailOpen ? Visibility.Visible : Visibility.Collapsed;
     public Visibility RunningVisibility => IsRunning ? Visibility.Visible : Visibility.Collapsed;
+    public Visibility RunningOrStartingVisibility => IsRunningOrStarting ? Visibility.Visible : Visibility.Collapsed;
     public Visibility NotRunningVisibility => IsNotRunning ? Visibility.Visible : Visibility.Collapsed;
     public Visibility ErrorVisibility => HasError ? Visibility.Visible : Visibility.Collapsed;
 
@@ -313,6 +319,15 @@ public partial class InstanceCardViewModel : ObservableObject
         _name = profile.Name;
         _profileFolderName = profile.ProfileFolderName;
         _cdpPort = profile.CdpPort;
+
+        // Startup sanitization: Starting can NEVER be valid on initial app launch
+        if (profile.Status == InstanceStatus.Starting)
+        {
+            profile.Status = InstanceStatus.Stopped;
+            profile.StatusMessage = "Stopped";
+            profile.ProcessId = null;
+        }
+
         _status = profile.Status;
         _statusMessage = profile.StatusMessage;
         _isWindowHidden = profile.IsWindowHidden;
@@ -358,6 +373,23 @@ public partial class InstanceCardViewModel : ObservableObject
                             Profile.StatusMessage = $"Running on port {Profile.CdpPort}";
                             SyncFromProfile();
                             await StartAutoMonitoringAsync();
+                        });
+                    }
+                }
+                else
+                {
+                    // If no process is listening on this CDP port, ensure it is NOT shown as Running or Starting!
+                    if (Application.Current != null)
+                    {
+                        await Application.Current.Dispatcher.InvokeAsync(() =>
+                        {
+                            if (Profile.Status != InstanceStatus.Stopped)
+                            {
+                                Profile.Status = InstanceStatus.Stopped;
+                                Profile.ProcessId = null;
+                                Profile.StatusMessage = "Stopped";
+                                SyncFromProfile();
+                            }
                         });
                     }
                 }
@@ -413,13 +445,79 @@ public partial class InstanceCardViewModel : ObservableObject
             return;
         }
 
+        // Acquire slot lease if auth token exists
+        if (!string.IsNullOrWhiteSpace(_settings.AuthToken))
+        {
+            try
+            {
+                string hwid = DeepHwidGenerator.GenerateDeepHwid();
+                var leaseResult = await _slotLeaseService.AcquireSlotAsync(
+                    ProfileFolderName,
+                    hwid,
+                    _settings.AuthToken,
+                    _settings.AuthApiEndpoint);
+
+                if (leaseResult.Success && !string.IsNullOrWhiteSpace(leaseResult.LeaseId))
+                {
+                    ActiveLeaseId = leaseResult.LeaseId;
+                    _slotLeaseService.RegisterActiveLease(
+                        leaseResult.LeaseId,
+                        ProfileFolderName,
+                        hwid,
+                        _settings.AuthToken,
+                        onWatchdogTriggered: () =>
+                        {
+                            AppendConsole($"[{DateTime.Now:HH:mm:ss}] ⚠️ Slot lease watchdog triggered for '{Name}'. Stopping instance.");
+                            _ = StopAsync();
+                        });
+                    _slotLeaseService.StartHeartbeatTimer();
+                    Logger.Info("Lease", $"Acquired slot lease {ActiveLeaseId} for '{Name}'");
+                }
+                else if (!leaseResult.Success && (leaseResult.Message?.Contains("QUOTA_EXCEEDED") == true || leaseResult.Message?.Contains("โควต้า") == true))
+                {
+                    StatusMessage = $"ไม่สามารถเริ่มได้: โควต้าจำนวนหน้าต่างเต็ม ({leaseResult.Message})";
+                    AppendConsole($"[{DateTime.Now:HH:mm:ss}] ❌ เริ่มหน้าต่างไม่สำเร็จ: โควต้าหน้าต่างเต็ม");
+                    return;
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Warn("Lease", $"Slot lease acquisition error: {ex.Message}");
+            }
+        }
+
+        Profile.IsWindowHidden = false;
         StatusMessage = "กำลังเริ่มโปรแกรม...";
         SyncFromProfile();
         StartLoginWatcher(autoClose: false);
+
+        // Safety timeout watchdog: Ensure instance NEVER hangs in Starting forever
+        _ = Task.Run(async () =>
+        {
+            await Task.Delay(25000);
+            if (Profile.Status == InstanceStatus.Starting)
+            {
+                if (Application.Current != null)
+                {
+                    await Application.Current.Dispatcher.InvokeAsync(async () =>
+                    {
+                        if (Profile.Status == InstanceStatus.Starting)
+                        {
+                            Logger.Warn("Instance", $"Instance '{Name}' launch timed out after 25s. Auto-recovering to Stopped state.");
+                            await StopAsync();
+                            StatusMessage = "การเริ่มโปรแกรมใช้เวลานานเกินกำหนด (Timeout 25s) - รีเซ็ตสถานะแล้ว";
+                            SyncFromProfile();
+                        }
+                    });
+                }
+            }
+        });
+
         bool ok = await _orchestrator.StartInstanceAsync(Profile, _settings);
         SyncFromProfile();
         if (ok)
         {
+            Profile.IsWindowHidden = false;
             _orchestrator.ShowWindow(Profile);
             SyncFromProfile();
             AppendConsole($"[{DateTime.Now:HH:mm:ss}] 🚀 หน้าต่างเริ่มทำงานแล้ว (CDP Port: {CdpPort}) - เริ่มระบบ Auto Monitor ทันที");
@@ -427,6 +525,25 @@ public partial class InstanceCardViewModel : ObservableObject
         }
         else
         {
+            // If launch failed, ensure Status is never left in Starting
+            if (Profile.Status == InstanceStatus.Starting)
+            {
+                Profile.Status = InstanceStatus.Stopped;
+            }
+            SyncFromProfile();
+
+            // Release lease if launch failed
+            if (!string.IsNullOrWhiteSpace(ActiveLeaseId))
+            {
+                try
+                {
+                    string leaseToRelease = ActiveLeaseId;
+                    ActiveLeaseId = null;
+                    _slotLeaseService.UnregisterActiveLease(leaseToRelease);
+                    await _slotLeaseService.ReleaseSlotAsync(leaseToRelease, _settings.AuthToken, _settings.AuthApiEndpoint);
+                }
+                catch { }
+            }
             AppendConsole($"[{DateTime.Now:HH:mm:ss}] ❌ เริ่มหน้าต่างไม่สำเร็จ: {StatusMessage}");
         }
     }
@@ -436,6 +553,24 @@ public partial class InstanceCardViewModel : ObservableObject
     {
         Logger.Info("Instance", $"Stop command triggered for '{Name}'");
         StatusMessage = "กำลังปิดโปรแกรม...";
+
+        // Release slot lease
+        if (!string.IsNullOrWhiteSpace(ActiveLeaseId))
+        {
+            try
+            {
+                string leaseToRelease = ActiveLeaseId;
+                ActiveLeaseId = null;
+                _slotLeaseService.UnregisterActiveLease(leaseToRelease);
+                await _slotLeaseService.ReleaseSlotAsync(leaseToRelease, _settings.AuthToken, _settings.AuthApiEndpoint);
+                Logger.Info("Lease", $"Released slot lease {leaseToRelease} for '{Name}'");
+            }
+            catch (Exception ex)
+            {
+                Logger.Warn("Lease", $"Failed to release slot lease: {ex.Message}");
+            }
+        }
+
         _profileWatcherSub?.Dispose();
         _profileWatcherSub = null;
         if (IsNetworkHooking)
@@ -444,14 +579,14 @@ public partial class InstanceCardViewModel : ObservableObject
         }
         _storageRefreshTimer?.Stop();
         _captchaDetectTimer?.Stop();
-        if (!IsLiveChatMonitoring)
-        {
-            _chatMonitorTimer?.Stop();
-        }
+        _chatMonitorTimer?.Stop();
+        IsLiveChatMonitoring = false;
         IsCaptchaAlertVisible = false;
         _lastReportedCaptchaHtml = null;
-        SyncFromProfile();
         await _orchestrator.StopInstanceAsync(Profile);
+        Profile.Status = InstanceStatus.Stopped;
+        Profile.ProcessId = null;
+        Profile.StatusMessage = "Stopped";
         SyncFromProfile();
         AppendConsole($"[{DateTime.Now:HH:mm:ss}] ⏹️ หน้าต่างหยุดทำงานแล้ว");
     }
@@ -756,6 +891,7 @@ public partial class InstanceCardViewModel : ObservableObject
 
         if (IsRunning)
         {
+            Profile.IsWindowHidden = false;
             _orchestrator.ShowWindow(Profile);
             SyncFromProfile();
             StartLoginWatcher(autoClose: true);
@@ -764,8 +900,31 @@ public partial class InstanceCardViewModel : ObservableObject
             return;
         }
 
+        Profile.IsWindowHidden = false;
         StatusMessage = "กำลังเปิดหน้าต่าง TikTok LIVE Studio เพื่อให้คุณล็อกอินตามปกติ...";
         StartLoginWatcher(autoClose: true);
+
+        // Safety timeout watchdog: Ensure instance NEVER hangs in Starting forever during login
+        _ = Task.Run(async () =>
+        {
+            await Task.Delay(25000);
+            if (Profile.Status == InstanceStatus.Starting)
+            {
+                if (Application.Current != null)
+                {
+                    await Application.Current.Dispatcher.InvokeAsync(async () =>
+                    {
+                        if (Profile.Status == InstanceStatus.Starting)
+                        {
+                            Logger.Warn("Login", $"Login launch for '{Name}' timed out after 25s. Auto-recovering to Stopped state.");
+                            await StopAsync();
+                            StatusMessage = "การเปิดหน้าต่างเข้าสู่ระบบใช้เวลานานเกินกำหนด (Timeout 25s) - รีเซ็ตสถานะแล้ว";
+                            SyncFromProfile();
+                        }
+                    });
+                }
+            }
+        });
 
         var loginSettings = new AppSettings
         {
@@ -781,6 +940,7 @@ public partial class InstanceCardViewModel : ObservableObject
 
         if (ok)
         {
+            Profile.IsWindowHidden = false;
             _orchestrator.ShowWindow(Profile);
             SyncFromProfile();
             StatusMessage = "เปิด TikTok LIVE Studio เรียบร้อย! กรุณาสแกน QR Code หรือเข้าสู่ระบบบนหน้าจอ (ระบบจะบันทึกโปรไฟล์และปิดสตูดิโอให้อัตโนมัติ)";
@@ -789,6 +949,11 @@ public partial class InstanceCardViewModel : ObservableObject
         }
         else
         {
+            if (Profile.Status == InstanceStatus.Starting)
+            {
+                Profile.Status = InstanceStatus.Stopped;
+            }
+            SyncFromProfile();
             StatusMessage = "ไม่สามารถเปิด TikTok LIVE Studio ได้ (โปรดตรวจดูว่าปิดโปรแกรมเดิมอยู่หรือไม่)";
             Logger.Error("Login", "Failed to launch TikTok LIVE Studio for login.");
         }

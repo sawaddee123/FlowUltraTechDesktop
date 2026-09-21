@@ -35,6 +35,16 @@ public class ProcessLauncher : IProcessLauncher
         var logger = _logManager.GetLogger(instance);
         logger.Info("Process", $"Request to launch TikTok LIVE Studio (Port: {instance.CdpPort}, Mode: {instance.LaunchMode}, UltraLight: {ultraLight})");
 
+        var assignedProxy = settings.Proxies?.FirstOrDefault(p => p.Id == instance.ProxyId);
+        if (assignedProxy != null)
+        {
+            logger.Info("Network", $"Instance is configured with Proxy: '{assignedProxy.Name}' ({assignedProxy.Protocol} {assignedProxy.Host}:{assignedProxy.Port}, Username='{assignedProxy.Username}')");
+        }
+        else
+        {
+            logger.Info("Network", "Instance is configured with Direct Connection (No Proxy assigned).");
+        }
+
         if (IsInstanceRunning(instance))
         {
             int? existingPid = instance.ProcessId ?? GetPidListeningOnPort(instance.CdpPort);
@@ -173,16 +183,34 @@ public class ProcessLauncher : IProcessLauncher
             instance.IsWindowHidden = ultraLight;
 
             int? detectedPortPid = null;
-            // Wait and poll for CDP port to open
-            for (int i = 0; i < 10; i++)
+            // Wait and poll for CDP port to open (up to 15 seconds)
+            for (int i = 0; i < 30; i++)
             {
                 await Task.Delay(500);
                 int? portPid = GetPidListeningOnPort(instance.CdpPort);
                 if (portPid.HasValue)
                 {
                     detectedPortPid = portPid.Value;
-                    logger.Info("Process", $"CDP port {instance.CdpPort} is responding! Listening PID: {detectedPortPid.Value}");
+                    logger.Info("Process", $"CDP port {instance.CdpPort} is responding! Listening PID: {detectedPortPid.Value} (took {(i + 1) * 0.5:F1}s)");
                     break;
+                }
+
+                if ((i + 1) % 6 == 0 && i < 29)
+                {
+                    logger.Debug("Process", $"Waiting for CDP port {instance.CdpPort} to respond... ({(i + 1) * 0.5:F0}s elapsed)");
+                }
+            }
+
+            if (!detectedPortPid.HasValue)
+            {
+                logger.Warn("Process", $"CDP port {instance.CdpPort} did not respond within 15 seconds. Application may still be initializing or network latency is high.");
+                if (process.HasExited)
+                {
+                    logger.Error("Process", $"Process (PID: {process.Id}) exited prematurely with code {process.ExitCode}. Launch failed.");
+                    instance.Status = InstanceStatus.Error;
+                    instance.StatusMessage = $"Process exited with code {process.ExitCode}";
+                    instance.ProcessId = null;
+                    return null;
                 }
             }
 
@@ -190,11 +218,17 @@ public class ProcessLauncher : IProcessLauncher
             if (!process.HasExited)
             {
                 instance.ProcessId = process.Id;
+                logger.Debug("Process", $"Assigned root PID {process.Id} from spawned process.");
             }
             else if (detectedPortPid.HasValue)
             {
                 var (rootPid, _) = ProcessTreeHelper.GetProcessTree(detectedPortPid.Value);
                 instance.ProcessId = rootPid > 0 ? rootPid : detectedPortPid.Value;
+                logger.Debug("Process", $"Spawned process exited; resolved root PID {instance.ProcessId} from CDP listening PID {detectedPortPid.Value}.");
+            }
+            else
+            {
+                logger.Warn("Process", $"Could not determine active ProcessId for port {instance.CdpPort}.");
             }
 
             if (ultraLight && instance.ProcessId.HasValue)

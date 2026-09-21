@@ -118,14 +118,14 @@ public class SlotLeaseClientServiceTests
     }
 
     [Fact]
-    public async Task Watchdog_WhenHeartbeatFailsConsecutively_TriggersCallbackAndRemovesLease()
+    public async Task Watchdog_WhenHeartbeatFailsWithUnauthorized_TriggersCallbackAndRemovesLease()
     {
-        // Fail every heartbeat
+        // Explicit 401 Unauthorized revocation
         var mockHandler = new MockHttpMessageHandler(req =>
         {
-            return new HttpResponseMessage(HttpStatusCode.ServiceUnavailable)
+            return new HttpResponseMessage(HttpStatusCode.Unauthorized)
             {
-                Content = new StringContent("{\"error\":\"Server Offline\"}")
+                Content = new StringContent("{\"error\":\"Unauthorized or license revoked\"}")
             };
         });
 
@@ -141,9 +141,6 @@ public class SlotLeaseClientServiceTests
         var lease = service.GetLease("lease_expiring");
         Assert.NotNull(lease);
 
-        // Simulate 2 previous failures, this next failure will be the 3rd
-        lease.ConsecutiveFailures = 2;
-
         await service.RunHeartbeatAndWatchdogCycleAsync();
 
         Assert.True(watchdogTriggered);
@@ -151,7 +148,7 @@ public class SlotLeaseClientServiceTests
     }
 
     [Fact]
-    public async Task Watchdog_WhenLastSuccessfulHeartbeatOlderThan60s_TriggersCallback()
+    public async Task Watchdog_WhenLastSuccessfulHeartbeatExceedsGracePeriod_TriggersCallback()
     {
         var mockHandler = new MockHttpMessageHandler(req =>
         {
@@ -159,7 +156,10 @@ public class SlotLeaseClientServiceTests
         });
 
         using var client = new HttpClient(mockHandler);
-        using var service = new SlotLeaseClientService(client, "http://127.0.0.1:3006");
+        using var service = new SlotLeaseClientService(client, "http://127.0.0.1:3006")
+        {
+            OfflineDowntimeGracePeriod = TimeSpan.FromSeconds(60)
+        };
 
         bool watchdogTriggered = false;
         service.RegisterActiveLease("lease_timeout", "Acc02", "hwid-2", "token-2", () =>
@@ -170,13 +170,52 @@ public class SlotLeaseClientServiceTests
         var lease = service.GetLease("lease_timeout");
         Assert.NotNull(lease);
 
-        // Simulate last heartbeat was 65 seconds ago
+        // Simulate last heartbeat was 65 seconds ago (exceeding 60s grace period)
         lease.LastSuccessfulHeartbeat = DateTime.UtcNow.AddSeconds(-65);
 
         await service.RunHeartbeatAndWatchdogCycleAsync();
 
         Assert.True(watchdogTriggered);
         Assert.Null(service.GetLease("lease_timeout"));
+    }
+
+    [Fact]
+    public async Task Watchdog_WhenServerRedeploying_WithinGracePeriod_DoesNotKillStream()
+    {
+        // Server redeploying (503 Service Unavailable / 502 Bad Gateway)
+        var mockHandler = new MockHttpMessageHandler(req =>
+        {
+            return new HttpResponseMessage(HttpStatusCode.ServiceUnavailable)
+            {
+                Content = new StringContent("{\"error\":\"Deploying new version\"}")
+            };
+        });
+
+        using var client = new HttpClient(mockHandler);
+        using var service = new SlotLeaseClientService(client, "http://127.0.0.1:3006")
+        {
+            OfflineDowntimeGracePeriod = TimeSpan.FromMinutes(10)
+        };
+
+        bool watchdogTriggered = false;
+        service.RegisterActiveLease("lease_redeploy", "Acc03", "hwid-3", "token-3", () =>
+        {
+            watchdogTriggered = true;
+        });
+
+        var lease = service.GetLease("lease_redeploy");
+        Assert.NotNull(lease);
+
+        // 3 consecutive failures during server restart (e.g. 75 seconds of restart)
+        lease.ConsecutiveFailures = 2;
+        lease.LastSuccessfulHeartbeat = DateTime.UtcNow.AddSeconds(-75);
+
+        await service.RunHeartbeatAndWatchdogCycleAsync();
+
+        // Must NOT trigger watchdog or kill live stream!
+        Assert.False(watchdogTriggered);
+        Assert.NotNull(service.GetLease("lease_redeploy"));
+        Assert.Equal(3, lease.ConsecutiveFailures);
     }
 
     private class MockRealtimeClientService : TiktokStudioSandbox.Core.Interfaces.IRealtimeClientService
@@ -186,6 +225,7 @@ public class SlotLeaseClientServiceTests
         public event EventHandler<TiktokStudioSandbox.Core.Interfaces.QuotaReducedEventArgs>? OnQuotaReduced;
         public event EventHandler<TiktokStudioSandbox.Core.Interfaces.LicenseKickoutEventArgs>? OnLicenseKickout;
         public event EventHandler<TiktokStudioSandbox.Core.Interfaces.LicenseUpdateEventArgs>? OnLicenseUpdated;
+        public event EventHandler<TiktokStudioSandbox.Core.Interfaces.AppUpdateEventArgs>? OnAppUpdateBroadcast;
 #pragma warning restore CS0067
 
         public Func<string, string, Task<SlotHeartbeatResult>>? OnSendSlotHeartbeat { get; set; }
@@ -198,6 +238,8 @@ public class SlotLeaseClientServiceTests
             if (OnSendSlotHeartbeat != null) return OnSendSlotHeartbeat(leaseId, hwid);
             return Task.FromResult(new SlotHeartbeatResult { Success = true, StatusCode = 200 });
         }
+
+        public Task ReportInstancesAsync(object payload) => Task.CompletedTask;
 
         public void Dispose() { }
     }

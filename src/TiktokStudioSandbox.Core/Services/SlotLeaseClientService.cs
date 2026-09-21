@@ -23,6 +23,7 @@ public class SlotLeaseClientService : ISlotLeaseClientService
 
     public string DefaultBaseEndpoint { get; set; } = AppConstants.DefaultServerEndpoint;
     public IRealtimeClientService? RealtimeService { get; set; }
+    public TimeSpan OfflineDowntimeGracePeriod { get; set; } = TimeSpan.FromMinutes(10);
 
     public IReadOnlyDictionary<string, ActiveSlotLease> ActiveLeases => _activeLeases;
 
@@ -337,19 +338,45 @@ public class SlotLeaseClientService : ISlotLeaseClientService
                 {
                     lease.ConsecutiveFailures++;
 
-                    // Immediate termination if lease was revoked (quota reduced), license expired, or forbidden
-                    if (res.StatusCode == 403 || res.StatusCode == 404 || res.StatusCode == 401 || res.IsRevoked || res.IsExpired)
+                    // 1. Explicit Administrative Revocation, Account Inactive, or License Expired
+                    if (res.IsRevoked || res.StatusCode == 401 || res.StatusCode == 403 || res.IsExpired)
                     {
                         expiredOrViolated.Add(lease);
                         continue;
                     }
-                }
 
-                // Watchdog condition: missing keep-alive > 60s OR 3 consecutive failures
-                var elapsedSinceSuccess = now - lease.LastSuccessfulHeartbeat;
-                if (elapsedSinceSuccess > TimeSpan.FromSeconds(60) || lease.ConsecutiveFailures >= 3)
-                {
-                    expiredOrViolated.Add(lease);
+                    // 2. Lease Not Found (404) - Server may have restarted/reloaded and lost in-memory lease
+                    // Perform silent auto-recovery via AcquireSlotAsync before giving up
+                    if (res.StatusCode == 404 && !string.IsNullOrWhiteSpace(lease.AuthToken))
+                    {
+                        try
+                        {
+                            var reacquire = await AcquireSlotAsync(lease.ProfileFolderName, lease.Hwid, lease.AuthToken);
+                            if (reacquire.Success && !string.IsNullOrWhiteSpace(reacquire.LeaseId))
+                            {
+                                string oldId = lease.LeaseId;
+                                _activeLeases.TryRemove(oldId, out _);
+                                lease.LeaseId = reacquire.LeaseId;
+                                lease.LastSuccessfulHeartbeat = DateTime.UtcNow;
+                                lease.ConsecutiveFailures = 0;
+                                _activeLeases[lease.LeaseId] = lease;
+                                continue;
+                            }
+                        }
+                        catch { }
+
+                        expiredOrViolated.Add(lease);
+                        continue;
+                    }
+
+                    // 3. Transient Network or Server-Down Errors (StatusCode == 0 or >= 500)
+                    // The server is likely redeploying or restarting. DO NOT terminate TikTok Studio!
+                    // Live streamers are broadcasting directly to TikTok. Allow OfflineDowntimeGracePeriod.
+                    var elapsedSinceSuccess = now - lease.LastSuccessfulHeartbeat;
+                    if (elapsedSinceSuccess > OfflineDowntimeGracePeriod)
+                    {
+                        expiredOrViolated.Add(lease);
+                    }
                 }
             }
 

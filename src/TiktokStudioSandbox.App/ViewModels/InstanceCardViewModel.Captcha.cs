@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Diagnostics;
@@ -10,6 +10,7 @@ using System.Windows;
 using System.Windows.Data;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using TiktokStudioSandbox.App.Services;
 using TiktokStudioSandbox.Core.Interfaces;
 using TiktokStudioSandbox.Core.Models;
 using TiktokStudioSandbox.Core.Services;
@@ -23,6 +24,7 @@ public partial class InstanceCardViewModel : ObservableObject
     // ==========================================
     private System.Windows.Threading.DispatcherTimer? _captchaDetectTimer;
     private string? _lastReportedCaptchaHtml;
+    private int _autoCaptchaScanCount;
 
     [ObservableProperty]
     private bool _isCaptchaAutoDetect = true;
@@ -75,6 +77,67 @@ public partial class InstanceCardViewModel : ObservableObject
     [ObservableProperty]
     private string _sessionFetchStatus = string.Empty;
 
+    // ==========================================
+    // 🧩 Captcha Solver & Image Properties
+    // ==========================================
+    [ObservableProperty]
+    private bool _isAutoSolveCaptcha = true;
+
+    [ObservableProperty]
+    private bool _isSolvingCaptcha;
+
+    public bool CanSolveCaptcha => IsRunning && !IsSolvingCaptcha;
+
+    [ObservableProperty]
+    private string _detectedCaptchaTypeDescription = "-";
+
+    [ObservableProperty]
+    private string _detectedCaptchaCountdown = "00:00";
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(CaptchaImageSource))]
+    [NotifyPropertyChangedFor(nameof(HasDirectImage))]
+    [NotifyPropertyChangedFor(nameof(HasCaptchaImage))]
+    private System.Windows.Media.ImageSource? _directCaptchaImageSource;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(CaptchaImageSource))]
+    [NotifyPropertyChangedFor(nameof(HasCroppedImage))]
+    [NotifyPropertyChangedFor(nameof(HasCaptchaImage))]
+    private System.Windows.Media.ImageSource? _croppedCaptchaImageSource;
+
+    public System.Windows.Media.ImageSource? CaptchaImageSource => DirectCaptchaImageSource ?? CroppedCaptchaImageSource;
+
+    public bool HasDirectImage => DirectCaptchaImageSource != null;
+    public bool HasCroppedImage => CroppedCaptchaImageSource != null;
+    public bool HasCaptchaImage => HasDirectImage || HasCroppedImage;
+
+    private CaptchaDetectionResult? _lastDetectionResult;
+
+    partial void OnIsSolvingCaptchaChanged(bool value)
+    {
+        OnPropertyChanged(nameof(CanSolveCaptcha));
+    }
+
+    private static System.Windows.Media.Imaging.BitmapImage? ToBitmapImage(byte[]? bytes)
+    {
+        if (bytes == null || bytes.Length == 0) return null;
+        try
+        {
+            using var ms = new MemoryStream(bytes);
+            var bmp = new System.Windows.Media.Imaging.BitmapImage();
+            bmp.BeginInit();
+            bmp.CacheOption = System.Windows.Media.Imaging.BitmapCacheOption.OnLoad;
+            bmp.StreamSource = ms;
+            bmp.EndInit();
+            bmp.Freeze();
+            return bmp;
+        }
+        catch
+        {
+            return null;
+        }
+    }
 
     private void EnsureCaptchaTimer()
     {
@@ -125,18 +188,31 @@ public partial class InstanceCardViewModel : ObservableObject
 
         try
         {
+            var sw = System.Diagnostics.Stopwatch.StartNew();
             var result = await _cdpService.DetectCaptchaElementsAsync(CdpPort);
+            sw.Stop();
+            if (isAuto) _autoCaptchaScanCount++;
 
             // Real Captcha Active on Screen
             if (result.IsActive)
             {
+                Logger.Info("Captcha", $"[Auto-Detect] Active captcha detected on '{Name}' in {sw.ElapsedMilliseconds}ms: {result.TypeDescription}");
+                _lastDetectionResult = result;
                 DetectedCaptchaHtml = result.CombinedHtml;
                 DetectedCaptchaCount = result.Elements.Count;
                 LastCaptchaDetectedTime = DateTime.Now.ToString("HH:mm:ss");
+                DetectedCaptchaTypeDescription = result.TypeDescription;
+                DetectedCaptchaCountdown = !string.IsNullOrEmpty(result.CountdownText) ? result.CountdownText : "N/A";
                 CaptchaAlertTitle = $"🚨 ตรวจพบ Captcha จริง! ({result.TypeDescription})";
                 CaptchaAlertMessage = $"พบ Captcha กำลังแสดงผล: {result.TypeDescription}" + 
                     (!string.IsNullOrEmpty(result.CountdownText) ? $" | เหลือเวลา: {result.CountdownText}" : "");
                 IsCaptchaAlertVisible = true;
+
+                RunOnUi(() =>
+                {
+                    DirectCaptchaImageSource = ToBitmapImage(result.DirectImageBytes);
+                    CroppedCaptchaImageSource = ToBitmapImage(result.CroppedImageBytes);
+                });
 
                 DetectedCaptchaElements.Clear();
                 foreach (var el in result.Elements)
@@ -160,6 +236,41 @@ public partial class InstanceCardViewModel : ObservableObject
                 else
                 {
                     StatusMessage = $"🚨 ตรวจพบ Captcha จริง ({result.TypeDescription})! สามารถกดคัดลอก Full HTML หรือสั่งแก้ได้ทันที";
+                }
+
+                // Audio alert on real captcha
+                if (_settings.EnableCaptchaSoundAlert)
+                {
+                    Logger.Info("Captcha", $"Triggering audio alert for captcha on '{Name}' (Volume: {_settings.CaptchaSoundVolume:P0}, Loop: {_settings.LoopCaptchaSoundAlert})");
+                    AudioAlertService.PlayAlert(
+                        _settings.CaptchaSoundVolume,
+                        _settings.CaptchaSoundFilePath,
+                        _settings.LoopCaptchaSoundAlert);
+                }
+
+                // Automatically bring window to front so user can see and verify Captcha
+                try
+                {
+                    Logger.Info("Captcha", $"Auto-bringing TikTok Studio window to front for '{Name}' (Port {CdpPort})...");
+                    bool showOk = _orchestrator.ShowWindow(Profile);
+                    SyncFromProfile();
+                    if (!showOk)
+                    {
+                        Logger.Warn("Captcha", $"Auto-bring window to front returned false for '{Name}' (Window handle not available yet).");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Logger.Error("Captcha", $"Failed to auto-show window on captcha detection: {ex.Message}", ex);
+                }
+
+                // Auto solve if enabled
+                if (IsAutoSolveCaptcha && !IsSolvingCaptcha && IsRunning)
+                {
+                    _ = Task.Run(async () =>
+                    {
+                        await SolveCaptchaInternalAsync(result);
+                    });
                 }
 
                 if (_lastReportedCaptchaHtml != result.CombinedHtml)
@@ -221,12 +332,27 @@ public partial class InstanceCardViewModel : ObservableObject
             else
             {
                 // Result is NOT active (either not present at all, or elements are hidden/unmounted in DOM)
+                if (isAuto)
+                {
+                    if (_autoCaptchaScanCount == 1 || _autoCaptchaScanCount % 12 == 0)
+                    {
+                        AppendConsole($"[{DateTime.Now:HH:mm:ss}] 🛡️ [Auto Monitor] ตรวจสอบ Captcha: สถานะปกติ (Scan #{_autoCaptchaScanCount}, {sw.ElapsedMilliseconds}ms - ไม่พบสิ่งกีดขวาง)");
+                    }
+                    Logger.Debug("Captcha", $"[Auto-Detect] Scan #{_autoCaptchaScanCount} completed in {sw.ElapsedMilliseconds}ms. Window status: Normal (0 active captcha)");
+                }
+
                 if (isAuto && IsCaptchaAlertVisible)
                 {
                     IsCaptchaAlertVisible = false;
                     _lastReportedCaptchaHtml = null;
                     DetectedCaptchaElements.Clear();
                     SelectedCaptchaElement = null;
+                    RunOnUi(() =>
+                    {
+                        DirectCaptchaImageSource = null;
+                        CroppedCaptchaImageSource = null;
+                    });
+                    AudioAlertService.StopAlert();
                     AppendConsole($"[{DateTime.Now:HH:mm:ss}] ✅ [Auto Detect] Captcha ในหน้าต่างหายไปแล้ว (ผ่านการตรวจสอบเรียบร้อย)\n");
                     StatusMessage = "ตรวจไม่พบ Captcha (หน้าต่างปกติ)";
                 }
@@ -336,6 +462,7 @@ public partial class InstanceCardViewModel : ObservableObject
     public void DismissCaptchaAlert()
     {
         IsCaptchaAlertVisible = false;
+        AudioAlertService.StopAlert();
     }
 
     [RelayCommand]
@@ -373,6 +500,10 @@ public partial class InstanceCardViewModel : ObservableObject
         DetectedCaptchaCount = 0;
         IsCaptchaAlertVisible = false;
         _lastReportedCaptchaHtml = null;
+        _lastDetectionResult = null;
+        DirectCaptchaImageSource = null;
+        CroppedCaptchaImageSource = null;
+        AudioAlertService.StopAlert();
         StatusMessage = "ล้างข้อมูล Captcha เรียบร้อย";
         AppendConsole($"[{DateTime.Now:HH:mm:ss}] 🗑️ ล้างข้อมูลผลลัพธ์ Captcha เรียบร้อยแล้ว\n");
     }
@@ -420,5 +551,180 @@ public partial class InstanceCardViewModel : ObservableObject
         return targetFilePath;
     }
 
+    [RelayCommand]
+    public async Task SolveCaptchaMockAsync()
+    {
+        await SolveCaptchaInternalAsync(_lastDetectionResult);
+    }
 
+    public async Task<CaptchaSolveResult?> SolveCaptchaInternalAsync(CaptchaDetectionResult? detection = null)
+    {
+        if (Status != InstanceStatus.Running || IsSolvingCaptcha) return null;
+
+        IsSolvingCaptcha = true;
+        OnPropertyChanged(nameof(CanSolveCaptcha));
+        StatusMessage = "กำลังดำเนินการแก้ Captcha...";
+        AppendConsole($"[{DateTime.Now:HH:mm:ss}] 🤖 [CAPTCHA SOLVER] กำลังเริ่มขั้นตอนการแก้ Captcha...");
+        Logger.Info("CaptchaSolver", $"Starting Captcha solve on '{Name}' (Port: {CdpPort}, Mode: {_settings.CaptchaSolverMode}, Endpoint: {_settings.CaptchaSolverEndpoint})...");
+
+        try
+        {
+            var result = await _cdpService.SolveCaptchaAsync(
+                cdpPort: CdpPort,
+                detection: detection ?? _lastDetectionResult,
+                solverMode: _settings.CaptchaSolverMode,
+                solverApiEndpoint: _settings.CaptchaSolverEndpoint,
+                solverJwtToken: _settings.CaptchaSolverJwtToken,
+                customMockJsonPath: null,
+                progressLogger: msg => AppendConsole(msg),
+                delaySeconds: _settings.AutoSolveDelaySeconds,
+                instanceLeaseId: ActiveLeaseId
+            );
+
+            if (result.Success)
+            {
+                StatusMessage = $"✅ แก้ Captcha สำเร็จ ({result.ElapsedSeconds:F1}s)";
+                AppendConsole($"[{DateTime.Now:HH:mm:ss}] 🎉 [CAPTCHA SOLVED] แก้ไข Captcha สำเร็จเรียบร้อยใน {result.ElapsedSeconds:F1} วินาที!");
+                Logger.Info("CaptchaSolver", $"Captcha solved successfully on '{Name}' in {result.ElapsedSeconds:F1}s (Mode: {_settings.CaptchaSolverMode}).");
+                AudioAlertService.StopAlert();
+                IsCaptchaAlertVisible = false;
+
+                // Telegram Alert on Solved
+                if (_settings.EnableTelegramAlert && _settings.TelegramAlertOnSolved &&
+                    !string.IsNullOrWhiteSpace(_settings.TelegramBotToken) && !string.IsNullOrWhiteSpace(_settings.TelegramChatId))
+                {
+                    _ = Task.Run(async () =>
+                    {
+                        try
+                        {
+                            string caption = $"✅ <b>[TikTok LIVE Studio] แก้ Captcha สำเร็จ!</b>\n\n" +
+                                             $"• บัญชี: <b>{Name}</b> (Port: {CdpPort})\n" +
+                                             $"• ใช้เวลา: {result.ElapsedSeconds:F1} วินาที\n" +
+                                             $"• โหมด: {_settings.CaptchaSolverMode}";
+                            await _telegramService.SendMessageAsync(_settings.TelegramBotToken, _settings.TelegramChatId, caption);
+                        }
+                        catch { }
+                    });
+                }
+            }
+            else
+            {
+                StatusMessage = $"❌ การแก้ Captcha ล้มเหลว: {result.Message}";
+                AppendConsole($"[{DateTime.Now:HH:mm:ss}] ❌ [CAPTCHA FAILED] {result.Message}");
+                Logger.Warn("CaptchaSolver", $"Captcha solve failed on '{Name}' (Port: {CdpPort}): {result.Message}");
+
+                // Telegram Alert on Failed
+                if (_settings.EnableTelegramAlert && _settings.TelegramAlertOnFailed &&
+                    !string.IsNullOrWhiteSpace(_settings.TelegramBotToken) && !string.IsNullOrWhiteSpace(_settings.TelegramChatId))
+                {
+                    _ = Task.Run(async () =>
+                    {
+                        try
+                        {
+                            string caption = $"❌ <b>[TikTok LIVE Studio] แก้ Captcha ล้มเหลว!</b>\n\n" +
+                                             $"• บัญชี: <b>{Name}</b> (Port: {CdpPort})\n" +
+                                             $"• ข้อความ: {result.Message}\n" +
+                                             $"• โหมด: {_settings.CaptchaSolverMode}";
+                            await _telegramService.SendMessageAsync(_settings.TelegramBotToken, _settings.TelegramChatId, caption);
+                        }
+                        catch { }
+                    });
+                }
+            }
+
+            return result;
+        }
+        catch (Exception ex)
+        {
+            Logger.Error("Captcha", $"Error solving captcha: {ex.Message}", ex);
+            StatusMessage = $"เกิดข้อผิดพลาดในการแก้: {ex.Message}";
+            return null;
+        }
+        finally
+        {
+            IsSolvingCaptcha = false;
+            OnPropertyChanged(nameof(CanSolveCaptcha));
+        }
+    }
+
+    [RelayCommand]
+    public void SilenceAlert()
+    {
+        AudioAlertService.StopAlert();
+        AppendConsole($"[{DateTime.Now:HH:mm:ss}] 🔇 ปิดเสียงแจ้งเตือน Captcha แล้ว");
+    }
+
+    [RelayCommand]
+    public void OpenCaptchaImageFolder()
+    {
+        string dir = !string.IsNullOrWhiteSpace(_settings.CaptchaSaveDirectory) && Directory.Exists(_settings.CaptchaSaveDirectory)
+            ? _settings.CaptchaSaveDirectory
+            : Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonPictures), "TikTokStudioCaptures");
+
+        if (!Directory.Exists(dir))
+        {
+            try { Directory.CreateDirectory(dir); } catch { }
+        }
+
+        try
+        {
+            Process.Start(new ProcessStartInfo
+            {
+                FileName = dir,
+                UseShellExecute = true
+            });
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = $"ไม่สามารถเปิดโฟลเดอร์: {ex.Message}";
+        }
+    }
+
+    [RelayCommand]
+    public async Task SaveCaptchaImageAsAsync()
+    {
+        byte[]? bytes = _lastDetectionResult?.CapturedImageBytes;
+        if (bytes == null || bytes.Length == 0)
+        {
+            StatusMessage = "ไม่มีภาพ Captcha ให้บันทึก";
+            return;
+        }
+
+        var dialog = new Microsoft.Win32.SaveFileDialog
+        {
+            Title = $"Save Captcha Image - {Name}",
+            Filter = "PNG Image (*.png)|*.png|JPEG Image (*.jpg)|*.jpg|All Files (*.*)|*.*",
+            FileName = $"Captcha_{ProfileFolderName}_{DateTime.Now:yyyyMMdd_HHmmss}.png",
+            DefaultExt = "png"
+        };
+
+        if (dialog.ShowDialog() == true)
+        {
+            await File.WriteAllBytesAsync(dialog.FileName, bytes);
+            StatusMessage = $"บันทึกรูปภาพเรียบร้อย: {Path.GetFileName(dialog.FileName)}";
+            AppendConsole($"[{DateTime.Now:HH:mm:ss}] 💾 บันทึกรูปภาพ Captcha แล้ว: {dialog.FileName}");
+        }
+    }
+
+    [RelayCommand]
+    public void CopyCaptchaImage()
+    {
+        if (CaptchaImageSource is System.Windows.Media.Imaging.BitmapSource bmpSource)
+        {
+            try
+            {
+                Clipboard.SetImage(bmpSource);
+                StatusMessage = "คัดลอกรูปภาพ Captcha ลง Clipboard แล้ว";
+                AppendConsole($"[{DateTime.Now:HH:mm:ss}] 📋 คัดลอกรูปภาพ Captcha ลง Clipboard เรียบร้อย");
+            }
+            catch (Exception ex)
+            {
+                StatusMessage = $"คัดลอกรูปภาพไม่สำเร็จ: {ex.Message}";
+            }
+        }
+        else
+        {
+            StatusMessage = "ไม่มีรูปภาพให้คัดลอก";
+        }
+    }
 }

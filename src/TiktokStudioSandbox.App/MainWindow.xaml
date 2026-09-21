@@ -6,7 +6,7 @@
         xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
         xmlns:models="clr-namespace:TiktokStudioSandbox.Core.Models;assembly=TiktokStudioSandbox.Core"
         mc:Ignorable="d"
-        Title="TikTok LIVE Studio - Sandbox v0.1.0" 
+        Title="{Binding WindowTitle, FallbackValue='TikTok LIVE Studio - Sandbox'}" 
         Height="820" Width="1260"
         MinHeight="700" MinWidth="1050"
         WindowStartupLocation="CenterScreen"
@@ -353,7 +353,7 @@
                             <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                                 <TextBlock Text="TikTok LIVE Studio" FontSize="13" FontWeight="Bold" Foreground="#FFFFFF" VerticalAlignment="Center" />
                                 <Border Background="#222222" CornerRadius="4" Padding="6,1" Margin="8,0,0,0" VerticalAlignment="Center">
-                                    <TextBlock Text="Sandbox v0.1.0" FontSize="10" FontWeight="SemiBold" Foreground="#94A3B8" />
+                                    <TextBlock Text="{Binding AppVersionText, FallbackValue='Sandbox v0.1.4'}" FontSize="10" FontWeight="SemiBold" Foreground="#94A3B8" />
                                 </Border>
                             </StackPanel>
                         </StackPanel>
@@ -396,7 +396,7 @@
                     <Border DockPanel.Dock="Bottom" Background="#1A1A1A" BorderBrush="#282828" BorderThickness="1" CornerRadius="8" Padding="10,8" Margin="8,8,8,10">
                         <StackPanel>
                             <DockPanel LastChildFill="False" Margin="0,0,0,6">
-                                <TextBlock Text="CDP Core v0.1.0" DockPanel.Dock="Left" FontSize="11" FontWeight="SemiBold" Foreground="#38BDF8" />
+                                <TextBlock Text="{Binding CdpCoreVersionText, FallbackValue='CDP Core v0.1.4'}" DockPanel.Dock="Left" FontSize="11" FontWeight="SemiBold" Foreground="#38BDF8" />
                             </DockPanel>
                             <Button Style="{StaticResource ActionDarkButton}" Command="{Binding OpenCaptchaFolderCommand}" HorizontalAlignment="Stretch" Padding="6,4">
                                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
@@ -760,7 +760,7 @@
                                                                     Margin="0,0,6,0" Padding="14,6" FontSize="12" />
 
                                                             <Button Style="{StaticResource ActionDarkButton}" Content="หยุด" Command="{Binding StopCommand}" 
-                                                                    Visibility="{Binding RunningVisibility}" Margin="0,0,6,0" Padding="12,6" FontSize="12" Foreground="#EF4444" />
+                                                                    Visibility="{Binding RunningOrStartingVisibility}" Margin="0,0,6,0" Padding="12,6" FontSize="12" Foreground="#EF4444" />
 
                                                             <Button Style="{StaticResource ActionDarkButton}" Command="{Binding ToggleVisibilityCommand}" 
                                                                     Visibility="{Binding RunningVisibility}" Margin="0,0,6,0" Padding="10,6" ToolTip="สลับการซ่อน/แสดงหน้าต่าง">
@@ -2110,7 +2110,7 @@
                     <TextBlock Text="{Binding Instances.Count, StringFormat='บัญชี: {0}'}" Foreground="#94A3B8" FontSize="11" Margin="0,0,14,0" />
                     <TextBlock Text="{Binding Proxies.Count, StringFormat='Proxy: {0}'}" Foreground="#94A3B8" FontSize="11" Margin="0,0,14,0" />
                     <TextBlock Text="{Binding Rules.Count, StringFormat='กฎ: {0}'}" Foreground="#94A3B8" FontSize="11" Margin="0,0,14,0" />
-                    <TextBlock Text="•  CDP Core v0.1.0" Foreground="#64748B" FontSize="11" />
+                    <TextBlock Text="{Binding CdpCoreVersionText, StringFormat='•  {0}', FallbackValue='•  CDP Core v0.1.4'}" Foreground="#64748B" FontSize="11" />
                 </StackPanel>
             </DockPanel>
         </Border>

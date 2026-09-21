@@ -63,4 +63,77 @@ public class ConfigStorageServiceTests
             if (File.Exists(tempFile)) File.Delete(tempFile);
         }
     }
+
+    [Fact]
+    public void LoadSettings_WhenInstanceStatusIsStarting_SanitizesToStopped()
+    {
+        string tempFile = Path.Combine(Path.GetTempPath(), $"config_sanitize_{Guid.NewGuid():N}.json");
+
+        try
+        {
+            // Simulate an existing config.json file on disk that has Status: 1 (Starting) and ProcessId
+            string rawJsonWithStarting = @"{
+                ""Instances"": [
+                    {
+                        ""Name"": ""Account 03"",
+                        ""ProfileFolderName"": ""Acc03"",
+                        ""CdpPort"": 9223,
+                        ""Status"": 1,
+                        ""ProcessId"": 12345,
+                        ""StatusMessage"": ""Starting...""
+                    }
+                ]
+            }";
+            File.WriteAllText(tempFile, rawJsonWithStarting);
+
+            var service = new ConfigStorageService(tempFile);
+
+            // Act: reload settings
+            var reloaded = service.LoadSettings();
+            var acc3 = reloaded.Instances.Find(i => i.Name == "Account 03");
+
+            // Assert: Must be sanitized to Stopped and ProcessId cleared
+            Assert.NotNull(acc3);
+            Assert.Equal(InstanceStatus.Stopped, acc3.Status);
+            Assert.Null(acc3.ProcessId);
+            Assert.Equal("Stopped", acc3.StatusMessage);
+        }
+        finally
+        {
+            if (File.Exists(tempFile)) File.Delete(tempFile);
+        }
+    }
+
+    [Fact]
+    public void SaveSettings_WhenInstanceStatusIsStarting_NeverPersistsStartingToDisk()
+    {
+        string tempFile = Path.Combine(Path.GetTempPath(), $"config_save_{Guid.NewGuid():N}.json");
+
+        try
+        {
+            var service = new ConfigStorageService(tempFile);
+            var settings = new AppSettings();
+            settings.Instances.Add(new StudioInstanceProfile
+            {
+                Name = "Account 04",
+                Status = InstanceStatus.Starting
+            });
+
+            // Act
+            service.SaveSettings(settings);
+
+            // Assert
+            string json = File.ReadAllText(tempFile);
+            Assert.DoesNotContain("\"Status\": 1", json); // 1 = InstanceStatus.Starting
+
+            var reloaded = service.LoadSettings();
+            var acc4 = reloaded.Instances.Find(i => i.Name == "Account 04");
+            Assert.NotNull(acc4);
+            Assert.Equal(InstanceStatus.Stopped, acc4.Status);
+        }
+        finally
+        {
+            if (File.Exists(tempFile)) File.Delete(tempFile);
+        }
+    }
 }

@@ -19,6 +19,7 @@ public class RealtimeClientService : IRealtimeClientService
     public event EventHandler<QuotaReducedEventArgs>? OnQuotaReduced;
     public event EventHandler<LicenseKickoutEventArgs>? OnLicenseKickout;
     public event EventHandler<LicenseUpdateEventArgs>? OnLicenseUpdated;
+    public event EventHandler<AppUpdateEventArgs>? OnAppUpdateBroadcast;
 
     public async Task ConnectAsync(string serverUrl, string token)
     {
@@ -35,13 +36,56 @@ public class RealtimeClientService : IRealtimeClientService
                 { "token", token }
             },
             Reconnection = true,
-            ReconnectionAttempts = 10
+            ReconnectionAttempts = int.MaxValue // Reconnect infinitely to survive server redeployments
         };
 
         _client = new SocketIOClient.SocketIO(uri, options);
 
         _client.On("connected", async response =>
         {
+            await Task.Yield();
+        });
+
+        _client.On("app:update", async response =>
+        {
+            try
+            {
+                var doc = response.GetValue<JsonElement>(0);
+                JsonElement releaseDoc = doc;
+                if (doc.TryGetProperty("release", out var rel) && rel.ValueKind == JsonValueKind.Object)
+                {
+                    releaseDoc = rel;
+                }
+
+                string version = releaseDoc.TryGetProperty("version", out var v) ? (v.GetString() ?? string.Empty) : string.Empty;
+                string minVer = releaseDoc.TryGetProperty("minRequiredVersion", out var mv) ? (mv.GetString() ?? string.Empty) : string.Empty;
+                string? title = releaseDoc.TryGetProperty("title", out var t) ? t.GetString() : null;
+                string desc = releaseDoc.TryGetProperty("description", out var d) ? (d.GetString() ?? string.Empty) : string.Empty;
+                string downloadUrl = releaseDoc.TryGetProperty("downloadUrl", out var du) ? (du.GetString() ?? string.Empty) : string.Empty;
+                bool isMandatory = releaseDoc.TryGetProperty("isMandatory", out var im) && im.GetBoolean();
+                long? fileSize = releaseDoc.TryGetProperty("fileSize", out var fs) && fs.ValueKind == JsonValueKind.Number ? fs.GetInt64() : null;
+                string? fileHash = releaseDoc.TryGetProperty("fileHash", out var fh) ? fh.GetString() : null;
+
+                DateTime? publishedAt = null;
+                if (releaseDoc.TryGetProperty("publishedAt", out var pa) && pa.ValueKind == JsonValueKind.String)
+                {
+                    if (DateTime.TryParse(pa.GetString(), out var dt)) publishedAt = dt.ToUniversalTime();
+                }
+
+                OnAppUpdateBroadcast?.Invoke(this, new AppUpdateEventArgs
+                {
+                    Version = version,
+                    MinRequiredVersion = minVer,
+                    Title = title,
+                    Description = desc,
+                    DownloadUrl = downloadUrl,
+                    IsMandatory = isMandatory,
+                    FileSize = fileSize,
+                    FileHash = fileHash,
+                    PublishedAt = publishedAt
+                });
+            }
+            catch { }
             await Task.Yield();
         });
 
@@ -117,6 +161,48 @@ public class RealtimeClientService : IRealtimeClientService
                 });
             }
             catch { }
+            await Task.Yield();
+        });
+
+        _client.On("cmd:get_instance_logs", async response =>
+        {
+            try
+            {
+                var doc = response.GetValue<JsonElement>(0);
+                string requestId = doc.TryGetProperty("requestId", out var rId) ? (rId.GetString() ?? string.Empty) : string.Empty;
+                string profileFolder = doc.TryGetProperty("profileFolderName", out var pf) ? (pf.GetString() ?? string.Empty) : string.Empty;
+                int cdpPort = doc.TryGetProperty("cdpPort", out var cp) && cp.ValueKind == JsonValueKind.Number ? cp.GetInt32() : 0;
+                int maxLines = doc.TryGetProperty("maxLines", out var ml) && ml.ValueKind == JsonValueKind.Number ? ml.GetInt32() : 2000;
+
+                var (success, logs, fileName) = InstanceLogManager.Shared.ReadLogs(profileFolder, cdpPort, maxLines);
+
+                var replyPayload = new
+                {
+                    requestId,
+                    success,
+                    profileFolderName = profileFolder,
+                    cdpPort,
+                    fileName,
+                    logs,
+                    timestamp = DateTime.UtcNow.ToString("o")
+                };
+
+                if (_client != null && _client.Connected)
+                {
+                    await _client.EmitAsync("client:instance_logs_response", new object[] { replyPayload });
+                }
+            }
+            catch (Exception ex)
+            {
+                if (_client != null && _client.Connected)
+                {
+                    try
+                    {
+                        await _client.EmitAsync("client:instance_logs_response", new object[] { new { success = false, error = ex.Message } });
+                    }
+                    catch { }
+                }
+            }
             await Task.Yield();
         });
 
@@ -216,6 +302,18 @@ public class RealtimeClientService : IRealtimeClientService
                 Message = $"Socket emit error: {ex.Message}"
             };
         }
+    }
+
+    public async Task ReportInstancesAsync(object payload)
+    {
+        if (_client == null || !_client.Connected)
+            return;
+
+        try
+        {
+            await _client.EmitAsync("client:instances_report", new object[] { payload });
+        }
+        catch { }
     }
 
     public void Dispose()

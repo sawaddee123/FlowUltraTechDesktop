@@ -51,39 +51,64 @@ public class InstanceOrchestrator : IInstanceOrchestrator
             profile.StatusMessage = $"Running (Port {profile.CdpPort})";
             logger.Info("Orchestrator", $"Instance '{profile.Name}' is running on port {profile.CdpPort} (PID: {profile.ProcessId})");
 
-            if (!settings.AutoHideOnLaunch)
+            profile.IsWindowHidden = false;
+            // ติดตามและดึงหน้าต่างขึ้นมาแสดงบนหน้าจอทันทีที่ Electron เรนเดอร์เสร็จ (รองรับจังหวะที่แอปหรือ Proxy บูตช้า)
+            _ = Task.Run(async () =>
             {
-                profile.IsWindowHidden = false;
-                // ติดตามและดึงหน้าต่างขึ้นมาแสดงบนหน้าจอทันทีที่ Electron เรนเดอร์เสร็จ (รองรับจังหวะที่แอปบูตช้า)
-                _ = Task.Run(async () =>
+                logger.Info("Window", $"Waiting for TikTok Studio UI window to appear (Port: {profile.CdpPort}, Max timeout: 30s)...");
+                bool realWindowShown = false;
+                for (int i = 0; i < 60; i++)
                 {
-                    for (int i = 0; i < 16; i++)
+                    await Task.Delay(500);
+                    if (profile.Status != InstanceStatus.Running) break;
+                    var handles = _windowController.FindWindowHandlesForPort(profile.CdpPort, profile.ProcessId);
+                    if (handles.Count > 0)
                     {
-                        await Task.Delay(500);
-                        if (profile.Status != InstanceStatus.Running) break;
-                        var handles = _windowController.FindWindowHandlesForPort(profile.CdpPort, profile.ProcessId);
-                        if (handles.Count > 0)
+                        // ตรวจสอบว่าพบหน้าต่าง UI จริงที่มี Title ของ TikTok Studio แล้วหรือไม่
+                        var realUi = handles.FirstOrDefault(h =>
                         {
-                            logger.Info("Window", $"Found {handles.Count} window handle(s) for port {profile.CdpPort}. Showing window.");
+                            var sb = new System.Text.StringBuilder(256);
+                            Native.Win32.GetWindowText(h, sb, 256);
+                            string title = sb.ToString();
+                            return title.Contains("TikTok", StringComparison.OrdinalIgnoreCase) ||
+                                   title.Contains("Studio", StringComparison.OrdinalIgnoreCase);
+                        });
+
+                        if (realUi != IntPtr.Zero)
+                        {
+                            logger.Info("Window", $"Found TikTok Studio UI window (HWND: {realUi}) after {(i + 1) * 0.5:F1}s for port {profile.CdpPort}. Restoring window to front.");
                             _windowController.SetWindowVisibilityForInstance(profile.ProcessId, profile.CdpPort, true);
+                            realWindowShown = true;
+
+                            // ย้ำการดึงขึ้นมาหน้าสุด (Reinforce foreground) อีก 3 วินาที เพื่อป้องกันจังหวะที่ splash screen หรือ webview สลับหน้าแล้วแย่ง Focus คืน
+                            for (int r = 0; r < 3; r++)
+                            {
+                                await Task.Delay(1000);
+                                if (profile.Status != InstanceStatus.Running) break;
+                                _windowController.SetWindowVisibilityForInstance(profile.ProcessId, profile.CdpPort, true);
+                            }
                             break;
                         }
+                        else
+                        {
+                            // หน้าต่างเบื้องต้นเพิ่งถูกสร้างขึ้นแต่ยังโหลด Title ไม่เสร็จ ให้สั่ง Show ไว้ก่อนและเฝ้าดูลูปต่อไป
+                            _windowController.SetWindowVisibilityForInstance(profile.ProcessId, profile.CdpPort, true);
+                        }
                     }
-                });
-            }
-            else if (settings.AutoHideOnLaunch && profile.ProcessId.HasValue)
-            {
-                _ = Task.Run(async () =>
-                {
-                    await Task.Delay(4000);
-                    if (profile.Status == InstanceStatus.Running && profile.ProcessId.HasValue)
+
+                    if ((i + 1) % 10 == 0 && i < 59)
                     {
-                        logger.Info("Window", $"AutoHideOnLaunch active: Hiding window for PID {profile.ProcessId.Value}");
-                        _windowController.SetWindowVisibility(profile.ProcessId.Value, false);
-                        profile.IsWindowHidden = true;
+                        logger.Debug("Window", $"Still waiting for TikTok Studio UI window... ({(i + 1) * 0.5:F0}s elapsed, Port: {profile.CdpPort})");
                     }
-                });
-            }
+                }
+
+                if (!realWindowShown && profile.Status == InstanceStatus.Running)
+                {
+                    logger.Warn("Window", $"Window handle not found after 30 seconds for port {profile.CdpPort} (PID: {profile.ProcessId}). " +
+                        $"TikTok Studio may still be loading CEF UI over a slow proxy or running in background. " +
+                        $"You can click the Eye [👁️] button anytime to force show the window when ready.");
+                }
+            });
 
             return true;
         }
@@ -149,18 +174,24 @@ public class InstanceOrchestrator : IInstanceOrchestrator
     {
         var logger = _logManager.GetLogger(profile);
         bool targetVisible = profile.IsWindowHidden; // if currently hidden, make visible
+        logger.Info("Window", $"User toggle window visibility for '{profile.Name}' -> TargetVisible={targetVisible} (Port: {profile.CdpPort}, PID: {profile.ProcessId})");
         bool success = _windowController.SetWindowVisibilityForInstance(profile.ProcessId, profile.CdpPort, targetVisible);
+        if (targetVisible && profile.ProcessId.HasValue)
+        {
+            _windowController.BringToFront(profile.ProcessId.Value);
+        }
         if (success || !targetVisible)
         {
             profile.IsWindowHidden = !targetVisible;
         }
-        logger.Info("Window", $"Toggle window visibility for '{profile.Name}': Visible={!profile.IsWindowHidden} (Success: {success})");
+        logger.Info("Window", $"Toggle window visibility result for '{profile.Name}': IsWindowHidden={profile.IsWindowHidden} (Success: {success})");
         return success;
     }
 
     public bool ShowWindow(StudioInstanceProfile profile)
     {
         var logger = _logManager.GetLogger(profile);
+        logger.Info("Window", $"ShowWindow requested for '{profile.Name}' (Port: {profile.CdpPort}, PID: {profile.ProcessId})...");
         bool success = _windowController.SetWindowVisibilityForInstance(profile.ProcessId, profile.CdpPort, true);
         if (profile.ProcessId.HasValue)
         {
@@ -169,8 +200,12 @@ public class InstanceOrchestrator : IInstanceOrchestrator
         if (success)
         {
             profile.IsWindowHidden = false;
+            logger.Info("Window", $"ShowWindow for '{profile.Name}': Success. Window brought to front.");
         }
-        logger.Info("Window", $"Show window for '{profile.Name}' (Success: {success})");
+        else
+        {
+            logger.Warn("Window", $"ShowWindow for '{profile.Name}': No top-level HWND found yet (Port: {profile.CdpPort}, PID: {profile.ProcessId}). Studio may still be loading or minimized.");
+        }
         return success;
     }
 

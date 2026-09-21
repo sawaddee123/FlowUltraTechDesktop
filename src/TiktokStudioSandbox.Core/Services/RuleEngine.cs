@@ -86,6 +86,70 @@ public class RuleEngine : IRuleEngine
         return null;
     }
 
+    public string? EvaluateJoinRule(IEnumerable<AutomationRule> rules, LiveJoinMessage join)
+    {
+        var now = DateTime.Now;
+        var eligibleRules = rules
+            .Where(r => r.IsEnabled && r.TriggerType == RuleTriggerType.MemberJoin)
+            .ToList();
+
+        foreach (var rule in eligibleRules)
+        {
+            if ((now - rule.LastTriggered).TotalSeconds < rule.CooldownSeconds)
+            {
+                continue;
+            }
+
+            rule.LastTriggered = now;
+            return FormatTemplate(rule.ResponseTemplate, new Dictionary<string, string>
+            {
+                { "User", join.Username },
+                { "Nickname", join.Nickname }
+            });
+        }
+
+        return null;
+    }
+
+    public string? EvaluateLikeRule(IEnumerable<AutomationRule> rules, LiveLikeMessage like)
+    {
+        var now = DateTime.Now;
+        var eligibleRules = rules
+            .Where(r => r.IsEnabled && r.TriggerType == RuleTriggerType.LikeMilestone)
+            .OrderByDescending(r => r.MinDiamonds)
+            .ToList();
+
+        foreach (var rule in eligibleRules)
+        {
+            int threshold = rule.MinDiamonds;
+            if (int.TryParse(rule.Pattern, out int parsedThreshold) && parsedThreshold > 0)
+            {
+                threshold = parsedThreshold;
+            }
+
+            if (like.TotalLikes < threshold && like.LikeCount < threshold)
+            {
+                continue;
+            }
+
+            if ((now - rule.LastTriggered).TotalSeconds < rule.CooldownSeconds)
+            {
+                continue;
+            }
+
+            rule.LastTriggered = now;
+            return FormatTemplate(rule.ResponseTemplate, new Dictionary<string, string>
+            {
+                { "User", like.Username },
+                { "Nickname", like.Nickname },
+                { "Likes", like.TotalLikes.ToString() },
+                { "Count", like.LikeCount.ToString() }
+            });
+        }
+
+        return null;
+    }
+
     private static string FormatTemplate(string template, Dictionary<string, string> tokens)
     {
         if (string.IsNullOrEmpty(template)) return string.Empty;

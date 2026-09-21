@@ -86,4 +86,55 @@ public class RuleEngineTests
         // Assert
         Assert.Null(response);
     }
+
+    [Fact]
+    public void EvaluateJoinRule_EligibleRule_ReturnsWelcomeMessage()
+    {
+        // Arrange
+        var engine = new RuleEngine();
+        var rules = new List<AutomationRule>
+        {
+            new AutomationRule
+            {
+                IsEnabled = true,
+                TriggerType = RuleTriggerType.MemberJoin,
+                ResponseTemplate = "ยินดีต้อนรับคุณ @{User} ({Nickname}) เข้าสู่ห้องไลฟ์ครับ!",
+                CooldownSeconds = 0
+            }
+        };
+
+        var join = new LiveJoinMessage("alice99", "Alice");
+
+        // Act
+        var response = engine.EvaluateJoinRule(rules, join);
+
+        // Assert
+        Assert.Equal("ยินดีต้อนรับคุณ @alice99 (Alice) เข้าสู่ห้องไลฟ์ครับ!", response);
+    }
+
+    [Fact]
+    public void EvaluateLikeRule_MeetsThreshold_ReturnsThankYouMessage()
+    {
+        // Arrange
+        var engine = new RuleEngine();
+        var rules = new List<AutomationRule>
+        {
+            new AutomationRule
+            {
+                IsEnabled = true,
+                TriggerType = RuleTriggerType.LikeMilestone,
+                MinDiamonds = 50,
+                ResponseTemplate = "ขอบคุณ @{User} ({Nickname}) สำหรับ {Likes} ไลก์ (กดเพิ่ม {Count}) มากๆ ครับ!",
+                CooldownSeconds = 0
+            }
+        };
+
+        var like = new LiveLikeMessage("bob123", "Bob", 15, 100);
+
+        // Act
+        var response = engine.EvaluateLikeRule(rules, like);
+
+        // Assert
+        Assert.Equal("ขอบคุณ @bob123 (Bob) สำหรับ 100 ไลก์ (กดเพิ่ม 15) มากๆ ครับ!", response);
+    }
 }

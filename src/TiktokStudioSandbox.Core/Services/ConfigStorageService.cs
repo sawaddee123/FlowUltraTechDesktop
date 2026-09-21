@@ -47,6 +47,18 @@ public class ConfigStorageService : IConfigStorageService
                         settings.DefaultChromiumFlags = string.Empty;
                         SaveSettings(settings);
                     }
+
+                    // Sanitize runtime states: Starting state should NEVER survive app restart
+                    foreach (var inst in settings.Instances)
+                    {
+                        if (inst.Status is InstanceStatus.Starting)
+                        {
+                            inst.Status = InstanceStatus.Stopped;
+                            inst.StatusMessage = "Stopped";
+                            inst.ProcessId = null;
+                        }
+                    }
+
                     return settings;
                 }
             }
@@ -69,6 +81,17 @@ public class ConfigStorageService : IConfigStorageService
             Directory.CreateDirectory(dir);
         }
 
+        // Never persist transient 'Starting' state to disk
+        foreach (var inst in settings.Instances)
+        {
+            if (inst.Status is InstanceStatus.Starting)
+            {
+                inst.Status = InstanceStatus.Stopped;
+                inst.ProcessId = null;
+                inst.StatusMessage = "Stopped";
+            }
+        }
+
         string json = JsonSerializer.Serialize(settings, _jsonOptions);
         await File.WriteAllTextAsync(_configFilePath, json);
     }
@@ -79,6 +102,17 @@ public class ConfigStorageService : IConfigStorageService
         if (!string.IsNullOrEmpty(dir))
         {
             Directory.CreateDirectory(dir);
+        }
+
+        // Never persist transient 'Starting' state to disk
+        foreach (var inst in settings.Instances)
+        {
+            if (inst.Status is InstanceStatus.Starting)
+            {
+                inst.Status = InstanceStatus.Stopped;
+                inst.ProcessId = null;
+                inst.StatusMessage = "Stopped";
+            }
         }
 
         string json = JsonSerializer.Serialize(settings, _jsonOptions);
