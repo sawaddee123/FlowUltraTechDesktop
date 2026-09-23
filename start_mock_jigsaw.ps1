@@ -1,5 +1,5 @@
 # PowerShell Launcher for Mock Captcha Jigsaw Testbed
-# Launches Chrome or Edge with Remote Debugging Port 9221 for testing TiktokStudioSandbox
+# Launches Chrome or Edge with Remote Debugging Port 9221 for testing FlowUltraTech
 
 $ErrorActionPreference = "Stop"
 
@@ -49,8 +49,8 @@ Write-Host " 📄 File: $mockPath" -ForegroundColor White
 Write-Host " 📁 Profile: $tempUserData" -ForegroundColor Gray
 Write-Host "==========================================================================" -ForegroundColor Cyan
 Write-Host ""
-Write-Host " 👉 ขั้นตอนการทดสอบกับโปรแกรม TiktokStudioSandbox:" -ForegroundColor Cyan
-Write-Host "    1. เปิดโปรแกรม TiktokStudioSandbox" -ForegroundColor White
+Write-Host " 👉 ขั้นตอนการทดสอบกับโปรแกรม FlowUltraTech:" -ForegroundColor Cyan
+Write-Host "    1. เปิดโปรแกรม FlowUltraTech" -ForegroundColor White
 Write-Host "    2. ตรวจสอบว่ามี Instance ที่ตั้งค่า Port: $port" -ForegroundColor White
 Write-Host "    3. กดปุ่ม '🔍 สแกนเดี๋ยวนี้' หรือ '⚡ แก้ Captcha อัตโนมัติ' ในหน้าการ์ด หรือในแท็บ Captcha Center" -ForegroundColor Yellow
 Write-Host "    4. ระบบจะตรวจจับ DOM ของจริง, อ่านตัวนับเวลาถอยหลัง, และลากสไลเดอร์แก้ให้อัตโนมัติ!" -ForegroundColor Green

@@ -1,8 +1,8 @@
 # 07. คู่มือการทดสอบ Captcha จำลอง (Captcha Mock Testing Guide)
 
 เอกสารนี้อธิบายการใช้งานระบบจำลอง (Mock) ของ Inactivity Captcha ทั้ง 2 รูปแบบ ได้แก่ **Jigsaw (Slide Captcha)** และ **Symbol (เลือกสัญลักษณ์ที่เหมือนกัน)** โดยสร้างขึ้นจากโค้ด HTML/DOM ดัมพ์ของจริง 100% จาก TikTok LIVE Studio:
-- [Captcha_Jigsaw.txt](file:///d:/Script/Test/TiktokStudioSandbox/docs/Captcha_Jigsaw.txt)
-- [Captcha_Symbol.txt](file:///d:/Script/Test/TiktokStudioSandbox/docs/Captcha_Symbol.txt)
+- [Captcha_Jigsaw.txt](file:///d:/Script/Test/FlowUltraTech/docs/Captcha_Jigsaw.txt)
+- [Captcha_Symbol.txt](file:///d:/Script/Test/FlowUltraTech/docs/Captcha_Symbol.txt)
 
 ---
 
@@ -25,15 +25,15 @@
 
 | ไฟล์ | หน้าที่ |
 |---|---|
-| [start_mock_jigsaw.ps1](file:///d:/Script/Test/TiktokStudioSandbox/start_mock_jigsaw.ps1) | **คลิกเดียวรัน**: เปิด Chrome/Edge พอร์ต 9221 โหลดหน้า Mock Jigsaw ทันที |
-| [start_mock_symbol.ps1](file:///d:/Script/Test/TiktokStudioSandbox/start_mock_symbol.ps1) | **คลิกเดียวรัน**: เปิด Chrome/Edge พอร์ต 9221 โหลดหน้า Mock Symbol ทันที |
-| [mock_captcha_jigsaw.html](file:///d:/Script/Test/TiktokStudioSandbox/docs/mocks/mock_captcha_jigsaw.html) | ไฟล์ HTML เต็มรูปแบบของ Jigsaw (711 KB) |
-| [mock_captcha_symbol.html](file:///d:/Script/Test/TiktokStudioSandbox/docs/mocks/mock_captcha_symbol.html) | ไฟล์ HTML เต็มรูปแบบของ Symbol (692 KB) |
-| [serve_mocks.mjs](file:///d:/Script/Test/TiktokStudioSandbox/docs/mocks/serve_mocks.mjs) | Local Mock HTTP Server (พอร์ต 8899) |
+| [start_mock_jigsaw.ps1](file:///d:/Script/Test/FlowUltraTech/start_mock_jigsaw.ps1) | **คลิกเดียวรัน**: เปิด Chrome/Edge พอร์ต 9221 โหลดหน้า Mock Jigsaw ทันที |
+| [start_mock_symbol.ps1](file:///d:/Script/Test/FlowUltraTech/start_mock_symbol.ps1) | **คลิกเดียวรัน**: เปิด Chrome/Edge พอร์ต 9221 โหลดหน้า Mock Symbol ทันที |
+| [mock_captcha_jigsaw.html](file:///d:/Script/Test/FlowUltraTech/docs/mocks/mock_captcha_jigsaw.html) | ไฟล์ HTML เต็มรูปแบบของ Jigsaw (711 KB) |
+| [mock_captcha_symbol.html](file:///d:/Script/Test/FlowUltraTech/docs/mocks/mock_captcha_symbol.html) | ไฟล์ HTML เต็มรูปแบบของ Symbol (692 KB) |
+| [serve_mocks.mjs](file:///d:/Script/Test/FlowUltraTech/docs/mocks/serve_mocks.mjs) | Local Mock HTTP Server (พอร์ต 8899) |
 
 ---
 
-## 3. ขั้นตอนการทดสอบกับโปรแกรม TiktokStudioSandbox
+## 3. ขั้นตอนการทดสอบกับโปรแกรม FlowUltraTech
 
 ### ขั้นตอนที่ 1: เปิดหน้า Mock ผ่าน PowerShell
 เปิด PowerShell ในโฟลเดอร์โปรเจกต์ แล้วสั่ง:
@@ -48,8 +48,8 @@
 
 ---
 
-### ขั้นตอนที่ 2: ทดสอบตรวจจับ Captcha บนโปรแกรม TiktokStudioSandbox
-1. เปิดโปรแกรม **TiktokStudioSandbox**
+### ขั้นตอนที่ 2: ทดสอบตรวจจับ Captcha บนโปรแกรม FlowUltraTech
+1. เปิดโปรแกรม **FlowUltraTech**
 2. ตั้งค่าหรือตรวจสอบให้มีโปรไฟล์/บัญชีที่ใช้ **CDP Port: 9221** (เช่น บัญชีแรก `Acc01`)
 3. ในหน้าต่างโปรแกรม ให้ทดสอบฟังก์ชันดังนี้:
    - **ทดสอบ Scan Captcha**:
@@ -75,6 +75,6 @@
 ## 4. การรัน Unit Tests ตรวจสอบระบบ
 รันคำสั่ง:
 ```bash
-dotnet test tests/TiktokStudioSandbox.Tests/TiktokStudioSandbox.Tests.csproj --filter "FullyQualifiedName~CaptchaMockDetectionTests"
+dotnet test tests/FlowUltraTech.Tests/FlowUltraTech.Tests.csproj --filter "FullyQualifiedName~CaptchaMockDetectionTests"
 ```
 เทสต์จะตรวจสอบความถูกต้องของ Selectors, Bounding Boxes, Countdown Text, และความถูกต้องของภาพ Base64 ทุกครั้งที่มีการแก้ไข

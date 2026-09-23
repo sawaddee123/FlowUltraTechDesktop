@@ -5,7 +5,7 @@
 #define MyAppVersion "0.1.0"
 #define MyAppPublisher "Automation Studio Solutions"
 #define MyAppURL "https://github.com/tiktok-sandbox"
-#define MyAppExeName "TiktokStudioSandbox.App.exe"
+#define MyAppExeName "FlowUltraTech.App.exe"
 
 [Setup]
 AppId={{D5E8C941-B730-4C98-8B39-4B52829281C3}
@@ -20,7 +20,7 @@ UninstallDisplayIcon={app}\{#MyAppExeName}
 DefaultGroupName={#MyAppName}
 AllowNoIcons=yes
 OutputDir=..\dist
-OutputBaseFilename=TikTokStudioSandbox_Setup_v{#MyAppVersion}
+OutputBaseFilename=FlowUltraTech_Setup_v{#MyAppVersion}
 Compression=lzma2/ultra64
 WizardStyle=modern
 PrivilegesRequired=admin

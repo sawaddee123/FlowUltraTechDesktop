@@ -1,13 +1,13 @@
 # 09. MongoDB Schema & Central Auth Architecture
 
-เอกสารการออกแบบและสถาปัตยกรรมระบบฐานข้อมูล **MongoDB** ร่วมกับ **Central Authentication Service** สำหรับเชื่อมต่อระหว่าง **TikTok LIVE Studio Multi-Instance Sandbox (`TiktokStudioSandbox`)** และ **AI Captcha Solving Service (`SimpleSolveCaptchaProject`)**
+เอกสารการออกแบบและสถาปัตยกรรมระบบฐานข้อมูล **MongoDB** ร่วมกับ **Central Authentication Service** สำหรับเชื่อมต่อระหว่าง **TikTok LIVE Studio Multi-Instance Sandbox (`FlowUltraTech`)** และ **AI Captcha Solving Service (`SimpleSolveCaptchaProject`)**
 
 ---
 
 ## 1. บทนำและวัตถุประสงค์ (Overview & Objectives)
 
 เดิมทีระบบทำงานในลักษณะแยกส่วน (Decentralized / Standalone):
-* `TiktokStudioSandbox` บันทึกการตั้งค่า โปรไฟล์ และพร็อกซีลงในไฟล์เครื่องเฉพาะที่ (`config.json` ผ่าน `ConfigStorageService`)
+* `FlowUltraTech` บันทึกการตั้งค่า โปรไฟล์ และพร็อกซีลงในไฟล์เครื่องเฉพาะที่ (`config.json` ผ่าน `ConfigStorageService`)
 * `SimpleSolveCaptchaProject` ใช้บริการยืนยันตัวตนแบบจำลองชั่วคราว (`standalone-auth-service.mjs`) ซึ่งเก็บผู้ใช้แบบ In-Memory บน `Map()`
 
 การยกระดับสู่ระบบ **Centralized Database (MongoDB)** มีเป้าหมายเพื่อ:
@@ -23,7 +23,7 @@
 ```mermaid
 graph TD
     subgraph ClientLayer["🖥️ Desktop Client (WPF)"]
-        WPF["TiktokStudioSandbox (Desktop App)"]
+        WPF["FlowUltraTech (Desktop App)"]
     end
 
     subgraph ServiceLayer["⚙️ Backend & API Services"]
@@ -419,7 +419,7 @@ CaptchaLogSchema.index({ userId: 1, createdAt: -1 });
 ```mermaid
 sequenceDiagram
     autonumber
-    participant App as TiktokStudioSandbox (WPF)
+    participant App as FlowUltraTech (WPF)
     participant Auth as Auth Service (:3006)
     participant DB as MongoDB
 
@@ -442,7 +442,7 @@ sequenceDiagram
 
 ### 5.2 ขั้นตอนขอแก้แคปต์ชา (Desktop App -> Captcha Solver)
 
-1. เมื่อตรวจพบ Popup แคปต์ชาบน TikTok Studio, ตัวแอป `TiktokStudioSandbox` จะแปลงภาพเป็น Base64
+1. เมื่อตรวจพบ Popup แคปต์ชาบน TikTok Studio, ตัวแอป `FlowUltraTech` จะแปลงภาพเป็น Base64
 2. ส่งคำขอ `POST http://127.0.0.1:8001/captcha/slide` พร้อม Header `Authorization: Bearer <accessToken>`
 3. ใน `SimpleSolveCaptchaProject/src/middlewares/auth.ts`:
    * ถอดรหัส Token ตรวจสอบ `userId`
@@ -468,7 +468,7 @@ sequenceDiagram
   ```
 
 ### 2. การสร้าง Hardware ID (HWID) บน Windows (.NET C#)
-ในโปรเจกต์ `TiktokStudioSandbox`, สามารถสร้าง HWID ที่คงทนเพื่อส่งไปพร้อมการ Login:
+ในโปรเจกต์ `FlowUltraTech`, สามารถสร้าง HWID ที่คงทนเพื่อส่งไปพร้อมการ Login:
 ```csharp
 public static string GetMachineHwid()
 {

@@ -50,7 +50,7 @@ flowchart TD
 ## 3. สถาปัตยกรรมป้องกันฝั่งโปรแกรม (Client-Side Protections)
 
 ### 3.1 การล็อก Single Instance ด้วย Global Named Mutex
-ป้องกันผู้ใช้เปิดโปรแกรม `TiktokStudioSandbox.exe` ซ้อนกันหลายตัวเพื่อหลอกรันจอเกิน:
+ป้องกันผู้ใช้เปิดโปรแกรม `FlowUltraTech.exe` ซ้อนกันหลายตัวเพื่อหลอกรันจอเกิน:
 
 ```csharp
 // App.xaml.cs
@@ -60,7 +60,7 @@ public partial class App : Application
 
     protected override void OnStartup(StartupEventArgs e)
     {
-        const string mutexName = @"Global\TiktokStudioSandbox_SingleInstance_Mutex_2026";
+        const string mutexName = @"Global\FlowUltraTech_SingleInstance_Mutex_2026";
         _singleInstanceMutex = new Mutex(true, mutexName, out bool createdNew);
 
         if (!createdNew)
@@ -119,7 +119,7 @@ public static string GenerateDeepHwid()
 ```mermaid
 sequenceDiagram
     autonumber
-    participant App as TiktokStudioSandbox (WPF)
+    participant App as FlowUltraTech (WPF)
     participant Auth as Auth & Slot API (:3006)
     participant Solver as Captcha Solver (:8001)
     participant DB as MongoDB

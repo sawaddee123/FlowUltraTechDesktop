@@ -1,9 +1,9 @@
-; Script generated for TikTok Studio Sandbox
-#define MyAppName "TikTok Studio Sandbox"
-#define MyAppVersion "0.1.7"
-#define MyAppPublisher "TikTok Studio Sandbox"
-#define MyAppURL "https://github.com/sawaddee123/TiktokStudioSandbox"
-#define MyAppExeName "TiktokStudioSandbox.App.exe"
+; Script generated for FlowUltraTech
+#define MyAppName "FlowUltraTech"
+#define MyAppVersion "1.0.1"
+#define MyAppPublisher "FlowUltraTech"
+#define MyAppURL "https://github.com/sawaddee123/FlowUltraTech"
+#define MyAppExeName "FlowUltraTech.App.exe"
 #define MyAppSourceDir "..\dist\app"
 
 [Setup]
@@ -20,7 +20,7 @@ DefaultDirName={autopf}\{#MyAppName}
 DefaultGroupName={#MyAppName}
 AllowNoIcons=yes
 OutputDir=..\dist\installer
-OutputBaseFilename=TikTokStudioSandbox_Setup_v{#MyAppVersion}
+OutputBaseFilename=FlowUltraTech_Setup_v{#MyAppVersion}
 Compression=lzma2/ultra64
 SolidCompression=yes
 WizardStyle=modern

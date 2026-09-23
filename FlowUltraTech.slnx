@@ -1,0 +1,9 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/FlowUltraTech.App/FlowUltraTech.App.csproj" />
+    <Project Path="src/FlowUltraTech.Core/FlowUltraTech.Core.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/FlowUltraTech.Tests/FlowUltraTech.Tests.csproj" />
+  </Folder>
+</Solution>

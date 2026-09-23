@@ -18,7 +18,7 @@
   * **ภาษา/เทคโนโลยี:** Node.js (JavaScript / TypeScript), Protobuf, WebSocket
   * **ลักษณะงาน:** ไลบรารี Reverse-engineered ระดับมาตรฐานสำหรับเชื่อมต่อ TikTok Webcast Push Service ดักจับข้อความแชต (`chat`), ของขวัญและ Streak (`gift`), การเคาะไลก์ (`like`), สถิติผู้ชมสด (`roomUser`), และผู้เข้าห้อง (`member`) โดยไม่ต้องใช้รหัสผ่าน (ใช้เพียง `@username`)
   * **บทบาทในโปรเจกต์นี้:** ใช้เป็น **Event Listener / Ingestion Layer** แยกต่างหากเพื่อลดการใช้ทรัพยากร แทนที่จะต้องคอยรันเบราว์เซอร์หรือสแครปหน้าจอ สามารถผสานกับ CDP Automation สำหรับส่งข้อความตอบกลับได้
-  * **เอกสารและคู่มือเชิงลึกในโปรเจกต์:** ดูรายละเอียด การติดตั้ง ตัวเลือก Proxy และตัวอย่างโค้ดฉบับเต็มได้ที่ [06. TikTok-Live-Connector Integration Guide](file:///D:/Script/Test/TiktokStudioSandbox/docs/06_tiktok_live_connector_guide.md)
+  * **เอกสารและคู่มือเชิงลึกในโปรเจกต์:** ดูรายละเอียด การติดตั้ง ตัวเลือก Proxy และตัวอย่างโค้ดฉบับเต็มได้ที่ [06. TikTok-Live-Connector Integration Guide](file:///D:/Script/Test/FlowUltraTech/docs/06_tiktok_live_connector_guide.md)
 * **[isaackogan/TikTokLive](https://github.com/isaackogan/TikTokLive)**
   * **ภาษา/เทคโนโลยี:** Python, AsyncIO, Protobuf
   * **ลักษณะงาน:** พอร์ตภาษา Python ของ TikTok-Live-Connector เหมาะมากสำหรับนำมาทำ Data Pipeline, Bot ตอบแชท, หรือบันทึกสถิติลงฐานข้อมูล

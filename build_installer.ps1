@@ -3,17 +3,17 @@ param(
     [string]$Version = ""
 )
 
-# Build and Package Script for TikTok Studio Sandbox Installer
+# Build and Package Script for FlowUltraTech Installer
 $ErrorActionPreference = "Stop"
 
 Write-Host "==========================================================" -ForegroundColor Cyan
-Write-Host "  TikTok Studio Sandbox - Build & Package Installer" -ForegroundColor Cyan
+Write-Host "  FlowUltraTech - Build & Package Installer" -ForegroundColor Cyan
 Write-Host "==========================================================" -ForegroundColor Cyan
 
 $rootDir = $PSScriptRoot
-$projectPath = Join-Path $rootDir "src\TiktokStudioSandbox.App\TiktokStudioSandbox.App.csproj"
-$coreProjectPath = Join-Path $rootDir "src\TiktokStudioSandbox.Core\TiktokStudioSandbox.Core.csproj"
-$manifestPath = Join-Path $rootDir "src\TiktokStudioSandbox.App\app.manifest"
+$projectPath = Join-Path $rootDir "src\FlowUltraTech.App\FlowUltraTech.App.csproj"
+$coreProjectPath = Join-Path $rootDir "src\FlowUltraTech.Core\FlowUltraTech.Core.csproj"
+$manifestPath = Join-Path $rootDir "src\FlowUltraTech.App\app.manifest"
 $distAppDir = Join-Path $rootDir "dist\app"
 $installerOutputDir = Join-Path $rootDir "dist\installer"
 $issPath = Join-Path $rootDir "installer\setup.iss"
@@ -60,7 +60,7 @@ Write-Host "$fourPartVersion" -ForegroundColor Gray
 # 3. Synchronize Version to all project files
 Write-Host "`nSynchronizing version across project files..." -ForegroundColor DarkGray
 
-# (a) TiktokStudioSandbox.App.csproj
+# (a) FlowUltraTech.App.csproj
 if (Test-Path $projectPath) {
     $content = Get-Content $projectPath -Raw
     $content = [regex]::Replace($content, "<Version>.*?</Version>", "<Version>$targetVersion</Version>")
@@ -70,7 +70,7 @@ if (Test-Path $projectPath) {
     Write-Host "  [OK] Updated $projectPath" -ForegroundColor DarkGreen
 }
 
-# (b) TiktokStudioSandbox.Core.csproj
+# (b) FlowUltraTech.Core.csproj
 if (Test-Path $coreProjectPath) {
     $content = Get-Content $coreProjectPath -Raw
     $content = [regex]::Replace($content, "<Version>.*?</Version>", "<Version>$targetVersion</Version>")
@@ -131,7 +131,7 @@ if (Test-Path $distAppDir) {
 
 dotnet publish $projectPath -c Release -r win-x64 --self-contained true -o $distAppDir
 
-if (-not (Test-Path (Join-Path $distAppDir "TiktokStudioSandbox.App.exe"))) {
+if (-not (Test-Path (Join-Path $distAppDir "FlowUltraTech.App.exe"))) {
     Write-Error "Published executable not found!"
     exit 1
 }
@@ -141,7 +141,7 @@ $assetsDir = Join-Path $distAppDir "Assets"
 if (-not (Test-Path $assetsDir)) {
     New-Item -ItemType Directory -Path $assetsDir -Force | Out-Null
 }
-$sourceWav = Join-Path $rootDir "src\TiktokStudioSandbox.App\bin\Debug\net8.0-windows\Assets\captcha_alert.wav"
+$sourceWav = Join-Path $rootDir "src\FlowUltraTech.App\bin\Debug\net8.0-windows\Assets\captcha_alert.wav"
 if (Test-Path $sourceWav) {
     Copy-Item $sourceWav (Join-Path $assetsDir "captcha_alert.wav") -Force
 }
@@ -168,11 +168,16 @@ if ($installerFiles.Count -gt 0) {
     Write-Host "==========================================================" -ForegroundColor Green
 
     # Auto-sync to backend storage/releases directory if present
-    $backendReleasesDir = "D:\Script\java-script\SimpleSolveCaptchaProject\storage\releases"
-    if (Test-Path $backendReleasesDir) {
-        $destPath = Join-Path $backendReleasesDir $latestInstaller.Name
-        Copy-Item $latestInstaller.FullName $destPath -Force
-        Write-Host "  Synced to Backend: $destPath" -ForegroundColor Cyan
+    $backendDirs = @(
+        "D:\Script\java-script\FlowUltraTech\storage\releases",
+        "D:\Script\java-script\SimpleSolveCaptchaProject\storage\releases"
+    )
+    foreach ($backendReleasesDir in $backendDirs) {
+        if (Test-Path $backendReleasesDir) {
+            $destPath = Join-Path $backendReleasesDir $latestInstaller.Name
+            Copy-Item $latestInstaller.FullName $destPath -Force
+            Write-Host "  Synced to Backend: $destPath" -ForegroundColor Cyan
+        }
     }
 } else {
     Write-Error "No installer executable was found in $installerOutputDir"
