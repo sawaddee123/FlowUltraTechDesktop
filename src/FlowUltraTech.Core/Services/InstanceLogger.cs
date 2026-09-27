@@ -55,6 +55,8 @@ public class InstanceLogger : IInstanceLogger
         }
     }
 
+    private long _currentFileSizeBytes = -1;
+
     public void Log(InstanceLogLevel level, string category, string message, string? details = null)
     {
         var entry = new InstanceLogEntry
@@ -70,7 +72,9 @@ public class InstanceLogger : IInstanceLogger
         {
             if (_logs.Count >= MaxInMemoryLogs)
             {
-                _logs.RemoveRange(0, _logs.Count - MaxInMemoryLogs + 1);
+                // Batch trim 200 items at once to eliminate continuous array copying on every log call
+                int trimCount = Math.Min(200, _logs.Count - MaxInMemoryLogs + 200);
+                _logs.RemoveRange(0, trimCount);
             }
             _logs.Add(entry);
         }
@@ -121,23 +125,36 @@ public class InstanceLogger : IInstanceLogger
         {
             lock (_lock)
             {
-                // Check file size to avoid unbounded growth
-                if (File.Exists(_logFilePath))
+                if (_currentFileSizeBytes < 0)
                 {
-                    var fileInfo = new FileInfo(_logFilePath);
-                    if (fileInfo.Length > MaxFileSizeBytes)
+                    try
                     {
-                        string backupPath = _logFilePath + ".bak";
-                        try
-                        {
-                            if (File.Exists(backupPath)) File.Delete(backupPath);
-                            File.Move(_logFilePath, backupPath);
-                        }
-                        catch { }
+                        var fi = new FileInfo(_logFilePath);
+                        _currentFileSizeBytes = fi.Exists ? fi.Length : 0;
+                    }
+                    catch
+                    {
+                        _currentFileSizeBytes = 0;
                     }
                 }
 
+                int addedBytes = System.Text.Encoding.UTF8.GetByteCount(text) + 2;
+
+                // Check file size using cached in-memory tracker without blocking on disk metadata
+                if (_currentFileSizeBytes + addedBytes > MaxFileSizeBytes)
+                {
+                    string backupPath = _logFilePath + ".bak";
+                    try
+                    {
+                        if (File.Exists(backupPath)) File.Delete(backupPath);
+                        if (File.Exists(_logFilePath)) File.Move(_logFilePath, backupPath);
+                    }
+                    catch { }
+                    _currentFileSizeBytes = 0;
+                }
+
                 File.AppendAllText(_logFilePath, text + Environment.NewLine);
+                _currentFileSizeBytes += addedBytes;
             }
         }
         catch { }

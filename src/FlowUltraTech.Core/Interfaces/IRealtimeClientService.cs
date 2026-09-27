@@ -38,6 +38,8 @@ public class AppUpdateEventArgs : EventArgs
 public interface IRealtimeClientService : IDisposable
 {
     bool IsConnected { get; }
+    event EventHandler? OnConnected;
+    event EventHandler? OnDisconnected;
     event EventHandler<QuotaReducedEventArgs>? OnQuotaReduced;
     event EventHandler<LicenseKickoutEventArgs>? OnLicenseKickout;
     event EventHandler<LicenseUpdateEventArgs>? OnLicenseUpdated;

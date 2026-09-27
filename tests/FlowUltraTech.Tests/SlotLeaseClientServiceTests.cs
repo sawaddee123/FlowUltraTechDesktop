@@ -222,6 +222,8 @@ public class SlotLeaseClientServiceTests
     {
         public bool IsConnected { get; set; } = true;
 #pragma warning disable CS0067
+        public event EventHandler? OnConnected;
+        public event EventHandler? OnDisconnected;
         public event EventHandler<FlowUltraTech.Core.Interfaces.QuotaReducedEventArgs>? OnQuotaReduced;
         public event EventHandler<FlowUltraTech.Core.Interfaces.LicenseKickoutEventArgs>? OnLicenseKickout;
         public event EventHandler<FlowUltraTech.Core.Interfaces.LicenseUpdateEventArgs>? OnLicenseUpdated;

@@ -287,6 +287,11 @@ public partial class MainViewModel : ObservableObject
         _realtimeService.OnLicenseKickout += HandleRealtimeLicenseKickout;
         _realtimeService.OnLicenseUpdated += HandleRealtimeLicenseUpdated;
         _realtimeService.OnAppUpdateBroadcast += HandleRealtimeAppUpdateBroadcast;
+        _realtimeService.OnConnected += (s, e) =>
+        {
+            System.Diagnostics.Debug.WriteLine("[Realtime] Connected to central server, emitting instance telemetry...");
+            SendInstancesTelemetryReport();
+        };
 
         StudioExePath = Settings.TikTokStudioExePath;
         ProxifierExePath = Settings.ProxifierExePath;
@@ -1311,6 +1316,7 @@ public partial class MainViewModel : ObservableObject
                     Settings.RefreshToken = refreshRes.RefreshToken;
                 }
                 await _storageService.SaveSettingsAsync(Settings);
+                _ = _realtimeService.ConnectAsync(AuthApiEndpoint, refreshRes.AccessToken);
                 res = refreshRes;
             }
         }

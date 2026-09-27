@@ -17,6 +17,8 @@ public class RealtimeClientService : IRealtimeClientService
 
     public bool IsConnected => _client?.Connected == true;
 
+    public event EventHandler? OnConnected;
+    public event EventHandler? OnDisconnected;
     public event EventHandler<QuotaReducedEventArgs>? OnQuotaReduced;
     public event EventHandler<LicenseKickoutEventArgs>? OnLicenseKickout;
     public event EventHandler<LicenseUpdateEventArgs>? OnLicenseUpdated;
@@ -34,13 +36,28 @@ public class RealtimeClientService : IRealtimeClientService
         {
             Auth = new Dictionary<string, object>
             {
-                { "token", token }
+                { "token", token },
+                { "clientType", "desktop" }
+            },
+            Query = new System.Collections.Specialized.NameValueCollection
+            {
+                { "clientType", "desktop" }
             },
             Reconnection = true,
             ReconnectionAttempts = int.MaxValue // Reconnect infinitely to survive server redeployments
         };
 
         _client = new SocketIOClient.SocketIO(uri, options);
+
+        _client.OnConnected += (s, e) =>
+        {
+            OnConnected?.Invoke(this, EventArgs.Empty);
+        };
+
+        _client.OnDisconnected += (s, e) =>
+        {
+            OnDisconnected?.Invoke(this, EventArgs.Empty);
+        };
 
         _client.On("connected", async response =>
         {

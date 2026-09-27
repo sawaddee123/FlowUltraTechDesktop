@@ -599,7 +599,23 @@ public partial class CdpAutomationService
                         }
                     }
 
-                    // Direct screenshot of active Captcha element for preview and solving
+                    // Priority 1: Direct extract from ImageSrc (data URI) to preserve original WebP resolution without scaling blur
+                    if (result.DirectImageBytes == null && !string.IsNullOrWhiteSpace(result.ImageSrc) && result.ImageSrc.StartsWith("data:image/", StringComparison.OrdinalIgnoreCase))
+                    {
+                        try
+                        {
+                            int commaIdx = result.ImageSrc.IndexOf(',');
+                            if (commaIdx >= 0)
+                            {
+                                byte[] bytes = Convert.FromBase64String(result.ImageSrc.Substring(commaIdx + 1));
+                                result.DirectImageBytes = bytes;
+                                result.DirectImageDimensions = GetImageDimensions(bytes);
+                            }
+                        }
+                        catch { }
+                    }
+
+                    // Priority 2: Fallback to direct screenshot of active Captcha element if ImageSrc is unavailable
                     if (result.IsActive && result.Type != CaptchaType.None && result.DirectImageBytes == null)
                     {
                         try
@@ -626,21 +642,6 @@ public partial class CdpAutomationService
                                     result.DirectImageBytes = freshBytes;
                                     result.DirectImageDimensions = GetImageDimensions(freshBytes);
                                 }
-                            }
-                        }
-                        catch { }
-                    }
-
-                    if (result.DirectImageBytes == null && !string.IsNullOrWhiteSpace(result.ImageSrc) && result.ImageSrc.StartsWith("data:image/", StringComparison.OrdinalIgnoreCase))
-                    {
-                        try
-                        {
-                            int commaIdx = result.ImageSrc.IndexOf(',');
-                            if (commaIdx >= 0)
-                            {
-                                byte[] bytes = Convert.FromBase64String(result.ImageSrc.Substring(commaIdx + 1));
-                                result.DirectImageBytes = bytes;
-                                result.DirectImageDimensions = GetImageDimensions(bytes);
                             }
                         }
                         catch { }
@@ -963,11 +964,15 @@ public partial class CdpAutomationService
                 usedEndpoint = endpoint;
                 Log($"[{DateTime.Now:HH:mm:ss}] 🤖 [CAPTCHA SOLVE] ส่งรูปภาพไปยัง Local Solver API Server: {endpoint}...");
 
-                // Prepare Base64 Image (Priority: DirectImageBytes -> CroppedImageBytes -> Fresh Element Screenshot -> ImageSrc)
+                // Prepare Base64 Image (Priority: DirectImageBytes -> ImageSrc (data URI) -> CroppedImageBytes -> Fresh Element Screenshot)
                 string? base64Image = null;
                 if (detection.DirectImageBytes != null && detection.DirectImageBytes.Length > 0)
                 {
                     base64Image = Convert.ToBase64String(detection.DirectImageBytes);
+                }
+                else if (!string.IsNullOrWhiteSpace(detection.ImageSrc) && detection.ImageSrc.StartsWith("data:image/", StringComparison.OrdinalIgnoreCase))
+                {
+                    base64Image = detection.ImageSrc;
                 }
                 else if (detection.CroppedImageBytes != null && detection.CroppedImageBytes.Length > 0)
                 {
@@ -1017,6 +1022,10 @@ public partial class CdpAutomationService
                         {
                             req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", solverJwtToken.Trim());
                         }
+                        else
+                        {
+                            Log($"[{DateTime.Now:HH:mm:ss}] ℹ️ [CAPTCHA SOLVE] ไม่พบ Token กรุณาล็อกอินผ่านแถบด้านบน (หากเซิร์ฟเวอร์เปิดโหมดความปลอดภัย)");
+                        }
                         if (!string.IsNullOrWhiteSpace(instanceLeaseId))
                         {
                             req.Headers.TryAddWithoutValidation("X-Instance-Lease", instanceLeaseId.Trim());
@@ -1050,6 +1059,11 @@ public partial class CdpAutomationService
                                 clickPoints = parsedApiResult.ClickPoints;
                                 currentCaptchaId = parsedApiResult.CaptchaId;
                             }
+                            else
+                            {
+                                string altErr = await altResp.Content.ReadAsStringAsync();
+                                Log($"[{DateTime.Now:HH:mm:ss}] ⚠️ [CAPTCHA SOLVE] Alt route ตอบกลับสถานะ: {(int)altResp.StatusCode} {altResp.StatusCode} - {altErr}");
+                            }
                         }
                         else if (resp.IsSuccessStatusCode)
                         {
@@ -1063,7 +1077,12 @@ public partial class CdpAutomationService
                         }
                         else
                         {
-                            Log($"[{DateTime.Now:HH:mm:ss}] ⚠️ [CAPTCHA SOLVE] Solver API Server ตอบกลับสถานะ: {resp.StatusCode}");
+                            string errBody = await resp.Content.ReadAsStringAsync();
+                            Log($"[{DateTime.Now:HH:mm:ss}] ⚠️ [CAPTCHA SOLVE] Solver API ตอบกลับสถานะ: {(int)resp.StatusCode} {resp.StatusCode} - {errBody}");
+                            if (resp.StatusCode == System.Net.HttpStatusCode.Unauthorized || resp.StatusCode == System.Net.HttpStatusCode.Forbidden)
+                            {
+                                Log($"[{DateTime.Now:HH:mm:ss}] 🔒 [CAPTCHA SOLVE] เข้าถึงถูกปฏิเสธ: กรุณาตรวจสอบการเข้าสู่ระบบและสถานะ License/Lease");
+                            }
                         }
                     }
                     catch (Exception ex)
@@ -1182,6 +1201,30 @@ public partial class CdpAutomationService
                     double scaledX = targetX * s;
                     Log($"[{DateTime.Now:HH:mm:ss}] ⚠️ [CAPTCHA SOLVE] ค่า Target X ({targetX:F1}px) เป็นพิกัดภาพดิบ ทำการ Scale สู่ DOM ({domW:F0}px) -> X={scaledX:F1}px");
                     targetX = scaledX;
+                }
+
+                // Query moving puzzle piece element in DOM to handle any initial piece offset
+                string pieceSelector = "#jigsaw-moving-piece, [class*=\"cap-absolute\"][draggable=\"true\"] img, img[alt=\"Captcha\" i], .captcha_verify_slide--piece";
+                var pieceHandle = targetFrame != null 
+                    ? await targetFrame.QuerySelectorAsync(pieceSelector)
+                    : await targetPage.QuerySelectorAsync(pieceSelector);
+                if (pieceHandle == null && targetFrame == null)
+                {
+                    foreach (var frame in targetPage.Frames)
+                    {
+                        pieceHandle = await frame.QuerySelectorAsync(pieceSelector);
+                        if (pieceHandle != null) break;
+                    }
+                }
+
+                if (pieceHandle != null)
+                {
+                    var pieceBox = await pieceHandle.BoundingBoxAsync();
+                    if (pieceBox != null && imgBox != null)
+                    {
+                        double pieceStartOffsetX = Math.Max(0, (double)(pieceBox.X - imgBox.X));
+                        Log($"[{DateTime.Now:HH:mm:ss}] 🧩 [CAPTCHA SOLVE] ข้อมูล Piece ใน DOM: Width={pieceBox.Width:F1}px, OffsetX={pieceStartOffsetX:F1}px");
+                    }
                 }
 
                 targetX = Math.Clamp(targetX, 0, Math.Max(0, domW));

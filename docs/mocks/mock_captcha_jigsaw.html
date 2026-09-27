@@ -2987,7 +2987,7 @@
     const currentPieceX = parseFloat(piece.style.left || 10);
     const diff = Math.abs(currentPieceX - TARGET_PIECE_X);
 
-    if (diff <= 16 || currentPieceX >= (TARGET_PIECE_X - 10)) {
+    if (diff <= 35 || currentPieceX >= (TARGET_PIECE_X - 35)) {
       isSolved = true;
       toast.style.display = 'block';
       toast.style.background = 'rgba(11,224,155,0.15)';

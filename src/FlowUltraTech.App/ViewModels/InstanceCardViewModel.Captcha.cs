@@ -574,7 +574,7 @@ public partial class InstanceCardViewModel : ObservableObject
                 detection: detection ?? _lastDetectionResult,
                 solverMode: _settings.CaptchaSolverMode,
                 solverApiEndpoint: _settings.CaptchaSolverEndpoint,
-                solverJwtToken: _settings.CaptchaSolverJwtToken,
+                solverJwtToken: !string.IsNullOrWhiteSpace(_settings.CaptchaSolverJwtToken) ? _settings.CaptchaSolverJwtToken : _settings.AuthToken,
                 customMockJsonPath: null,
                 progressLogger: msg => AppendConsole(msg),
                 delaySeconds: _settings.AutoSolveDelaySeconds,

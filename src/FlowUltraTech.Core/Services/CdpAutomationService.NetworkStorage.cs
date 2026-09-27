@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Linq;
@@ -56,10 +56,39 @@ public partial class CdpAutomationService
                     }
                     item.RequestHeaders = sbReqHeaders.ToString();
 
+                    // Prevent memory buildup from uncompleted or aborted requests
+                    if (_activeRequests.Count > 500)
+                    {
+                        var staleKeys = _activeRequests.Where(kvp => kvp.Value.sw.ElapsedMilliseconds > 30000)
+                                                       .Select(kvp => kvp.Key)
+                                                       .Take(100)
+                                                       .ToList();
+                        foreach (var sk in staleKeys)
+                        {
+                            _activeRequests.TryRemove(sk, out _);
+                        }
+                    }
+
                     var sw = Stopwatch.StartNew();
                     _activeRequests[e.Request.Url + "_" + e.Request.Method] = (item, sw);
 
                     onRequest(item);
+                };
+
+                page.RequestFailed += (sender, e) =>
+                {
+                    string key = e.Request.Url + "_" + e.Request.Method;
+                    if (_activeRequests.TryRemove(key, out var tuple))
+                    {
+                        var item = tuple.item;
+                        tuple.sw.Stop();
+                        item.DurationMs = tuple.sw.ElapsedMilliseconds;
+                        item.StatusCode = 0;
+                        item.StatusText = "Failed/Aborted";
+                        item.StatusDisplay = "Failed";
+                        item.IsCompleted = true;
+                        onResponse(item);
+                    }
                 };
 
                 page.Response += async (sender, e) =>
@@ -150,6 +179,11 @@ public partial class CdpAutomationService
         if (_connectedBrowsers.TryRemove(cdpPort, out var browser))
         {
             try { browser.Disconnect(); } catch { }
+            try { browser.Dispose(); } catch { }
+        }
+        if (_activeRequests.Count > 0)
+        {
+            _activeRequests.Clear();
         }
         logger?.Info("Network", $"Network hook stopped on port {cdpPort}");
         return Task.CompletedTask;

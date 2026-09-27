@@ -457,8 +457,16 @@ public partial class DebugViewModel : ObservableObject
         CaptchaStatusText = "ล้างข้อมูลเรียบร้อย";
     }
 
+    private const int MaxConsoleOutputLength = 64 * 1024; // 64 KB limit to prevent LOH allocation churn
+
     private void AppendConsole(string text)
     {
-        ConsoleOutput += text + "\n";
+        string newText = string.IsNullOrEmpty(ConsoleOutput) ? (text + "\n") : (ConsoleOutput + text + "\n");
+        if (newText.Length > MaxConsoleOutputLength)
+        {
+            int cutIndex = newText.IndexOf('\n', newText.Length - (MaxConsoleOutputLength * 3 / 4));
+            newText = cutIndex > 0 ? newText.Substring(cutIndex + 1) : newText.Substring(newText.Length - (MaxConsoleOutputLength * 3 / 4));
+        }
+        ConsoleOutput = newText;
     }
 }

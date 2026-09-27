@@ -75,6 +75,29 @@ public class InstanceLogManager : IInstanceLogManager
         return null;
     }
 
+    public void RemoveLogger(string profileFolderName, int cdpPort = 0)
+    {
+        string key = string.IsNullOrWhiteSpace(profileFolderName) ? $"Port_{cdpPort}" : profileFolderName;
+        if (_loggersByFolder.TryRemove(key, out var logger))
+        {
+            logger.Clear();
+        }
+        if (cdpPort > 0)
+        {
+            _loggersByPort.TryRemove(cdpPort, out _);
+        }
+    }
+
+    public void Clear()
+    {
+        foreach (var logger in _loggersByFolder.Values)
+        {
+            logger.Clear();
+        }
+        _loggersByFolder.Clear();
+        _loggersByPort.Clear();
+    }
+
     public (bool Success, string Logs, string FileName) ReadLogs(string profileFolderName, int cdpPort = 0, int maxLines = 3000, string accountName = "")
     {
         string? targetPath = null;

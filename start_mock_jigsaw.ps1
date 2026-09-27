@@ -41,19 +41,13 @@ if (-not (Test-Path $tempUserData)) {
 $port = 9221
 Write-Host ""
 Write-Host "==========================================================================" -ForegroundColor Cyan
-Write-Host " 🧩 [MOCK CAPTCHA JIGSAW TESTBED] กำลังเปิดหน้าต่างจำลองสำหรับทดสอบ..." -ForegroundColor Green
+Write-Host " [MOCK CAPTCHA JIGSAW TESTBED] Launching test browser on port $port..." -ForegroundColor Green
 Write-Host "==========================================================================" -ForegroundColor Cyan
-Write-Host " 🌐 Browser: $browserExe" -ForegroundColor White
-Write-Host " 🔌 CDP Debugging Port: $port" -ForegroundColor Yellow
-Write-Host " 📄 File: $mockPath" -ForegroundColor White
-Write-Host " 📁 Profile: $tempUserData" -ForegroundColor Gray
+Write-Host " Browser: $browserExe" -ForegroundColor White
+Write-Host " CDP Debugging Port: $port" -ForegroundColor Yellow
+Write-Host " File: $mockPath" -ForegroundColor White
+Write-Host " Profile: $tempUserData" -ForegroundColor Gray
 Write-Host "==========================================================================" -ForegroundColor Cyan
-Write-Host ""
-Write-Host " 👉 ขั้นตอนการทดสอบกับโปรแกรม FlowUltraTech:" -ForegroundColor Cyan
-Write-Host "    1. เปิดโปรแกรม FlowUltraTech" -ForegroundColor White
-Write-Host "    2. ตรวจสอบว่ามี Instance ที่ตั้งค่า Port: $port" -ForegroundColor White
-Write-Host "    3. กดปุ่ม '🔍 สแกนเดี๋ยวนี้' หรือ '⚡ แก้ Captcha อัตโนมัติ' ในหน้าการ์ด หรือในแท็บ Captcha Center" -ForegroundColor Yellow
-Write-Host "    4. ระบบจะตรวจจับ DOM ของจริง, อ่านตัวนับเวลาถอยหลัง, และลากสไลเดอร์แก้ให้อัตโนมัติ!" -ForegroundColor Green
 Write-Host ""
 
 $args = @(
@@ -65,4 +59,4 @@ $args = @(
 )
 
 Start-Process -FilePath $browserExe -ArgumentList $args
-Write-Host "✅ เบราว์เซอร์เปิดทำงานเรียบร้อยแล้ว!" -ForegroundColor Green
+Write-Host "Browser launched successfully on port $port!" -ForegroundColor Green
