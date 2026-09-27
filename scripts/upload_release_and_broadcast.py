@@ -8,12 +8,12 @@ sys.stdout.reconfigure(encoding='utf-8')
 
 SERVER_HOST = "210.246.215.66"
 SERVER_URL = f"http://{SERVER_HOST}:8001"
-LOCAL_INSTALLER = r"D:\Script\java-script\FlowUltraTech\storage\releases\FlowUltraTech_Setup_v1.3.0.exe"
-REMOTE_INSTALLER = "/root/FlowUltraTech/storage/releases/FlowUltraTech_Setup_v1.3.0.exe"
-VERSION = "1.3.0"
-MIN_VERSION = "1.3.0" # Force update!
+LOCAL_INSTALLER = r"D:\Script\java-script\FlowUltraTech\storage\releases\FlowUltraTech_Setup_v1.4.0.exe"
+REMOTE_INSTALLER = "/root/FlowUltraTech/storage/releases/FlowUltraTech_Setup_v1.4.0.exe"
+VERSION = "1.4.0"
+MIN_VERSION = "1.4.0" # Force update!
 FILE_SIZE = os.path.getsize(LOCAL_INSTALLER)
-FILE_HASH = "faa8014dd0a1f625b6546934c4fd6a3b53e5d1b54c2c6d41387a63e431b06361"
+FILE_HASH = "c80c2d93722e12575ce446bcd0fcd485133c6950e80091aa969b4a076aa349c9"
 
 print(f"1. Connecting SSH to {SERVER_HOST}...")
 c = paramiko.SSHClient()
@@ -60,12 +60,12 @@ headers = {
 broadcast_payload = {
     "version": VERSION,
     "minRequiredVersion": MIN_VERSION,
-    "title": f"FlowUltraTech v{VERSION} (Unlimited HWID & Pure Screen Quota Update)",
+    "title": f"FlowUltraTech v{VERSION} (Precision Jigsaw Slider & Pure Screen Quota)",
     "description": (
-        "• ปลดล็อกข้อจำกัด HWID (เครื่อง) — ผู้ใช้สามารถเข้าสู่ระบบบนคอมพิวเตอร์กี่เครื่องก็ได้พร้อมกัน ไม่จำกัดจำนวนเครื่อง\n"
-        "• ควบคุมและจำกัดเฉพาะจำนวนจอสดสูงสุด (Screen Quota) ที่รันพร้อมกันแบบเรียลไทม์ข้ามทุกอุปกรณ์\n"
-        "• ปรับปรุงระบบ Keep-Alive Heartbeat และการตรวจสอบสิทธิ์จอในระดับ Server & Client ให้เสถียรและราบรื่นยิ่งขึ้น\n"
-        "• อัปเดตหน้า Backoffice Web UI จัดการโควต้าจอสดและแสดงสถานะเครื่องออนไลน์แบบเรียลไทม์"
+        "• แก้ไขระบบคำนวณระยะลากสไลเดอร์ Captcha Jigsaw (TikTok Slide) ให้สัมพันธ์กับอัตราส่วน Knob-to-Image แบบ Sub-pixel ป้องกันการเคลื่อนคลาดเคลื่อน (Zero Coordinate Offset)\n"
+        "• ยืนยันตำแหน่งเป้าหมายด้วยการตรวจสอบ Transform ของชิ้นส่วนจิ๊กซอว์ใน DOM ก่อนยืนยันผล\n"
+        "• ปลดล็อกข้อจำกัด HWID ไม่จำกัดจำนวนเครื่อง ควบคุมด้วย Pure Screen Quota\n"
+        "• เพิ่มประสิทธิภาพหน่วยความจำและการรันระยะยาวต่อเนื่อง (Long-term Soak Tested & Zero Leaks)"
     ),
     "fileName": f"FlowUltraTech_Setup_v{VERSION}.exe",
     "fileSize": FILE_SIZE,

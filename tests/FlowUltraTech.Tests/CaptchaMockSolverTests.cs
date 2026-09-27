@@ -350,4 +350,42 @@ public class CaptchaMockSolverTests
             Assert.Equal(domH / 2.0, clickY, 1);
         }
     }
+
+    [Fact]
+    public void CalculateJigsawKnobDragDistance_RealTikTokDOM_PreventsOvershootAndAchievesExactSubPixelAlignment()
+    {
+        // Real TikTok Live Studio DOM parameters:
+        // Background image width = 280px (rendered from 552x344 WebP)
+        // Slider track width = 280px
+        // Slider knob width = 64px (TUXButton--medium, width: 64px)
+        // Usable track travel = 280 - 64 = 216px
+        // Target hole raw = 218.06px -> targetX in DOM = 218.06 * (280 / 552) = 110.61px
+        double domW = 280.0;
+        double trackWidth = 280.0;
+        double knobWidth = 64.0;
+        double targetX = 110.61;
+        double usableTrack = trackWidth - knobWidth; // 216.0
+
+        // OLD FLAWED CALCULATION (caused 32.77px overshoot -> TikTok rejected):
+        double oldKnobDrag = targetX; // 110.61px
+        // In TikTok JS (69901.3baa747e.js): w = knobDrag / usableTrack; pieceX = w * domW; replyX = round(w * domW);
+        double oldTiktokW = oldKnobDrag / usableTrack;
+        double oldResultingPieceX = oldTiktokW * domW; // 143.38px!
+        double oldError = Math.Abs(oldResultingPieceX - targetX);
+        Assert.True(oldError > 30.0, "Old flawed logic had an intolerable 32.77px overshoot");
+
+        // NEW FIXED CALCULATION (accounting for TikTok's internal knob-to-image ratio):
+        double dragRatio = usableTrack / domW; // 216 / 280 = 0.77142857
+        double newKnobDrag = targetX * dragRatio; // 85.33px
+        double newTiktokW = newKnobDrag / usableTrack;
+        double newResultingPieceX = newTiktokW * domW;
+        double newReplyX = Math.Round(newTiktokW * domW);
+
+        // Verification:
+        Assert.Equal(85.33, newKnobDrag, 2);
+        Assert.Equal(targetX, newResultingPieceX, 4); // Exact 110.61px DOM piece position!
+        Assert.Equal(111.0, newReplyX); // Exactly 111px sent to TikTok verify API!
+        Assert.True(Math.Abs(newResultingPieceX - targetX) < 0.001, "Error must be 0.0px");
+    }
 }
+

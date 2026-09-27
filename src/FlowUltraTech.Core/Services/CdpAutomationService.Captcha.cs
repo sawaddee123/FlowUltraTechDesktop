@@ -1217,18 +1217,24 @@ public partial class CdpAutomationService
                     }
                 }
 
+                double pieceStartOffsetX = 0;
+                double pieceWidth = 0;
                 if (pieceHandle != null)
                 {
                     var pieceBox = await pieceHandle.BoundingBoxAsync();
-                    if (pieceBox != null && imgBox != null)
+                    if (pieceBox != null)
                     {
-                        double pieceStartOffsetX = Math.Max(0, (double)(pieceBox.X - imgBox.X));
-                        Log($"[{DateTime.Now:HH:mm:ss}] 🧩 [CAPTCHA SOLVE] ข้อมูล Piece ใน DOM: Width={pieceBox.Width:F1}px, OffsetX={pieceStartOffsetX:F1}px");
+                        pieceWidth = (double)pieceBox.Width;
+                        if (imgBox != null)
+                        {
+                            pieceStartOffsetX = Math.Max(0, (double)(pieceBox.X - imgBox.X));
+                            Log($"[{DateTime.Now:HH:mm:ss}] 🧩 [CAPTCHA SOLVE] ข้อมูล Piece ใน DOM: Width={pieceBox.Width:F1}px, OffsetX={pieceStartOffsetX:F1}px");
+                        }
                     }
                 }
 
                 targetX = Math.Clamp(targetX, 0, Math.Max(0, domW));
-                Log($"[{DateTime.Now:HH:mm:ss}] 🧩 [CAPTCHA SOLVE] โหมด Jigsaw: พิกัดเป้าหมายขั้นสุดท้าย X={targetX:F1}px (DOM Width: {domW:F0}px)");
+                Log($"[{DateTime.Now:HH:mm:ss}] 🧩 [CAPTCHA SOLVE] โหมด Jigsaw: พิกัดเป้าหมายชิ้นส่วนในภาพ X={targetX:F1}px (DOM Image Width: {domW:F0}px)");
 
                 string knobSelector = "#captcha_slide_button, #jigsaw-slider-knob, .secsdk-captcha-drag-icon, .captcha_verify_slide--drag-icon, [role=\"slider\"]";
                 var knobHandle = targetFrame != null 
@@ -1260,28 +1266,89 @@ public partial class CdpAutomationService
                     return solveResult;
                 }
 
+                // Query slider track element to get exact usable travel distance
+                string trackSelector = "[class*=\"cap-rounded-full\"], #jigsaw-slidebar-track, .captcha_verify_slide--slidebar, .secsdk-captcha-drag-track, [class*=\"drag-track\"], [class*=\"slidebar\"]";
+                var trackHandle = targetFrame != null 
+                    ? await targetFrame.QuerySelectorAsync(trackSelector)
+                    : await targetPage.QuerySelectorAsync(trackSelector);
+                if (trackHandle == null && targetFrame == null)
+                {
+                    foreach (var frame in targetPage.Frames)
+                    {
+                        trackHandle = await frame.QuerySelectorAsync(trackSelector);
+                        if (trackHandle != null) break;
+                    }
+                }
+
+                var trackBox = trackHandle != null ? await trackHandle.BoundingBoxAsync() : null;
+                double trackWidth = trackBox != null && trackBox.Width > 0 ? (double)trackBox.Width : domW;
+                double knobWidth = (double)box.Width > 0 ? (double)box.Width : 64.0;
+                double usableTrack = Math.Max(1.0, trackWidth - knobWidth);
+
+                // In TikTok's slider component (69901.3baa747e.js):
+                //   knob drag delta: e.x
+                //   track usable range: l = trackWidth - knobWidth
+                //   normalized track progress: w = e.x / l
+                //   piece translation: position.x = w * domW
+                //   backend submitted reply: reply.x = Math.round(w * domW)
+                // Therefore, to place piece exactly at targetX, the knob must travel:
+                //   knobDragDistance = targetX * (usableTrack / domW)
+                double knobDragDistance;
+                if (pieceStartOffsetX > 5.0 && pieceWidth > 0 && (domW - pieceWidth - pieceStartOffsetX) > 0)
+                {
+                    // Mock environment with constrained interior piece range
+                    double mockPieceTravelRange = domW - pieceWidth - pieceStartOffsetX;
+                    double requiredMove = Math.Max(0, targetX - pieceStartOffsetX);
+                    knobDragDistance = requiredMove * (usableTrack / mockPieceTravelRange);
+                    Log($"[{DateTime.Now:HH:mm:ss}] 🧩 [CAPTCHA SOLVE] โหมด Offset Track: RequiredMove={requiredMove:F1}px, TravelRange={mockPieceTravelRange:F1}px -> KnobDrag={knobDragDistance:F1}px");
+                }
+                else
+                {
+                    // Real TikTok Live Studio standard slider ratio
+                    double dragRatio = usableTrack / domW;
+                    knobDragDistance = targetX * dragRatio;
+                    Log($"[{DateTime.Now:HH:mm:ss}] 🧩 [CAPTCHA SOLVE] อัตราส่วนสไลเดอร์ TikTok: TrackWidth={trackWidth:F1}px, KnobWidth={knobWidth:F1}px, DragRatio={dragRatio:F4} -> KnobDrag={knobDragDistance:F1}px (เป้าหมายชิ้นส่วน={targetX:F1}px)");
+                }
+
+                knobDragDistance = Math.Clamp(knobDragDistance, 0, usableTrack);
+
                 decimal startX = box.X + box.Width / 2;
                 decimal startY = box.Y + box.Height / 2;
 
-                Log($"[{DateTime.Now:HH:mm:ss}] 🕹️ [CAPTCHA SOLVE] พบปุ่ม Knob ที่พิกัด ({startX:F0}, {startY:F0}) กำลังจำลองการลากไปยัง X={startX + (decimal)targetX:F0}...");
+                Log($"[{DateTime.Now:HH:mm:ss}] 🕹️ [CAPTCHA SOLVE] พบปุ่ม Knob ที่พิกัด ({startX:F0}, {startY:F0}) กำลังจำลองการลากระยะทาง {knobDragDistance:F1}px ไปยัง X={startX + (decimal)knobDragDistance:F0}...");
 
                 // Smooth mouse drag with human-like Bezier curve
                 await targetPage.Mouse.MoveAsync(startX, startY);
                 await targetPage.Mouse.DownAsync();
 
-                int steps = 18;
+                int steps = 24;
                 for (int step = 1; step <= steps; step++)
                 {
                     double progress = (double)step / steps;
                     double ease = 1 - Math.Pow(1 - progress, 3);
-                    decimal currentX = startX + (decimal)(targetX * ease);
+                    decimal currentX = startX + (decimal)(knobDragDistance * ease);
                     decimal currentY = startY + (decimal)(Random.Shared.NextDouble() * 2 - 1);
                     await targetPage.Mouse.MoveAsync(currentX, currentY);
-                    await Task.Delay(Random.Shared.Next(15, 28));
+                    await Task.Delay(Random.Shared.Next(12, 22));
                 }
 
-                await Task.Delay(50);
+                await Task.Delay(60);
                 await targetPage.Mouse.UpAsync();
+
+                try
+                {
+                    string pieceTransform = await targetPage.EvaluateFunctionAsync<string>(@"() => {
+                        const piece = document.querySelector(""#jigsaw-moving-piece, .captcha-verify-container div[draggable='true'] img, .cap-absolute[draggable='true']"");
+                        if (!piece) return '';
+                        const parent = piece.closest(""div[draggable='true']"") || piece;
+                        return parent.style.transform || parent.getAttribute('style') || '';
+                    }");
+                    if (!string.IsNullOrWhiteSpace(pieceTransform))
+                    {
+                        Log($"[{DateTime.Now:HH:mm:ss}] 🧩 [CAPTCHA SOLVE] สถานะชิ้นส่วนหลังการลาก: '{pieceTransform}'");
+                    }
+                }
+                catch { }
 
                 Log($"[{DateTime.Now:HH:mm:ss}] 🕹️ [CAPTCHA SOLVE] ลากสไลเดอร์ถึงตำแหน่งเป้าหมายเรียบร้อยแล้ว");
             }
