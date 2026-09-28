@@ -33,6 +33,18 @@ public partial class MainWindow : Window
             DataContext = ViewModel;
             App.Log("[MainWindow] ViewModel bound complete");
 
+            ViewModel.RequestLogoutRedirect += () =>
+            {
+                Dispatcher.Invoke(() =>
+                {
+                    _isLoggingOut = true;
+                    var loginWindow = new Views.LoginWindow();
+                    Application.Current.MainWindow = loginWindow;
+                    loginWindow.Show();
+                    Close();
+                });
+            };
+
             StateChanged += MainWindow_StateChanged;
 
             Loaded += (s, e) =>
@@ -56,12 +68,18 @@ public partial class MainWindow : Window
 
             Closing += (s, e) =>
             {
-                App.Log($"[MainWindow] Closing event fired! Cancel={e.Cancel}");
+                App.Log($"[MainWindow] Closing event fired! Cancel={e.Cancel}, IsLoggingOut={_isLoggingOut}");
                 try
                 {
                     ProcessLauncher.KillAllStudioProcesses();
                 }
                 catch { }
+
+                if (!_isLoggingOut)
+                {
+                    App.Log("[MainWindow] Normal close. Exiting application.");
+                    Application.Current.Shutdown();
+                }
             };
 
             Closed += (s, e) =>
@@ -76,6 +94,7 @@ public partial class MainWindow : Window
         }
     }
 
+    private bool _isLoggingOut;
     private bool _isHeaderMouseDown;
     private Point _headerMouseDownPos;
 

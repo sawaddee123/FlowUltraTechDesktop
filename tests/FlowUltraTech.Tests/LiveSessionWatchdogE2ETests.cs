@@ -54,9 +54,9 @@ public class LiveSessionWatchdogE2ETests
 
         await desktopRealtime.ConnectAsync(CentralServerUrl, loginRes.AccessToken);
 
-        // Wait for connection
+        // Wait for connection and event
         var connectDeadline = DateTime.UtcNow.AddSeconds(5);
-        while (!desktopRealtime.IsConnected && DateTime.UtcNow < connectDeadline)
+        while ((!desktopRealtime.IsConnected || !connectedFired) && DateTime.UtcNow < connectDeadline)
         {
             await Task.Delay(200);
         }

@@ -25,7 +25,7 @@ public partial class App : Application
     {
         Log("================ APP INSTANTIATED ================");
 
-        ShutdownMode = ShutdownMode.OnMainWindowClose;
+        ShutdownMode = ShutdownMode.OnExplicitShutdown;
 
         AppDomain.CurrentDomain.UnhandledException += (s, e) =>
         {

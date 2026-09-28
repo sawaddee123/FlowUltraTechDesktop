@@ -215,5 +215,21 @@ public class CaptchaLiveApiSolverTests
             try { Directory.Delete(tempProfile, true); } catch { }
         }
     }
+
+    [Fact]
+    public async Task SolverApi_WhenTokenExpiredOrInvalid_Returns401TokenExpired()
+    {
+        using var client = new HttpClient();
+        using var req = new HttpRequestMessage(HttpMethod.Post, "http://210.246.215.66:8001/api/v1/captcha/slide")
+        {
+            Content = new StringContent("{\"image\":\"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAA=C\"}", System.Text.Encoding.UTF8, "application/json")
+        };
+        req.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", "expired.jwt.token");
+
+        using var resp = await client.SendAsync(req);
+        Assert.Equal(System.Net.HttpStatusCode.Unauthorized, resp.StatusCode);
+        string body = await resp.Content.ReadAsStringAsync();
+        Assert.Contains("Token expired", body);
+    }
 }
 

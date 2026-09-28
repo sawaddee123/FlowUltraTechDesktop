@@ -115,39 +115,10 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty]
     private CaptchaSolverType _captchaSolverMode = CaptchaSolverType.LocalApiServer;
 
-    public bool IsLocalApiSolverMode
-    {
-        get => CaptchaSolverMode == CaptchaSolverType.LocalApiServer;
-        set
-        {
-            if (value)
-            {
-                CaptchaSolverMode = CaptchaSolverType.LocalApiServer;
-                OnPropertyChanged();
-                OnPropertyChanged(nameof(IsMockSolverMode));
-            }
-        }
-    }
+    public bool IsLocalApiSolverMode => true;
+    public bool IsMockSolverMode => false;
 
-    public bool IsMockSolverMode
-    {
-        get => CaptchaSolverMode == CaptchaSolverType.MockResponse;
-        set
-        {
-            if (value)
-            {
-                CaptchaSolverMode = CaptchaSolverType.MockResponse;
-                OnPropertyChanged();
-                OnPropertyChanged(nameof(IsLocalApiSolverMode));
-            }
-        }
-    }
-
-    partial void OnCaptchaSolverModeChanged(CaptchaSolverType value)
-    {
-        OnPropertyChanged(nameof(IsLocalApiSolverMode));
-        OnPropertyChanged(nameof(IsMockSolverMode));
-    }
+    public event Action? RequestLogoutRedirect;
 
     [ObservableProperty]
     private string _captchaSolverEndpoint = "http://127.0.0.1:8001";
@@ -1297,6 +1268,7 @@ public partial class MainViewModel : ObservableObject
         await _storageService.SaveSettingsAsync(Settings);
         UpdateQuotaState();
         StatusNotification = "ออกจากระบบเรียบร้อยแล้ว";
+        RequestLogoutRedirect?.Invoke();
     }
 
     [RelayCommand]
@@ -1311,6 +1283,8 @@ public partial class MainViewModel : ObservableObject
             {
                 AuthToken = refreshRes.AccessToken;
                 Settings.AuthToken = refreshRes.AccessToken;
+                CaptchaSolverJwtToken = refreshRes.AccessToken;
+                Settings.CaptchaSolverJwtToken = refreshRes.AccessToken;
                 if (!string.IsNullOrWhiteSpace(refreshRes.RefreshToken))
                 {
                     Settings.RefreshToken = refreshRes.RefreshToken;
@@ -1411,6 +1385,8 @@ public partial class MainViewModel : ObservableObject
                     {
                         AuthToken = refreshRes.AccessToken;
                         Settings.AuthToken = refreshRes.AccessToken;
+                        CaptchaSolverJwtToken = refreshRes.AccessToken;
+                        Settings.CaptchaSolverJwtToken = refreshRes.AccessToken;
                         if (!string.IsNullOrWhiteSpace(refreshRes.RefreshToken))
                         {
                             Settings.RefreshToken = refreshRes.RefreshToken;

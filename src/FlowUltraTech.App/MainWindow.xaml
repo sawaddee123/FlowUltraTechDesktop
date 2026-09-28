@@ -843,7 +843,7 @@
                                                     <Border Grid.Row="2" Visibility="{Binding CaptchaAlertVisibility}" Background="#2B1A00" BorderBrush="#F59E0B" BorderThickness="1.5" CornerRadius="8" Padding="12,8" Margin="0,8,0,0">
                                                         <DockPanel LastChildFill="True">
                                                             <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
-                                                                <Button Style="{StaticResource PrimaryCtaButton}" Content="แก้ทันที" Command="{Binding SolveCaptchaMockCommand}" IsEnabled="{Binding CanSolveCaptcha}" Padding="10,4" Margin="0,0,6,0" />
+                                                                <Button Style="{StaticResource PrimaryCtaButton}" Content="แก้ทันที" Command="{Binding SolveCaptchaCommand}" IsEnabled="{Binding CanSolveCaptcha}" Padding="10,4" Margin="0,0,6,0" />
                                                                 <Button Style="{StaticResource ActionDarkButton}" Content="ดูรายละเอียด" Command="{Binding OpenCaptchaTabCommand}" Margin="0,0,6,0" />
                                                                 <Button Style="{StaticResource ActionDarkButton}" Content="✕" Command="{Binding DismissCaptchaAlertCommand}" Padding="8,4" />
                                                             </StackPanel>
@@ -1178,7 +1178,7 @@
                                                                                     </StackPanel>
 
                                                                                     <StackPanel Orientation="Horizontal" DockPanel.Dock="Right" VerticalAlignment="Center">
-                                                                                        <Button Style="{StaticResource PrimaryCtaButton}" Content="แก้ Captcha (Mock)" Command="{Binding SolveCaptchaMockCommand}" IsEnabled="{Binding CanSolveCaptcha}" Padding="10,4" Margin="0,0,6,0" />
+                                                                                        <Button Style="{StaticResource PrimaryCtaButton}" Content="แก้ Captcha (AI Server)" Command="{Binding SolveCaptchaCommand}" IsEnabled="{Binding CanSolveCaptcha}" Padding="10,4" Margin="0,0,6,0" />
                                                                                         <Button Style="{StaticResource ActionDarkButton}" Content="ปิดเสียงเตือน" Command="{Binding SilenceAlertCommand}" Margin="0,0,6,0" />
                                                                                         <Button Style="{StaticResource ActionDarkButton}" Content="เปิดโฟลเดอร์" Command="{Binding OpenCaptchaImageFolderCommand}" Margin="0,0,6,0" />
                                                                                         <Button Style="{StaticResource ActionDarkButton}" Content="บันทึกภาพ" Command="{Binding SaveCaptchaImageAsCommand}" />
@@ -1895,13 +1895,42 @@
 
                             <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
                                 <StackPanel Margin="0,0,12,0">
-                                    <!-- 1. Executable Paths -->
-                                    <Border Background="#1A1A1A" BorderBrush="#282828" BorderThickness="1" CornerRadius="8" Padding="16" Margin="0,0,0,12">
+                                    <!-- ============================================================== -->
+                                    <!-- CARD 1 (PRIORITY 1): USER ACCOUNT & LICENSE MANAGEMENT        -->
+                                    <!-- ============================================================== -->
+                                    <Border Background="#1A1A1E" BorderBrush="#2D2D35" BorderThickness="1.5" CornerRadius="10" Margin="0,0,0,14" Padding="18">
                                         <StackPanel>
-                                            <TextBlock Text="ตำแหน่งไฟล์โปรแกรม" FontWeight="Bold" FontSize="14" Foreground="#FFFFFF" Margin="0,0,0,10" />
-                                            
+                                            <DockPanel LastChildFill="True" Margin="0,0,0,14">
+                                                <StackPanel Orientation="Horizontal" DockPanel.Dock="Right" VerticalAlignment="Center">
+                                                    <Button Style="{StaticResource ActionDarkButton}" Content="รีเฟรชสิทธิ์" Command="{Binding RefreshLicenseCommand}" Margin="0,0,8,0" Padding="14,6" ToolTip="ตรวจสอบสิทธิ์และต่ออายุจากเซิร์ฟเวอร์กลาง" />
+                                                    <Button Style="{StaticResource ActionDarkButton}" Content="ซิงค์ Cloud" Command="{Binding SyncWithCloudCommand}" Margin="0,0,8,0" Padding="14,6" ToolTip="ซิงค์ข้อมูลโปรไฟล์และการตั้งค่ากับระบบคลาวด์" />
+                                                    <Button Style="{StaticResource StopDangerButton}" Content="ออกจากระบบ (Logout)" Command="{Binding LogoutCommand}" Padding="14,6" ToolTip="ออกจากระบบและสลับไปยังหน้าต่างล็อกอิน" />
+                                                </StackPanel>
+
+                                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                                    <Border Width="36" Height="36" CornerRadius="8" Background="#1E293B" BorderBrush="#38BDF8" BorderThickness="1" Margin="0,0,12,0">
+                                                        <TextBlock Text="👤" FontSize="18" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                                    </Border>
+                                                    <StackPanel VerticalAlignment="Center">
+                                                        <StackPanel Orientation="Horizontal">
+                                                            <TextBlock Text="{Binding LoggedInUsername, FallbackValue='ผู้ใช้งานระบบ'}" FontWeight="Bold" FontSize="16" Foreground="#FFFFFF" VerticalAlignment="Center" />
+                                                            <Border Background="#1E293B" BorderBrush="#334155" BorderThickness="1" CornerRadius="4" Padding="8,2" Margin="10,0,0,0" VerticalAlignment="Center">
+                                                                <TextBlock Text="{Binding LicenseRole, FallbackValue='user'}" FontSize="11" FontWeight="SemiBold" Foreground="#38BDF8" />
+                                                            </Border>
+                                                            <Border Background="#064E3B" BorderBrush="#059669" BorderThickness="1" CornerRadius="4" Padding="8,2" Margin="6,0,0,0" VerticalAlignment="Center">
+                                                                <TextBlock Text="{Binding LicensePlan, FallbackValue='Standard'}" FontSize="11" FontWeight="Bold" Foreground="#34D399" />
+                                                            </Border>
+                                                        </StackPanel>
+                                                        <TextBlock Text="ข้อมูลบัญชีผู้ใช้และใบอนุญาตสิทธิ์การทำงานบนเครื่องนี้" FontSize="11" Foreground="#94A3B8" Margin="0,2,0,0" />
+                                                    </StackPanel>
+                                                </StackPanel>
+                                            </DockPanel>
+
+                                            <Separator Background="#282830" Margin="0,0,0,14" />
+
                                             <Grid>
                                                 <Grid.RowDefinitions>
+                                                    <RowDefinition Height="Auto" />
                                                     <RowDefinition Height="Auto" />
                                                     <RowDefinition Height="Auto" />
                                                     <RowDefinition Height="Auto" />
@@ -1911,33 +1940,94 @@
                                                     <ColumnDefinition Width="*" />
                                                 </Grid.ColumnDefinitions>
 
-                                                <TextBlock Grid.Row="0" Grid.Column="0" Text="TikTok LIVE Studio.exe:" Foreground="#94A3B8" VerticalAlignment="Center" Margin="0,6" />
-                                                <ui:TextBox Grid.Row="0" Grid.Column="1" Text="{Binding StudioExePath, UpdateSourceTrigger=PropertyChanged}" Margin="0,6" />
+                                                <!-- Quota Info -->
+                                                <TextBlock Grid.Row="0" Grid.Column="0" Text="โควต้าจอที่ได้รับอนุญาต:" Foreground="#94A3B8" VerticalAlignment="Center" Margin="0,6" />
+                                                <StackPanel Grid.Row="0" Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,6">
+                                                    <Border Background="#064E3B" BorderBrush="#059669" BorderThickness="1" CornerRadius="6" Padding="12,3">
+                                                        <TextBlock Text="{Binding MaxTiktokAccounts, StringFormat='{}{0} บัญชี (จอ)'}" FontWeight="Bold" Foreground="#34D399" FontSize="13" />
+                                                    </Border>
+                                                    <TextBlock Text="{Binding QuotaStatusSummary, StringFormat='(กำลังทำงาน: {0})'}" Foreground="#94A3B8" FontSize="12" Margin="10,0,0,0" VerticalAlignment="Center" />
+                                                    <TextBlock Text="* ควบคุมสิทธิ์จากเซิร์ฟเวอร์กลาง" Foreground="#64748B" FontSize="11" Margin="8,0,0,0" VerticalAlignment="Center" />
+                                                </StackPanel>
 
-                                                <TextBlock Grid.Row="1" Grid.Column="0" Text="Proxifier.exe:" Foreground="#94A3B8" VerticalAlignment="Center" Margin="0,6" />
-                                                <ui:TextBox Grid.Row="1" Grid.Column="1" Text="{Binding ProxifierExePath, UpdateSourceTrigger=PropertyChanged}" Margin="0,6" />
+                                                <!-- Expiry Info -->
+                                                <TextBlock Grid.Row="1" Grid.Column="0" Text="วันหมดอายุใบอนุญาต:" Foreground="#94A3B8" VerticalAlignment="Center" Margin="0,6" />
+                                                <StackPanel Grid.Row="1" Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,6">
+                                                    <TextBlock Text="{Binding LicenseExpiryText}" FontWeight="SemiBold" Foreground="#F59E0B" FontSize="12" VerticalAlignment="Center" />
+                                                    <TextBlock Text=" (ต่ออายุล่วงหน้าได้ที่แอดมิน)" Foreground="#64748B" FontSize="11" Margin="8,0,0,0" VerticalAlignment="Center" />
+                                                </StackPanel>
 
-                                                <TextBlock Grid.Row="2" Grid.Column="0" Text="ไฟล์โปรไฟล์ Proxifier (.ppx):" Foreground="#94A3B8" VerticalAlignment="Center" Margin="0,6" />
-                                                <ui:TextBox Grid.Row="2" Grid.Column="1" Text="{Binding ProxifierProfilePath, UpdateSourceTrigger=PropertyChanged}" Margin="0,6" />
+                                                <!-- Server Endpoint -->
+                                                <TextBlock Grid.Row="2" Grid.Column="0" Text="เซิร์ฟเวอร์ระบบกลาง:" Foreground="#94A3B8" VerticalAlignment="Center" Margin="0,6" />
+                                                <StackPanel Grid.Row="2" Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,6">
+                                                    <TextBlock Text="{Binding AuthApiEndpoint}" Foreground="#38BDF8" FontSize="12" VerticalAlignment="Center" />
+                                                    <Border Width="6" Height="6" CornerRadius="3" Background="#10B981" Margin="8,0,4,0" VerticalAlignment="Center" />
+                                                    <TextBlock Text="เชื่อมต่อเรียบร้อย" Foreground="#10B981" FontSize="11" VerticalAlignment="Center" />
+                                                </StackPanel>
+
+                                                <!-- Machine HWID -->
+                                                <TextBlock Grid.Row="3" Grid.Column="0" Text="รหัสประจำเครื่อง (HWID):" Foreground="#94A3B8" VerticalAlignment="Center" Margin="0,6" />
+                                                <StackPanel Grid.Row="3" Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,6">
+                                                    <TextBlock Text="{Binding CurrentMachineHwid}" Foreground="#64748B" FontSize="11" VerticalAlignment="Center" />
+                                                </StackPanel>
                                             </Grid>
+
+                                            <!-- Status / Error Notification -->
+                                            <TextBlock Text="{Binding LoginErrorMessage}" Foreground="#38BDF8" FontSize="11" Margin="0,6,0,0" />
                                         </StackPanel>
                                     </Border>
 
-                                    <!-- 2. Performance -->
-                                    <Border Background="#1A1A1A" BorderBrush="#282828" BorderThickness="1" CornerRadius="8" Padding="16" Margin="0,0,0,12">
+                                    <!-- ============================================================== -->
+                                    <!-- CARD 2 (PRIORITY 2): AUTOMATION & AI CAPTCHA SOLVER            -->
+                                    <!-- ============================================================== -->
+                                    <Border Background="#1A1A1A" BorderBrush="#282828" BorderThickness="1" CornerRadius="8" Margin="0,0,0,14" Padding="16">
                                         <StackPanel>
-                                            <TextBlock Text="ประสิทธิภาพ" FontWeight="Bold" FontSize="14" Foreground="#FFFFFF" Margin="0,0,10,0" />
-                                            <CheckBox Content="ซ่อนหน้าต่างอัตโนมัติเมื่อเปิดโปรแกรม (ลดภาระ GPU)" 
-                                                      IsChecked="{Binding AutoHideOnLaunch}" />
-                                        </StackPanel>
-                                    </Border>
-
-                                    <!-- 3. Captcha Sound & Auto-Save -->
-                                    <Border Background="#1A1A1A" BorderBrush="#282828" BorderThickness="1" CornerRadius="8" Padding="16" Margin="0,0,0,12">
-                                        <StackPanel>
-                                            <TextBlock Text="เสียงแจ้งเตือนและบันทึกภาพ Captcha" FontWeight="Bold" FontSize="14" Foreground="#FFFFFF" Margin="0,0,10,0" />
+                                            <TextBlock Text="ระบบแก้ Captcha อัตโนมัติและเสียงเตือน (Automation &amp; AI Solver)" FontSize="14" FontWeight="Bold" Foreground="#FFFFFF" Margin="0,0,0,10" />
 
                                             <Grid Margin="0,0,0,10">
+                                                <Grid.RowDefinitions>
+                                                    <RowDefinition Height="Auto" />
+                                                    <RowDefinition Height="Auto" />
+                                                    <RowDefinition Height="Auto" />
+                                                    <RowDefinition Height="Auto" />
+                                                </Grid.RowDefinitions>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="180" />
+                                                    <ColumnDefinition Width="*" />
+                                                    <ColumnDefinition Width="Auto" />
+                                                </Grid.ColumnDefinitions>
+
+                                                <!-- AI Engine Status -->
+                                                <TextBlock Grid.Row="0" Grid.Column="0" Text="ระบบ AI Solver:" Foreground="#94A3B8" VerticalAlignment="Center" Margin="0,6" />
+                                                <StackPanel Grid.Row="0" Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,6">
+                                                    <Border Background="#1E293B" BorderBrush="#0284C7" BorderThickness="1" CornerRadius="4" Padding="8,3">
+                                                        <TextBlock Text="⚡ Live Cloud AI Engine (SimpleSolveCaptcha)" Foreground="#38BDF8" FontSize="11" FontWeight="SemiBold" />
+                                                    </Border>
+                                                    <TextBlock Text="{Binding CaptchaSolverEndpoint, StringFormat='• {0}'}" Foreground="#64748B" FontSize="11" Margin="8,0,0,0" VerticalAlignment="Center" />
+                                                </StackPanel>
+                                                <Button Grid.Row="0" Grid.Column="2" Style="{StaticResource ActionDarkButton}" Content="ทดสอบเชื่อมต่อ AI" Command="{Binding TestSolverApiCommand}" VerticalAlignment="Center" Padding="12,5" />
+
+                                                <TextBlock Grid.Row="1" Grid.Column="1" Grid.ColumnSpan="2" Text="{Binding SolverApiTestStatus}" Foreground="#38BDF8" FontSize="11" Margin="0,0,0,6" />
+
+                                                <!-- Auto-Solve Toggle -->
+                                                <TextBlock Grid.Row="2" Grid.Column="0" Text="การแก้แคปต์ชา:" Foreground="#94A3B8" VerticalAlignment="Center" Margin="0,6" />
+                                                <StackPanel Grid.Row="2" Grid.Column="1" Grid.ColumnSpan="2" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,6">
+                                                    <CheckBox Content="เปิดใช้งาน Auto Solve อัตโนมัติทันทีเมื่อตรวจพบ" IsChecked="{Binding AutoSolveCaptcha}" VerticalAlignment="Center" />
+                                                </StackPanel>
+
+                                                <!-- Solve Delay Slider -->
+                                                <TextBlock Grid.Row="3" Grid.Column="0" Text="หน่วงเวลาก่อนแก้ (วินาที):" Foreground="#94A3B8" VerticalAlignment="Center" Margin="0,6" />
+                                                <DockPanel Grid.Row="3" Grid.Column="1" Margin="0,6,8,6">
+                                                    <TextBlock Text="{Binding AutoSolveDelaySeconds, StringFormat='{}{0} วินาที'}" DockPanel.Dock="Right" Width="60" TextAlignment="Right" VerticalAlignment="Center" FontWeight="SemiBold" Foreground="#38BDF8" Margin="8,0,0,0" />
+                                                    <Slider Minimum="0" Maximum="30" Value="{Binding AutoSolveDelaySeconds}" TickFrequency="1" IsSnapToTickEnabled="True" VerticalAlignment="Center" />
+                                                </DockPanel>
+                                                <TextBlock Grid.Row="3" Grid.Column="2" Text="* แนะนำ 3-5s เพื่อความปลอดภัย" Foreground="#64748B" FontSize="11" VerticalAlignment="Center" />
+                                            </Grid>
+
+                                            <Separator Margin="0,4,0,10" Background="#262626" />
+
+                                            <!-- Captcha Sound Alert Settings -->
+                                            <Grid>
                                                 <Grid.RowDefinitions>
                                                     <RowDefinition Height="Auto" />
                                                     <RowDefinition Height="Auto" />
@@ -1969,167 +2059,15 @@
                                                 <ui:TextBox Grid.Row="2" Grid.Column="1" Text="{Binding CaptchaSoundFilePath, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="เว้นว่างไว้เพื่อใช้เสียงมาตรฐานของระบบ" Margin="0,6,8,6" />
                                                 <Button Grid.Row="2" Grid.Column="2" Style="{StaticResource ActionDarkButton}" Content="เลือกไฟล์..." Command="{Binding BrowseSoundFileCommand}" VerticalAlignment="Center" />
                                             </Grid>
-
-                                            <Separator Margin="0,6,0,10" Background="#262626" />
-
-                                            <Grid>
-                                                <Grid.RowDefinitions>
-                                                    <RowDefinition Height="Auto" />
-                                                    <RowDefinition Height="Auto" />
-                                                    <RowDefinition Height="Auto" />
-                                                </Grid.RowDefinitions>
-                                                <Grid.ColumnDefinitions>
-                                                    <ColumnDefinition Width="180" />
-                                                    <ColumnDefinition Width="*" />
-                                                    <ColumnDefinition Width="Auto" />
-                                                </Grid.ColumnDefinitions>
-
-                                                <TextBlock Grid.Row="0" Grid.Column="0" Text="บันทึกภาพ Captcha:" Foreground="#94A3B8" VerticalAlignment="Center" Margin="0,6" />
-                                                <StackPanel Grid.Row="0" Grid.Column="1" Grid.ColumnSpan="2" Orientation="Horizontal" VerticalAlignment="Center">
-                                                    <CheckBox Content="บันทึกภาพลงเครื่องอัตโนมัติ" IsChecked="{Binding AutoSaveCaptchaImage}" VerticalAlignment="Center" />
-                                                </StackPanel>
-
-                                                <TextBlock Grid.Row="1" Grid.Column="0" Text="Auto Solve อัตโนมัติ:" Foreground="#94A3B8" VerticalAlignment="Center" Margin="0,6" />
-                                                <StackPanel Grid.Row="1" Grid.Column="1" Grid.ColumnSpan="2" Orientation="Horizontal" VerticalAlignment="Center">
-                                                    <CheckBox Content="เปิดใช้งาน Auto Solve เมื่อตรวจพบ" IsChecked="{Binding AutoSolveCaptcha}" VerticalAlignment="Center" />
-                                                </StackPanel>
-
-                                                <TextBlock Grid.Row="2" Grid.Column="0" Text="โฟลเดอร์บันทึกภาพ:" Foreground="#94A3B8" VerticalAlignment="Center" Margin="0,6" />
-                                                <ui:TextBox Grid.Row="2" Grid.Column="1" Text="{Binding CaptchaSaveDirectory, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="โฟลเดอร์เก็บภาพ Captcha" Margin="0,6,8,6" />
-                                                <StackPanel Grid.Row="2" Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
-                                                    <Button Style="{StaticResource ActionDarkButton}" Content="เลือกโฟลเดอร์..." Command="{Binding BrowseSaveDirectoryCommand}" Margin="0,0,6,0" />
-                                                    <Button Style="{StaticResource ActionDarkButton}" Content="เปิดโฟลเดอร์" Command="{Binding OpenCaptchaFolderCommand}" />
-                                                </StackPanel>
-                                            </Grid>
                                         </StackPanel>
                                     </Border>
 
-                                    <!-- 4. CAPTCHA Solver API Settings -->
-                                    <Border Background="#1A1A1A" BorderBrush="#282828" BorderThickness="1" CornerRadius="8" Margin="0,0,0,12" Padding="16">
+                                    <!-- ============================================================== -->
+                                    <!-- CARD 3 (PRIORITY 3): TELEGRAM BOT NOTIFICATIONS                -->
+                                    <!-- ============================================================== -->
+                                    <Border Background="#1A1A1A" BorderBrush="#282828" BorderThickness="1" CornerRadius="8" Margin="0,0,0,14" Padding="16">
                                         <StackPanel>
-                                            <TextBlock Text="เซิร์ฟเวอร์ AI แก้ Captcha" FontSize="14" FontWeight="Bold" Foreground="#FFFFFF" Margin="0,0,0,10" />
-
-                                            <Grid>
-                                                <Grid.RowDefinitions>
-                                                    <RowDefinition Height="Auto" />
-                                                    <RowDefinition Height="Auto" />
-                                                    <RowDefinition Height="Auto" />
-                                                </Grid.RowDefinitions>
-                                                <Grid.ColumnDefinitions>
-                                                    <ColumnDefinition Width="180" />
-                                                    <ColumnDefinition Width="*" />
-                                                    <ColumnDefinition Width="Auto" />
-                                                </Grid.ColumnDefinitions>
-
-                                                <TextBlock Grid.Row="0" Grid.Column="0" Text="โหมดประมวลผล:" Foreground="#94A3B8" VerticalAlignment="Center" Margin="0,6" />
-                                                <StackPanel Grid.Row="0" Grid.Column="1" Grid.ColumnSpan="2" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,6">
-                                                    <RadioButton Content="Live AI Server (คลาวด์)" IsChecked="{Binding IsLocalApiSolverMode}" VerticalAlignment="Center" Margin="0,0,20,0" />
-                                                    <RadioButton Content="Mock Response (ทดสอบ)" IsChecked="{Binding IsMockSolverMode}" VerticalAlignment="Center" />
-                                                </StackPanel>
-
-                                                <TextBlock Grid.Row="1" Grid.Column="0" Text="หน่วงเวลาก่อนแก้ (วินาที):" Foreground="#94A3B8" VerticalAlignment="Center" Margin="0,6" />
-                                                <DockPanel Grid.Row="1" Grid.Column="1" Margin="0,6,8,6">
-                                                    <TextBlock Text="{Binding AutoSolveDelaySeconds, StringFormat='{}{0} วินาที'}" DockPanel.Dock="Right" Width="60" TextAlignment="Right" VerticalAlignment="Center" FontWeight="SemiBold" Foreground="#38BDF8" Margin="8,0,0,0" />
-                                                    <Slider Minimum="0" Maximum="30" Value="{Binding AutoSolveDelaySeconds}" TickFrequency="1" IsSnapToTickEnabled="True" VerticalAlignment="Center" />
-                                                </DockPanel>
-                                                <Button Grid.Row="1" Grid.Column="2" Style="{StaticResource ActionDarkButton}" Content="ทดสอบเชื่อมต่อ AI" Command="{Binding TestSolverApiCommand}" VerticalAlignment="Center" />
-
-                                                <TextBlock Grid.Row="2" Grid.Column="1" Grid.ColumnSpan="2" Text="{Binding SolverApiTestStatus}" Foreground="#38BDF8" FontSize="11" Margin="0,2,0,0" />
-                                            </Grid>
-                                        </StackPanel>
-                                    </Border>
-
-                                    <!-- 5. User Account & License Management -->
-                                    <Border Background="#1A1A1A" BorderBrush="#282828" BorderThickness="1" CornerRadius="8" Margin="0,0,0,12" Padding="16">
-                                        <StackPanel>
-                                            <TextBlock Text="ระบบบัญชีและใบอนุญาตใช้งาน (Account &amp; License)" FontSize="14" FontWeight="Bold" Foreground="#FFFFFF" Margin="0,0,0,10" />
-
-                                            <!-- STATE A: เมื่อยังไม่ได้เข้าสู่ระบบ (NOT LOGGED IN) -->
-                                            <StackPanel Visibility="{Binding IsUserNotLoggedIn, Converter={StaticResource BoolToVis}}">
-                                                <TextBlock Text="กรุณาเข้าสู่ระบบเพื่อยืนยันสิทธิ์การใช้งานและปลดล็อกโควต้าจอ" Foreground="#94A3B8" FontSize="12" Margin="0,0,0,10" />
-
-                                                <Grid Margin="0,0,0,6">
-                                                    <Grid.RowDefinitions>
-                                                        <RowDefinition Height="Auto" />
-                                                        <RowDefinition Height="Auto" />
-                                                        <RowDefinition Height="Auto" />
-                                                    </Grid.RowDefinitions>
-                                                    <Grid.ColumnDefinitions>
-                                                        <ColumnDefinition Width="180" />
-                                                        <ColumnDefinition Width="280" />
-                                                        <ColumnDefinition Width="Auto" />
-                                                    </Grid.ColumnDefinitions>
-
-                                                    <TextBlock Grid.Row="0" Grid.Column="0" Text="ชื่อผู้ใช้ (Username):" Foreground="#94A3B8" VerticalAlignment="Center" Margin="0,6" />
-                                                    <ui:TextBox Grid.Row="0" Grid.Column="1" Text="{Binding UsernameInput, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="กรอกชื่อผู้ใช้..." Margin="0,6,8,6" />
-
-                                                    <TextBlock Grid.Row="1" Grid.Column="0" Text="รหัสผ่าน (Password):" Foreground="#94A3B8" VerticalAlignment="Center" Margin="0,6" />
-                                                    <ui:TextBox Grid.Row="1" Grid.Column="1" Text="{Binding PasswordInput, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="กรอกรหัสผ่าน..." Margin="0,6,8,6" />
-
-                                                    <Button Grid.Row="0" Grid.RowSpan="2" Grid.Column="2" Style="{StaticResource PrimaryCtaButton}" Content="เข้าสู่ระบบ" Command="{Binding LoginCommand}" VerticalAlignment="Center" Padding="16,8" />
-
-                                                    <TextBlock Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="3" Text="{Binding LoginErrorMessage}" Foreground="#EF4444" FontSize="12" Margin="0,4,0,0" />
-                                                </Grid>
-                                            </StackPanel>
-
-                                            <!-- STATE B: เมื่อเข้าสู่ระบบสำเร็จแล้ว (LOGGED IN) -->
-                                            <StackPanel Visibility="{Binding IsUserLoggedIn, Converter={StaticResource BoolToVis}}">
-                                                <Grid Margin="0,4">
-                                                    <Grid.RowDefinitions>
-                                                        <RowDefinition Height="Auto" />
-                                                        <RowDefinition Height="Auto" />
-                                                        <RowDefinition Height="Auto" />
-                                                        <RowDefinition Height="Auto" />
-                                                    </Grid.RowDefinitions>
-                                                    <Grid.ColumnDefinitions>
-                                                        <ColumnDefinition Width="180" />
-                                                        <ColumnDefinition Width="*" />
-                                                        <ColumnDefinition Width="Auto" />
-                                                    </Grid.ColumnDefinitions>
-
-                                                    <!-- บัญชีผู้ใช้ -->
-                                                    <TextBlock Grid.Row="0" Grid.Column="0" Text="บัญชีผู้ใช้งาน:" Foreground="#94A3B8" VerticalAlignment="Center" Margin="0,6" />
-                                                    <StackPanel Grid.Row="0" Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,6">
-                                                        <TextBlock Text="{Binding LoggedInUsername}" FontWeight="Bold" Foreground="#FFFFFF" FontSize="13" VerticalAlignment="Center" />
-                                                        <Border Background="#334155" CornerRadius="4" Padding="6,2" Margin="8,0,0,0" VerticalAlignment="Center">
-                                                            <TextBlock Text="{Binding LicenseRole}" FontSize="10" FontWeight="SemiBold" Foreground="#38BDF8" />
-                                                        </Border>
-                                                    </StackPanel>
-
-                                                    <!-- สิทธิ์และวันหมดอายุ -->
-                                                    <TextBlock Grid.Row="1" Grid.Column="0" Text="แพ็กเกจ &amp; วันหมดอายุ:" Foreground="#94A3B8" VerticalAlignment="Center" Margin="0,6" />
-                                                    <StackPanel Grid.Row="1" Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,6">
-                                                        <TextBlock Text="{Binding LicensePlan}" FontWeight="SemiBold" Foreground="#10B981" VerticalAlignment="Center" />
-                                                        <TextBlock Text=" (หมดอายุ: " Foreground="#64748B" VerticalAlignment="Center" />
-                                                        <TextBlock Text="{Binding LicenseExpiryText}" Foreground="#94A3B8" VerticalAlignment="Center" />
-                                                        <TextBlock Text=")" Foreground="#64748B" VerticalAlignment="Center" />
-                                                    </StackPanel>
-
-                                                    <!-- โควต้าจอที่ได้รับอนุญาต (Read-only) -->
-                                                    <TextBlock Grid.Row="2" Grid.Column="0" Text="โควต้าจอที่ได้รับอนุญาต:" Foreground="#94A3B8" VerticalAlignment="Center" Margin="0,6" />
-                                                    <StackPanel Grid.Row="2" Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,6">
-                                                        <Border Background="#064E3B" BorderBrush="#059669" BorderThickness="1" CornerRadius="6" Padding="10,3">
-                                                            <TextBlock Text="{Binding MaxTiktokAccounts, StringFormat='{}{0} บัญชี (จอ)'}" FontWeight="Bold" Foreground="#34D399" FontSize="12" />
-                                                        </Border>
-                                                        <TextBlock Text="* ควบคุมจากระบบกลางตามสิทธิ์บัญชีของคุณ" Foreground="#64748B" FontSize="11" Margin="10,0,0,0" VerticalAlignment="Center" />
-                                                    </StackPanel>
-
-                                                    <!-- Action buttons -->
-                                                    <StackPanel Grid.Row="0" Grid.RowSpan="3" Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center" Margin="8,0,0,0">
-                                                        <Button Style="{StaticResource ActionDarkButton}" Content="รีเฟรชสิทธิ์" Command="{Binding RefreshLicenseCommand}" Margin="0,0,6,0" Padding="12,6" />
-                                                        <Button Style="{StaticResource ActionDarkButton}" Content="ออกจากระบบ" Command="{Binding LogoutCommand}" Padding="12,6" />
-                                                    </StackPanel>
-
-                                                    <TextBlock Grid.Row="3" Grid.Column="0" Grid.ColumnSpan="3" Text="{Binding LoginErrorMessage}" Foreground="#38BDF8" FontSize="11" Margin="0,4,0,0" />
-                                                </Grid>
-                                            </StackPanel>
-                                        </StackPanel>
-                                    </Border>
-
-                                    <!-- 6. Telegram Bot Notification Settings -->
-                                    <Border Background="#1A1A1A" BorderBrush="#282828" BorderThickness="1" CornerRadius="8" Margin="0,0,0,16" Padding="16">
-                                        <StackPanel>
-                                            <TextBlock Text="แจ้งเตือนผ่าน Telegram" FontSize="14" FontWeight="Bold" Foreground="#FFFFFF" Margin="0,0,0,10" />
+                                            <TextBlock Text="การแจ้งเตือนผ่าน Telegram (Telegram Bot Notifications)" FontSize="14" FontWeight="Bold" Foreground="#FFFFFF" Margin="0,0,0,10" />
 
                                             <Grid>
                                                 <Grid.RowDefinitions>
@@ -2166,6 +2104,76 @@
                                                 </StackPanel>
 
                                                 <TextBlock Grid.Row="4" Grid.Column="1" Grid.ColumnSpan="2" Text="{Binding TelegramTestStatus}" Foreground="#38BDF8" FontSize="11" Margin="0,2,0,0" />
+                                            </Grid>
+                                        </StackPanel>
+                                    </Border>
+
+                                    <!-- ============================================================== -->
+                                    <!-- CARD 4 (PRIORITY 4): STORAGE, PATHS & SYSTEM PERFORMANCE       -->
+                                    <!-- ============================================================== -->
+                                    <Border Background="#1A1A1A" BorderBrush="#282828" BorderThickness="1" CornerRadius="8" Margin="0,0,0,16" Padding="16">
+                                        <StackPanel>
+                                            <TextBlock Text="การจัดเก็บข้อมูลและประสิทธิภาพระบบ (Storage, Paths &amp; Performance)" FontWeight="Bold" FontSize="14" Foreground="#FFFFFF" Margin="0,0,0,10" />
+
+                                            <!-- Captcha Image Storage -->
+                                            <Grid Margin="0,0,0,10">
+                                                <Grid.RowDefinitions>
+                                                    <RowDefinition Height="Auto" />
+                                                    <RowDefinition Height="Auto" />
+                                                </Grid.RowDefinitions>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="180" />
+                                                    <ColumnDefinition Width="*" />
+                                                    <ColumnDefinition Width="Auto" />
+                                                </Grid.ColumnDefinitions>
+
+                                                <TextBlock Grid.Row="0" Grid.Column="0" Text="บันทึกภาพ Captcha:" Foreground="#94A3B8" VerticalAlignment="Center" Margin="0,6" />
+                                                <StackPanel Grid.Row="0" Grid.Column="1" Grid.ColumnSpan="2" Orientation="Horizontal" VerticalAlignment="Center">
+                                                    <CheckBox Content="บันทึกภาพลงเครื่องอัตโนมัติ" IsChecked="{Binding AutoSaveCaptchaImage}" VerticalAlignment="Center" />
+                                                </StackPanel>
+
+                                                <TextBlock Grid.Row="1" Grid.Column="0" Text="โฟลเดอร์บันทึกภาพ:" Foreground="#94A3B8" VerticalAlignment="Center" Margin="0,6" />
+                                                <ui:TextBox Grid.Row="1" Grid.Column="1" Text="{Binding CaptchaSaveDirectory, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="โฟลเดอร์เก็บภาพ Captcha" Margin="0,6,8,6" />
+                                                <StackPanel Grid.Row="1" Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+                                                    <Button Style="{StaticResource ActionDarkButton}" Content="เลือกโฟลเดอร์..." Command="{Binding BrowseSaveDirectoryCommand}" Margin="0,0,6,0" />
+                                                    <Button Style="{StaticResource ActionDarkButton}" Content="เปิดโฟลเดอร์" Command="{Binding OpenCaptchaFolderCommand}" />
+                                                </StackPanel>
+                                            </Grid>
+
+                                            <Separator Margin="0,2,0,10" Background="#262626" />
+
+                                            <!-- Executable Paths -->
+                                            <Grid Margin="0,0,0,10">
+                                                <Grid.RowDefinitions>
+                                                    <RowDefinition Height="Auto" />
+                                                    <RowDefinition Height="Auto" />
+                                                    <RowDefinition Height="Auto" />
+                                                </Grid.RowDefinitions>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="180" />
+                                                    <ColumnDefinition Width="*" />
+                                                </Grid.ColumnDefinitions>
+
+                                                <TextBlock Grid.Row="0" Grid.Column="0" Text="TikTok LIVE Studio.exe:" Foreground="#94A3B8" VerticalAlignment="Center" Margin="0,6" />
+                                                <ui:TextBox Grid.Row="0" Grid.Column="1" Text="{Binding StudioExePath, UpdateSourceTrigger=PropertyChanged}" Margin="0,6" />
+
+                                                <TextBlock Grid.Row="1" Grid.Column="0" Text="Proxifier.exe:" Foreground="#94A3B8" VerticalAlignment="Center" Margin="0,6" />
+                                                <ui:TextBox Grid.Row="1" Grid.Column="1" Text="{Binding ProxifierExePath, UpdateSourceTrigger=PropertyChanged}" Margin="0,6" />
+
+                                                <TextBlock Grid.Row="2" Grid.Column="0" Text="ไฟล์โปรไฟล์ Proxifier (.ppx):" Foreground="#94A3B8" VerticalAlignment="Center" Margin="0,6" />
+                                                <ui:TextBox Grid.Row="2" Grid.Column="1" Text="{Binding ProxifierProfilePath, UpdateSourceTrigger=PropertyChanged}" Margin="0,6" />
+                                            </Grid>
+
+                                            <Separator Margin="0,2,0,10" Background="#262626" />
+
+                                            <!-- Performance Setting -->
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="180" />
+                                                    <ColumnDefinition Width="*" />
+                                                </Grid.ColumnDefinitions>
+                                                <TextBlock Grid.Column="0" Text="ประสิทธิภาพ:" Foreground="#94A3B8" VerticalAlignment="Center" Margin="0,6" />
+                                                <CheckBox Grid.Column="1" Content="ซ่อนหน้าต่างอัตโนมัติเมื่อเปิดโปรแกรม (ลดภาระ GPU)" IsChecked="{Binding AutoHideOnLaunch}" VerticalAlignment="Center" Margin="0,6" />
                                             </Grid>
                                         </StackPanel>
                                     </Border>

@@ -161,6 +161,7 @@ public class CaptchaMockSolverTests
         Assert.Contains("228", solveResult.ServerResponseJson);
     }
 
+#pragma warning disable CS0618
     [Fact]
     public async Task SolveCaptchaWithMockAsync_WhenDisconnectedPort_ReturnsSafeFailureResult()
     {
@@ -190,6 +191,7 @@ public class CaptchaMockSolverTests
         Assert.False(result.Success);
         Assert.Contains("ไม่สามารถเชื่อมต่อ CDP", result.Message);
     }
+#pragma warning restore CS0618
 
     [Fact]
     public void ParseSolverApiResponse_Slide_ParsesScaleAndTargetCoordinates()

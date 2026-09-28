@@ -793,6 +793,7 @@ public partial class CdpAutomationService
         return null;
     }
 
+    [Obsolete("ระบบ Mock Response ถูกยกเลิกแล้ว เมธอดนี้จะเรียก SolveCaptchaAsync ด้วย AI Server จริง")]
     public Task<CaptchaSolveResult> SolveCaptchaWithMockAsync(
         int cdpPort,
         CaptchaDetectionResult? detection = null,
@@ -804,10 +805,10 @@ public partial class CdpAutomationService
         return SolveCaptchaAsync(
             cdpPort,
             detection,
-            solverMode: CaptchaSolverType.MockResponse,
+            solverMode: CaptchaSolverType.LocalApiServer,
             solverApiEndpoint: null,
             solverJwtToken: null,
-            customMockJsonPath: customMockJsonPath,
+            customMockJsonPath: null,
             progressLogger: progressLogger,
             delaySeconds: delaySeconds,
             instanceLeaseId: instanceLeaseId);
@@ -1009,7 +1010,8 @@ public partial class CdpAutomationService
                         {
                             image = base64Image,
                             displayWidth = displayWidth,
-                            displayHeight = displayHeight
+                            displayHeight = displayHeight,
+                            appVersion = AppConstants.CurrentVersion
                         };
                         string jsonBody = JsonSerializer.Serialize(payload);
 
@@ -1017,6 +1019,7 @@ public partial class CdpAutomationService
                         {
                             Content = new StringContent(jsonBody, Encoding.UTF8, "application/json")
                         };
+                        req.Headers.TryAddWithoutValidation("X-App-Version", AppConstants.CurrentVersion);
 
                         if (!string.IsNullOrWhiteSpace(solverJwtToken))
                         {
@@ -1040,6 +1043,7 @@ public partial class CdpAutomationService
                             {
                                 Content = new StringContent(jsonBody, Encoding.UTF8, "application/json")
                             };
+                            altReq.Headers.TryAddWithoutValidation("X-App-Version", AppConstants.CurrentVersion);
                             if (!string.IsNullOrWhiteSpace(solverJwtToken))
                             {
                                 altReq.Headers.Authorization = new AuthenticationHeaderValue("Bearer", solverJwtToken.Trim());
@@ -1062,7 +1066,12 @@ public partial class CdpAutomationService
                             else
                             {
                                 string altErr = await altResp.Content.ReadAsStringAsync();
+                                solveResult.ServerResponseJson = altErr;
                                 Log($"[{DateTime.Now:HH:mm:ss}] ⚠️ [CAPTCHA SOLVE] Alt route ตอบกลับสถานะ: {(int)altResp.StatusCode} {altResp.StatusCode} - {altErr}");
+                                if (altResp.StatusCode == System.Net.HttpStatusCode.Unauthorized || altResp.StatusCode == System.Net.HttpStatusCode.Forbidden)
+                                {
+                                    solveResult.Message = $"Token expired หรือไม่มีสิทธิ์เข้าถึง Solver API ({(int)altResp.StatusCode} {altResp.StatusCode})";
+                                }
                             }
                         }
                         else if (resp.IsSuccessStatusCode)
@@ -1078,16 +1087,18 @@ public partial class CdpAutomationService
                         else
                         {
                             string errBody = await resp.Content.ReadAsStringAsync();
+                            solveResult.ServerResponseJson = errBody;
                             Log($"[{DateTime.Now:HH:mm:ss}] ⚠️ [CAPTCHA SOLVE] Solver API ตอบกลับสถานะ: {(int)resp.StatusCode} {resp.StatusCode} - {errBody}");
                             if (resp.StatusCode == System.Net.HttpStatusCode.Unauthorized || resp.StatusCode == System.Net.HttpStatusCode.Forbidden)
                             {
+                                solveResult.Message = $"Token expired หรือไม่มีสิทธิ์เข้าถึง Solver API ({(int)resp.StatusCode} {resp.StatusCode})";
                                 Log($"[{DateTime.Now:HH:mm:ss}] 🔒 [CAPTCHA SOLVE] เข้าถึงถูกปฏิเสธ: กรุณาตรวจสอบการเข้าสู่ระบบและสถานะ License/Lease");
                             }
                         }
                     }
                     catch (Exception ex)
                     {
-                        Log($"[{DateTime.Now:HH:mm:ss}] ⚠️ [CAPTCHA SOLVE] เรียก Solver API Server ไม่สำเร็จ ({ex.Message}) กำลังสลับไปใช้ Fallback Mock...");
+                        Log($"[{DateTime.Now:HH:mm:ss}] ⚠️ [CAPTCHA SOLVE] เรียก Solver API Server ไม่สำเร็จ ({ex.Message})");
                     }
                 }
                 else
@@ -1096,79 +1107,15 @@ public partial class CdpAutomationService
                 }
             }
 
-            // 2. Fallback to Mock JSON if not solved via API
+            // Mock fallback is completely removed: if not solved via AI API, fail gracefully
             if (!solvedViaApi)
             {
-                string mockFilePath = customMockJsonPath ?? Path.Combine(AppContext.BaseDirectory, "Config", "mock_captcha_response.json");
-                if (!File.Exists(mockFilePath))
-                {
-                    var searchPaths = new[]
-                    {
-                        Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Config", "mock_captcha_response.json"),
-                        Path.Combine(Directory.GetCurrentDirectory(), "src", "FlowUltraTech.Core", "Config", "mock_captcha_response.json"),
-                        Path.Combine(Directory.GetCurrentDirectory(), "Config", "mock_captcha_response.json")
-                    };
-                    foreach (var p in searchPaths)
-                    {
-                        if (File.Exists(p))
-                        {
-                            mockFilePath = p;
-                            break;
-                        }
-                    }
-                }
-
-                string mockJsonText;
-                if (File.Exists(mockFilePath))
-                {
-                    mockJsonText = await File.ReadAllTextAsync(mockFilePath);
-                    Log($"[{DateTime.Now:HH:mm:ss}] 📄 [CAPTCHA SOLVE] โหลด Mock Server Response จากไฟล์: {Path.GetFileName(mockFilePath)}");
-                }
-                else
-                {
-                    mockJsonText = @"{
-                        ""slide"": { ""target_x"": 228, ""position"": [228, 100], ""time"": 0.15 },
-                        ""symbol"": { ""symbol_positions"": [[100, 110], [215, 140]], ""time"": 0.23 }
-                    }";
-                    Log($"[{DateTime.Now:HH:mm:ss}] ℹ️ [CAPTCHA SOLVE] ใช้ Mock Server Response ค่าเริ่มต้น");
-                }
-
-                solveResult.ServerResponseJson = mockJsonText;
-                using var jsonDoc = JsonDocument.Parse(mockJsonText);
-                var root = jsonDoc.RootElement;
-
-                if (detection.Type == CaptchaType.Jigsaw)
-                {
-                    if (root.TryGetProperty("slide", out var slideObj))
-                    {
-                        if (slideObj.TryGetProperty("target_x", out var txElem))
-                        {
-                            targetX = txElem.GetDouble();
-                        }
-                        else if (slideObj.TryGetProperty("position", out var posElem) && posElem.GetArrayLength() > 0)
-                        {
-                            targetX = posElem[0].GetDouble();
-                        }
-                    }
-                }
-                else if (detection.Type == CaptchaType.Symbol)
-                {
-                    if (root.TryGetProperty("symbol", out var symbolObj) && symbolObj.TryGetProperty("symbol_positions", out var posArray))
-                    {
-                        foreach (var item in posArray.EnumerateArray())
-                        {
-                            if (item.GetArrayLength() >= 2)
-                            {
-                                clickPoints.Add((item[0].GetDouble(), item[1].GetDouble()));
-                            }
-                        }
-                    }
-                    if (clickPoints.Count == 0)
-                    {
-                        clickPoints.Add((100, 110));
-                        clickPoints.Add((215, 140));
-                    }
-                }
+                solveResult.Success = false;
+                solveResult.Message = string.IsNullOrWhiteSpace(solveResult.Message)
+                    ? "ไม่สามารถส่งคำขอหรือถอดรหัส Captcha จาก AI Server ได้ (การเชื่อมต่อล้มเหลว หรือ AI Server ปฏิเสธคำขอ)"
+                    : solveResult.Message;
+                Log($"[{DateTime.Now:HH:mm:ss}] ❌ [CAPTCHA SOLVE] {solveResult.Message}");
+                return solveResult;
             }
 
             // Execute action based on Captcha Type
@@ -1554,12 +1501,14 @@ public partial class CdpAutomationService
                 feedbackText = feedback,
                 feedback = feedback,
                 elapsedSeconds = durationTotalSec,
-                durationTotalSec = durationTotalSec
+                durationTotalSec = durationTotalSec,
+                appVersion = AppConstants.CurrentVersion
             };
             using var req = new HttpRequestMessage(HttpMethod.Post, url)
             {
                 Content = new StringContent(JsonSerializer.Serialize(payload), Encoding.UTF8, "application/json")
             };
+            req.Headers.TryAddWithoutValidation("X-App-Version", AppConstants.CurrentVersion);
             if (!string.IsNullOrWhiteSpace(token))
                 req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token.Trim());
             if (!string.IsNullOrWhiteSpace(leaseId))

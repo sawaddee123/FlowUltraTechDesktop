@@ -8,12 +8,12 @@ sys.stdout.reconfigure(encoding='utf-8')
 
 SERVER_HOST = "210.246.215.66"
 SERVER_URL = f"http://{SERVER_HOST}:8001"
-LOCAL_INSTALLER = r"D:\Script\java-script\FlowUltraTech\storage\releases\FlowUltraTech_Setup_v1.4.0.exe"
-REMOTE_INSTALLER = "/root/FlowUltraTech/storage/releases/FlowUltraTech_Setup_v1.4.0.exe"
-VERSION = "1.4.0"
-MIN_VERSION = "1.4.0" # Force update!
+LOCAL_INSTALLER = r"D:\Script\Test\FlowUltraTech\dist\installer\FlowUltraTech_Setup_v1.5.1.exe"
+REMOTE_INSTALLER = "/root/FlowUltraTech/storage/releases/FlowUltraTech_Setup_v1.5.1.exe"
+VERSION = "1.5.1"
+MIN_VERSION = "1.5.1" # Force update!
 FILE_SIZE = os.path.getsize(LOCAL_INSTALLER)
-FILE_HASH = "c80c2d93722e12575ce446bcd0fcd485133c6950e80091aa969b4a076aa349c9"
+FILE_HASH = "ea956517a6dd20f9d22227dc57774f2abdf5c1b39f951fad71ef88bd94f0d326"
 
 print(f"1. Connecting SSH to {SERVER_HOST}...")
 c = paramiko.SSHClient()
@@ -60,12 +60,12 @@ headers = {
 broadcast_payload = {
     "version": VERSION,
     "minRequiredVersion": MIN_VERSION,
-    "title": f"FlowUltraTech v{VERSION} (Precision Jigsaw Slider & Pure Screen Quota)",
+    "title": f"FlowUltraTech v{VERSION} (Autonomous 24/7 AI Captcha & Auto-Refresh Token)",
     "description": (
-        "• แก้ไขระบบคำนวณระยะลากสไลเดอร์ Captcha Jigsaw (TikTok Slide) ให้สัมพันธ์กับอัตราส่วน Knob-to-Image แบบ Sub-pixel ป้องกันการเคลื่อนคลาดเคลื่อน (Zero Coordinate Offset)\n"
-        "• ยืนยันตำแหน่งเป้าหมายด้วยการตรวจสอบ Transform ของชิ้นส่วนจิ๊กซอว์ใน DOM ก่อนยืนยันผล\n"
-        "• ปลดล็อกข้อจำกัด HWID ไม่จำกัดจำนวนเครื่อง ควบคุมด้วย Pure Screen Quota\n"
-        "• เพิ่มประสิทธิภาพหน่วยความจำและการรันระยะยาวต่อเนื่อง (Long-term Soak Tested & Zero Leaks)"
+        "• รองรับการรันบอทอัตโนมัติระยะยาว 24/7 แบบ Unattended ไม่ต้องเฝ้าหน้าจอ\n"
+        "• เพิ่มระบบ Proactive Auto-Renewal ตรวจและต่ออายุ Token อัตโนมัติล่วงหน้าก่อนส่งภาพแก้ Captcha\n"
+        "• เพิ่มระบบ Reactive On-Demand Retry ขอ Token ใหม่ทันทีและส่งซ้ำหากพบ 401 Unauthorized\n"
+        "• แก้ไข Token Desync ใน Background Watchdog และซิงค์ Token ทุกช่องทางอัตโนมัติ"
     ),
     "fileName": f"FlowUltraTech_Setup_v{VERSION}.exe",
     "fileSize": FILE_SIZE,

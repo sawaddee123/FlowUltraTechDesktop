@@ -24,8 +24,8 @@ public static class Program
 
             var app = new App();
             app.InitializeComponent();
-            var mainWindow = new MainWindow();
-            app.Run(mainWindow);
+            var loginWindow = new Views.LoginWindow();
+            app.Run(loginWindow);
         }
         catch (Exception ex)
         {

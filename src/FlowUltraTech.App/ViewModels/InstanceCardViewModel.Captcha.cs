@@ -5,6 +5,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Text;
+using System.Text.Json;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Data;
@@ -552,6 +553,12 @@ public partial class InstanceCardViewModel : ObservableObject
     }
 
     [RelayCommand]
+    public async Task SolveCaptchaAsync()
+    {
+        await SolveCaptchaInternalAsync(_lastDetectionResult);
+    }
+
+    [RelayCommand]
     public async Task SolveCaptchaMockAsync()
     {
         await SolveCaptchaInternalAsync(_lastDetectionResult);
@@ -569,17 +576,92 @@ public partial class InstanceCardViewModel : ObservableObject
 
         try
         {
+            string effectiveSolverToken = !string.IsNullOrWhiteSpace(_settings.AuthToken)
+                ? _settings.AuthToken
+                : (!string.IsNullOrWhiteSpace(_settings.CaptchaSolverJwtToken) ? _settings.CaptchaSolverJwtToken : string.Empty);
+
+            // 🛡️ Proactive Check: If JWT is expired or expiring within 3 minutes, refresh proactively before calling API
+            if (_authService != null && !string.IsNullOrWhiteSpace(_settings.RefreshToken) &&
+                IsJwtTokenExpiredOrClose(effectiveSolverToken, bufferSeconds: 180))
+            {
+                AppendConsole($"[{DateTime.Now:HH:mm:ss}] 🔄 [CAPTCHA SOLVER] ตรวจพบ JWT Token ใกล้หมดอายุ กำลังต่ออายุล่วงหน้าอัตโนมัติ (Proactive Refresh)...");
+                try
+                {
+                    var preRefresh = await _authService.RefreshTokenAsync(_settings.RefreshToken, _settings.AuthApiEndpoint);
+                    if (preRefresh.Success && !string.IsNullOrWhiteSpace(preRefresh.AccessToken))
+                    {
+                        effectiveSolverToken = preRefresh.AccessToken;
+                        _settings.AuthToken = preRefresh.AccessToken;
+                        _settings.CaptchaSolverJwtToken = preRefresh.AccessToken;
+                        if (!string.IsNullOrWhiteSpace(preRefresh.RefreshToken))
+                        {
+                            _settings.RefreshToken = preRefresh.RefreshToken;
+                        }
+                        AppendConsole($"[{DateTime.Now:HH:mm:ss}] 🔑 [CAPTCHA SOLVER] ต่ออายุ Token ล่วงหน้าเรียบร้อย พร้อมใช้งาน 24 ชั่วโมง");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Logger.Warn("CaptchaSolver", $"Proactive token refresh attempt failed: {ex.Message}");
+                }
+            }
+
             var result = await _cdpService.SolveCaptchaAsync(
                 cdpPort: CdpPort,
                 detection: detection ?? _lastDetectionResult,
                 solverMode: _settings.CaptchaSolverMode,
                 solverApiEndpoint: _settings.CaptchaSolverEndpoint,
-                solverJwtToken: !string.IsNullOrWhiteSpace(_settings.CaptchaSolverJwtToken) ? _settings.CaptchaSolverJwtToken : _settings.AuthToken,
+                solverJwtToken: effectiveSolverToken,
                 customMockJsonPath: null,
                 progressLogger: msg => AppendConsole(msg),
                 delaySeconds: _settings.AutoSolveDelaySeconds,
                 instanceLeaseId: ActiveLeaseId
             );
+
+            // If token expired or unauthorized (401), automatically refresh the JWT token and retry solve once
+            if (!result.Success &&
+                (result.ServerResponseJson?.Contains("Token expired", StringComparison.OrdinalIgnoreCase) == true ||
+                 result.ServerResponseJson?.Contains("Unauthorized", StringComparison.OrdinalIgnoreCase) == true ||
+                 result.ServerResponseJson?.Contains("Invalid token", StringComparison.OrdinalIgnoreCase) == true ||
+                 result.Message.Contains("Token expired", StringComparison.OrdinalIgnoreCase) ||
+                 result.Message.Contains("401", StringComparison.OrdinalIgnoreCase)) &&
+                _authService != null &&
+                !string.IsNullOrWhiteSpace(_settings.RefreshToken))
+            {
+                AppendConsole($"[{DateTime.Now:HH:mm:ss}] 🔄 [CAPTCHA SOLVER] ตรวจพบ JWT Token หมดอายุ (401) กำลังขอต่ออายุ Token อัตโนมัติ (Auto-refresh token)...");
+                Logger.Info("CaptchaSolver", $"Solver token expired on '{Name}'. Attempting auto-refresh token...");
+
+                var refreshRes = await _authService.RefreshTokenAsync(_settings.RefreshToken, _settings.AuthApiEndpoint);
+                if (refreshRes.Success && !string.IsNullOrWhiteSpace(refreshRes.AccessToken))
+                {
+                    AppendConsole($"[{DateTime.Now:HH:mm:ss}] 🔑 [CAPTCHA SOLVER] ต่ออายุ Token สำเร็จ! กำลังส่งคำขอแก้ Captcha ใหม่อีกครั้ง...");
+                    Logger.Info("CaptchaSolver", $"Token refreshed successfully. Retrying captcha solve on '{Name}'...");
+
+                    _settings.AuthToken = refreshRes.AccessToken;
+                    _settings.CaptchaSolverJwtToken = refreshRes.AccessToken;
+                    if (!string.IsNullOrWhiteSpace(refreshRes.RefreshToken))
+                    {
+                        _settings.RefreshToken = refreshRes.RefreshToken;
+                    }
+
+                    // Retry solve immediately
+                    result = await _cdpService.SolveCaptchaAsync(
+                        cdpPort: CdpPort,
+                        detection: detection ?? _lastDetectionResult,
+                        solverMode: _settings.CaptchaSolverMode,
+                        solverApiEndpoint: _settings.CaptchaSolverEndpoint,
+                        solverJwtToken: refreshRes.AccessToken,
+                        customMockJsonPath: null,
+                        progressLogger: msg => AppendConsole(msg),
+                        delaySeconds: 0,
+                        instanceLeaseId: ActiveLeaseId
+                    );
+                }
+                else
+                {
+                    AppendConsole($"[{DateTime.Now:HH:mm:ss}] ⚠️ [CAPTCHA SOLVER] ต่ออายุ Token อัตโนมัติไม่สำเร็จ ({refreshRes.Message})");
+                }
+            }
 
             if (result.Success)
             {
@@ -726,5 +808,31 @@ public partial class InstanceCardViewModel : ObservableObject
         {
             StatusMessage = "ไม่มีรูปภาพให้คัดลอก";
         }
+    }
+
+    private static bool IsJwtTokenExpiredOrClose(string? jwtToken, int bufferSeconds = 180)
+    {
+        if (string.IsNullOrWhiteSpace(jwtToken)) return true;
+        try
+        {
+            var parts = jwtToken.Split('.');
+            if (parts.Length < 2) return true;
+            string payload = parts[1];
+            payload = payload.Replace('-', '+').Replace('_', '/');
+            switch (payload.Length % 4)
+            {
+                case 2: payload += "=="; break;
+                case 3: payload += "="; break;
+            }
+            byte[] bytes = Convert.FromBase64String(payload);
+            using var doc = JsonDocument.Parse(bytes);
+            if (doc.RootElement.TryGetProperty("exp", out var expElem) && expElem.TryGetInt64(out long expUnix))
+            {
+                var expTime = DateTimeOffset.FromUnixTimeSeconds(expUnix);
+                return DateTimeOffset.UtcNow.AddSeconds(bufferSeconds) >= expTime;
+            }
+        }
+        catch { }
+        return false;
     }
 }
