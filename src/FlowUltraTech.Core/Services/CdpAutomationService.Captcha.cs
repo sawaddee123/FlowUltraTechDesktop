@@ -17,6 +17,27 @@ namespace FlowUltraTech.Core.Services;
 
 public partial class CdpAutomationService
 {
+    private static async Task<bool> IsCaptchaFrameVisibleAsync(IFrame frame)
+    {
+        for (var current = frame; current.ParentFrame != null; current = current.ParentFrame)
+        {
+            await using var owner = await current.FrameElementAsync();
+            if (owner == null) return false;
+            if (!await owner.EvaluateFunctionAsync<bool>(@"(el) => {
+                if (el.closest('.tt-live-modalv2-wrapper-exited, [class*=""exit-done""]')) return false;
+                const rect = el.getBoundingClientRect();
+                if (rect.width <= 0 || rect.height <= 0) return false;
+                for (let node = el; node; node = node.parentElement) {
+                    const style = node.ownerDocument.defaultView.getComputedStyle(node);
+                    if (style.display === 'none' || style.visibility === 'hidden' ||
+                        style.visibility === 'collapse' || parseFloat(style.opacity || '1') <= 0.01) return false;
+                }
+                return true;
+            }")) return false;
+        }
+        return true;
+    }
+
     public async Task<CaptchaDetectionResult> DetectCaptchaElementsAsync(int cdpPort, bool forceFullHtml = false)
     {
         var result = new CaptchaDetectionResult { DetectedAt = DateTime.Now };
@@ -46,6 +67,13 @@ public partial class CdpAutomationService
                     if (!el) return false;
                     // Check if element or any ancestor is in an exited modal or has exit-done class
                     if (el.closest && el.closest('.tt-live-modalv2-wrapper-exited, [class*=""exit-done""]')) return false;
+
+                    // visibility/opacity on an ancestor also hides fixed-position children.
+                    for (let ancestor = el; ancestor; ancestor = ancestor.parentElement) {
+                        const style = ancestor.ownerDocument.defaultView.getComputedStyle(ancestor);
+                        if (style.display === 'none' || style.visibility === 'hidden' ||
+                            style.visibility === 'collapse' || parseFloat(style.opacity || '1') <= 0.01) return false;
+                    }
 
                     // Check inline or computed styles
                     if (el.style && (el.style.display === 'none' || el.style.visibility === 'hidden')) return false;
@@ -145,27 +173,6 @@ public partial class CdpAutomationService
                 const items = [];
                 const mainItems = findTopmost(document);
                 for (const it of mainItems) items.push(it);
-
-                const iframeHtmls = [];
-                const iframes = Array.from(document.querySelectorAll('iframe'));
-                for (const iframe of iframes) {
-                    try {
-                        const fDoc = iframe.contentDocument || (iframe.contentWindow && iframe.contentWindow.document);
-                        if (fDoc) {
-                            const fItems = findTopmost(fDoc);
-                            if (fItems.length > 0) {
-                                for (const it of fItems) items.push(it);
-                                const fHtml = fDoc.documentElement ? fDoc.documentElement.outerHTML : (fDoc.body ? fDoc.body.outerHTML : '');
-                                if (fHtml) {
-                                    iframeHtmls.push({
-                                        url: fDoc.location ? fDoc.location.href : (iframe.src || ''),
-                                        html: fHtml
-                                    });
-                                }
-                            }
-                        }
-                    } catch(e) {}
-                }
 
                 // Inactivity warning modal status
                 let inactModalContent = document.querySelector('.captcha-modal-content-UBaIok, [class*=""captcha-modal-content""]');
@@ -385,23 +392,6 @@ public partial class CdpAutomationService
                 }
 
                 let activeWidget = scanForActiveWidget(document);
-                if (!activeWidget || !sessionId) {
-                    for (const iframe of iframes) {
-                        try {
-                            const fDoc = iframe.contentDocument || (iframe.contentWindow && iframe.contentWindow.document);
-                            if (fDoc) {
-                                if (!activeWidget) {
-                                    activeWidget = scanForActiveWidget(fDoc);
-                                }
-                                if (!sessionId) {
-                                    sessionId = extractSessionId(fDoc);
-                                }
-                                if (activeWidget && sessionId) break;
-                            }
-                        } catch(e) {}
-                    }
-                }
-
                 let captchaType = 'None';
                 let typeDescription = 'None (ไม่พบ Captcha ที่กำลังแสดงผล)';
                 let isActive = false;
@@ -434,7 +424,6 @@ public partial class CdpAutomationService
                     promptText: promptText,
                     sessionId: sessionId,
                     mainFullHtml: mainFullHtml,
-                    iframeHtmls: iframeHtmls,
                     pageUrl: window.location ? window.location.href : '',
                     countdownText: countdownText,
                     hasInactivityModal: !!inactModalContent,
@@ -445,14 +434,15 @@ public partial class CdpAutomationService
 
             var fullHtmlSections = new List<string>();
 
-            foreach (var page in pages)
+            // CDP evaluates each document independently, including cross-origin frames.
+            foreach (var (page, frame) in pages
+                .Where(p => p.Url == null || !p.Url.StartsWith("devtools://", StringComparison.OrdinalIgnoreCase))
+                .SelectMany(p => p.Frames.Select(f => (Page: p, Frame: f))))
             {
-                if (page.Url != null && page.Url.StartsWith("devtools://", StringComparison.OrdinalIgnoreCase))
-                    continue;
-
                 try
                 {
-                    string json = await page.EvaluateExpressionAsync<string>(detectScript);
+                    if (!await IsCaptchaFrameVisibleAsync(frame)) continue;
+                    string json = await frame.EvaluateExpressionAsync<string>(detectScript);
                     if (string.IsNullOrWhiteSpace(json) || json == "[]" || json == "{}")
                         continue;
 
@@ -460,7 +450,6 @@ public partial class CdpAutomationService
                     JsonElement itemsArray;
                     string pageFullHtml = string.Empty;
                     string pageUrl = page.Url ?? string.Empty;
-                    var detectedIframeHtmls = new List<(string url, string html)>();
 
                     if (doc.RootElement.ValueKind == JsonValueKind.Object)
                     {
@@ -486,7 +475,7 @@ public partial class CdpAutomationService
                             result.CaptchaSessionId = sidElem.GetString()!;
 
                         if (doc.RootElement.TryGetProperty("hasInactivityModal", out var inactElem))
-                            result.HasInactivityModal = inactElem.GetBoolean();
+                            result.HasInactivityModal |= inactElem.GetBoolean();
 
                         if (doc.RootElement.TryGetProperty("isActive", out var actElem) && actElem.GetBoolean())
                             result.IsActive = true;
@@ -503,7 +492,8 @@ public partial class CdpAutomationService
                             }
                         }
 
-                        if (doc.RootElement.TryGetProperty("typeDescription", out var descElem) && !string.IsNullOrWhiteSpace(descElem.GetString()))
+                        if (doc.RootElement.TryGetProperty("typeDescription", out var descElem) && !string.IsNullOrWhiteSpace(descElem.GetString()) &&
+                            doc.RootElement.TryGetProperty("isActive", out var frameActive) && (frameActive.GetBoolean() || !result.IsActive))
                             result.TypeDescription = descElem.GetString()!;
 
                         if (doc.RootElement.TryGetProperty("hasWidgetLoaded", out var hwElem) && hwElem.GetBoolean())
@@ -515,18 +505,6 @@ public partial class CdpAutomationService
                         if (doc.RootElement.TryGetProperty("promptText", out var pTextElem) && !string.IsNullOrWhiteSpace(pTextElem.GetString()))
                             result.PromptText = pTextElem.GetString()!;
 
-                        if (doc.RootElement.TryGetProperty("iframeHtmls", out var iframesElem) && iframesElem.ValueKind == JsonValueKind.Array)
-                        {
-                            foreach (var iframeElem in iframesElem.EnumerateArray())
-                            {
-                                string fUrl = iframeElem.TryGetProperty("url", out var u) ? u.GetString() ?? "" : "";
-                                string fHtml = iframeElem.TryGetProperty("html", out var h) ? h.GetString() ?? "" : "";
-                                if (!string.IsNullOrWhiteSpace(fHtml))
-                                {
-                                    detectedIframeHtmls.Add((fUrl, fHtml));
-                                }
-                            }
-                        }
                     }
                     else if (doc.RootElement.ValueKind == JsonValueKind.Array)
                     {
@@ -570,7 +548,7 @@ public partial class CdpAutomationService
                         {
                             try
                             {
-                                pageFullHtml = await page.GetContentAsync();
+                                pageFullHtml = await frame.GetContentAsync();
                             }
                             catch { }
                         }
@@ -581,22 +559,11 @@ public partial class CdpAutomationService
                             {
                                 pageFullHtml = "<!DOCTYPE html>\n" + pageFullHtml;
                             }
+                            if (frame.ParentFrame != null)
+                                pageFullHtml = $"<!-- [CAPTCHA IFRAME FULL HTML] Frame URL: {frame.Url} -->\n" + pageFullHtml;
                             fullHtmlSections.Add(pageFullHtml);
                         }
 
-                        // Also append any iframe full HTMLs containing captcha
-                        foreach (var (fUrl, fHtml) in detectedIframeHtmls)
-                        {
-                            var sbFrame = new StringBuilder();
-                            sbFrame.AppendLine("<!-- ====================================================================== -->");
-                            sbFrame.AppendLine($"<!-- 🧩 [CAPTCHA IFRAME FULL HTML] Frame URL: {fUrl} -->");
-                            sbFrame.AppendLine("<!-- ====================================================================== -->");
-                            string formattedFrame = fHtml.TrimStart().StartsWith("<!DOCTYPE", StringComparison.OrdinalIgnoreCase)
-                                ? fHtml
-                                : "<!DOCTYPE html>\n" + fHtml;
-                            sbFrame.AppendLine(formattedFrame);
-                            fullHtmlSections.Add(sbFrame.ToString());
-                        }
                     }
 
                     // Priority 1: Direct extract from ImageSrc (data URI) to preserve original WebP resolution without scaling blur
@@ -624,7 +591,7 @@ public partial class CdpAutomationService
                                 ? "#captcha-verify-image, .captcha_verify_img_slide, img[class*=\"slide\" i]"
                                 : "#captcha-verify-image, #symbol-img-box, .captcha_verify_img_symbol, img[class*=\"symbol\" i]";
 
-                            IElementHandle? imgHandle = await page.QuerySelectorAsync(imgSel);
+                            IElementHandle? imgHandle = await frame.QuerySelectorAsync(imgSel);
                             if (imgHandle == null)
                             {
                                 foreach (var f in page.Frames)
@@ -1433,7 +1400,9 @@ public partial class CdpAutomationService
                 return JSON.stringify({ isModalHidden, toastText });
             })()";
 
-            string verifyJson = await targetPage.EvaluateExpressionAsync<string>(verifyScript);
+            string verifyJson = targetFrame != null && detection.Type == CaptchaType.Symbol
+                ? await targetFrame.EvaluateExpressionAsync<string>(verifyScript)
+                : await targetPage.EvaluateExpressionAsync<string>(verifyScript);
             bool isResolved = false;
             string feedbackMsg = "";
 

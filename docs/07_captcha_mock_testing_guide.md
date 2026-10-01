@@ -1,14 +1,16 @@
 # 07. คู่มือการทดสอบ Captcha จำลอง (Captcha Mock Testing Guide)
 
-เอกสารนี้อธิบายการใช้งานระบบจำลอง (Mock) ของ Inactivity Captcha ทั้ง 2 รูปแบบ ได้แก่ **Jigsaw (Slide Captcha)** และ **Symbol (เลือกสัญลักษณ์ที่เหมือนกัน)** โดยสร้างขึ้นจากโค้ด HTML/DOM ดัมพ์ของจริง 100% จาก TikTok LIVE Studio:
-- [Captcha_Jigsaw.txt](file:///d:/Script/Test/FlowUltraTech/docs/Captcha_Jigsaw.txt)
-- [Captcha_Symbol.txt](file:///d:/Script/Test/FlowUltraTech/docs/Captcha_Symbol.txt)
+เอกสารนี้อธิบายการใช้งานระบบจำลอง (Mock) ของ Inactivity Captcha ทั้ง 2 รูปแบบ ได้แก่ **Jigsaw (Slide Captcha)** และ **Symbol (เลือกสัญลักษณ์ที่เหมือนกัน)** โดยใช้ HTML/DOM dump จาก TikTok LIVE Studio เป็นโครงสร้างพื้นฐาน:
+- [Captcha_Jigsaw.txt](Captcha_Jigsaw.txt)
+- [Captcha_Symbol.txt](Captcha_Symbol.txt)
+
+ไฟล์ dump ทั้งสองบันทึก modal ที่ปิดแล้วและ mount point ว่าง ภาพ คำสั่ง ปุ่ม และพฤติกรรมของ widget ที่เปิดอยู่ใน mock เป็น fixture ที่เติมขึ้นเพื่อทดสอบ จึงยังใช้ยืนยัน DOM หรือการยอมรับคำตอบของ TikTok จริงไม่ได้ ดู [ผลตรวจ Symbol และ E2E](08_captcha_symbol_verification.md)
 
 ---
 
-## 1. ข้อมูลและโครงสร้างที่จำลองจากของจริง 100%
+## 1. ข้อมูลและโครงสร้างของ Mock
 
-ไฟล์ Mock ทั้งสองถูกสร้างขึ้นโดยใช้โครงสร้าง DOM แท้ทั้งหมดของ TikTok LIVE Studio (ขนาดกว่า 700 KB ต่อไฟล์) ครอบคลุม:
+ไฟล์ Mock ทั้งสองใช้ DOM ที่บันทึกไว้ของ TikTok LIVE Studio และเพิ่ม widget สำหรับทดสอบ ครอบคลุม:
 - เลย์เอาต์หลักของ TikTok LIVE Studio (Scenes, Sources, Title bar "PUBG: BATTLEGROUNDS", Tools, Chat, Navigation)
 - สไตล์ชีต, React bundle chunks และ CSS variables ทั้งหมด
 - หน้าต่าง Inactivity Modal (`.tt-live-modalv2`, `.captcha-modal-content-UBaIok`) ในสถานะ **Active & Visible**

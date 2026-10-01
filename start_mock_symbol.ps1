@@ -1,68 +1,64 @@
-# PowerShell Launcher for Mock Captcha Symbol Testbed
-# Launches Chrome or Edge with Remote Debugging Port 9221 for testing FlowUltraTech
-
-$ErrorActionPreference = "Stop"
-
-$mockPath = Join-Path $PSScriptRoot "docs\mocks\mock_captcha_symbol.html"
-if (-not (Test-Path $mockPath)) {
-    Write-Error "Cannot find mock HTML at: $mockPath"
-    exit 1
-}
-
-$mockUrl = "file:///" + ($mockPath -replace '\\', '/')
-
-# Search for Chrome or Edge executable
-$browserCandidates = @(
-    "C:\Program Files\Google\Chrome\Application\chrome.exe",
-    "C:\Program Files (x86)\Google\Chrome\Application\chrome.exe",
-    "$env:LOCALAPPDATA\Google\Chrome\Application\chrome.exe",
-    "C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe",
-    "C:\Program Files\Microsoft\Edge\Application\msedge.exe"
+# ASCII keeps this script compatible with Windows PowerShell 5.1 without a BOM.
+[CmdletBinding()]
+param(
+    [ValidateRange(1024, 65535)][int]$Port = 9221,
+    [switch]$Headless,
+    [string]$UserDataDirectory,
+    [switch]$PassThru
 )
-
-$browserExe = $null
-foreach ($b in $browserCandidates) {
-    if (Test-Path $b) {
-        $browserExe = $b
-        break
+$ErrorActionPreference = 'Stop'
+$mockPath = Join-Path $PSScriptRoot 'docs\mocks\mock_captcha_symbol.html'
+if (-not (Test-Path -LiteralPath $mockPath)) { throw "Cannot find mock HTML: $mockPath" }
+$mockUrl = ([Uri]$mockPath).AbsoluteUri
+$cdpUrl = "http://127.0.0.1:$Port"
+function Get-CdpJson([string]$Path) {
+    Invoke-RestMethod -Uri "$cdpUrl$Path" -TimeoutSec 2 -UseBasicParsing
+}
+$version = $null
+try { $version = Get-CdpJson '/json/version' } catch { }
+$browserProcessId = $null
+if ($version.webSocketDebuggerUrl) {
+    # Reuse an existing debugging browser without closing its tabs.
+    $encodedUrl = [Uri]::EscapeDataString($mockUrl)
+    Invoke-RestMethod -Uri "$cdpUrl/json/new?$encodedUrl" -Method Put -TimeoutSec 5 -UseBasicParsing | Out-Null
+} else {
+    $browserCandidates = @(
+        "$env:ProgramFiles\Google\Chrome\Application\chrome.exe",
+        "${env:ProgramFiles(x86)}\Google\Chrome\Application\chrome.exe",
+        "$env:LOCALAPPDATA\Google\Chrome\Application\chrome.exe",
+        "${env:ProgramFiles(x86)}\Microsoft\Edge\Application\msedge.exe",
+        "$env:ProgramFiles\Microsoft\Edge\Application\msedge.exe"
+    )
+    $browserExe = $browserCandidates | Where-Object { Test-Path -LiteralPath $_ } | Select-Object -First 1
+    if (-not $browserExe) { throw 'Google Chrome or Microsoft Edge is required.' }
+    if (-not $UserDataDirectory) {
+        $UserDataDirectory = Join-Path $env:TEMP "TiktokStudio_MockProfile_$Port"
     }
+    New-Item -ItemType Directory -Path $UserDataDirectory -Force | Out-Null
+    $browserArguments = @(
+        "--remote-debugging-port=$Port", '--remote-debugging-address=127.0.0.1',
+        "--user-data-dir=`"$UserDataDirectory`"", '--no-first-run',
+        '--no-default-browser-check', '--window-size=1280,900'
+    )
+    if ($Headless) { $browserArguments += '--headless=new' }
+    $browserArguments += "`"$mockUrl`""
+    $startOptions = @{ FilePath = $browserExe; ArgumentList = $browserArguments; PassThru = $true }
+    if ($Headless) { $startOptions.WindowStyle = 'Hidden' }
+    $browserProcessId = (Start-Process @startOptions).Id
 }
-
-if (-not $browserExe) {
-    Write-Error "Neither Google Chrome nor Microsoft Edge was found on this system."
-    exit 1
+$ready = $false
+$deadline = (Get-Date).AddSeconds(20)
+do {
+    try {
+        $version = Get-CdpJson '/json/version'
+        $pages = @(Get-CdpJson '/json/list')
+        $ready = $version.webSocketDebuggerUrl -and @($pages | Where-Object { $_.type -eq 'page' -and $_.url -eq $mockUrl }).Count -gt 0
+    } catch { }
+    if (-not $ready) { Start-Sleep -Milliseconds 200 }
+} until ($ready -or (Get-Date) -gt $deadline)
+if (-not $ready) { throw "Mock browser did not become ready on CDP port $Port. Check port availability." }
+Write-Host "Symbol mock ready: $mockUrl"
+Write-Host "CDP port: $Port. In FlowUltraTech, select this port and scan Captcha."
+if ($PassThru) {
+    [PSCustomObject]@{ Port = $Port; Url = $mockUrl; BrowserProcessId = $browserProcessId; UserDataDirectory = $UserDataDirectory }
 }
-
-$tempUserData = Join-Path $env:TEMP "TiktokStudio_MockProfile_9221"
-if (-not (Test-Path $tempUserData)) {
-    New-Item -ItemType Directory -Path $tempUserData -Force | Out-Null
-}
-
-$port = 9221
-Write-Host ""
-Write-Host "==========================================================================" -ForegroundColor Cyan
-Write-Host " 🔣 [MOCK CAPTCHA SYMBOL TESTBED] กำลังเปิดหน้าต่างจำลองสำหรับทดสอบ..." -ForegroundColor Green
-Write-Host "==========================================================================" -ForegroundColor Cyan
-Write-Host " 🌐 Browser: $browserExe" -ForegroundColor White
-Write-Host " 🔌 CDP Debugging Port: $port" -ForegroundColor Yellow
-Write-Host " 📄 File: $mockPath" -ForegroundColor White
-Write-Host " 📁 Profile: $tempUserData" -ForegroundColor Gray
-Write-Host "==========================================================================" -ForegroundColor Cyan
-Write-Host ""
-Write-Host " 👉 ขั้นตอนการทดสอบกับโปรแกรม FlowUltraTech:" -ForegroundColor Cyan
-Write-Host "    1. เปิดโปรแกรม FlowUltraTech" -ForegroundColor White
-Write-Host "    2. ตรวจสอบว่ามี Instance ที่ตั้งค่า Port: $port" -ForegroundColor White
-Write-Host "    3. กดปุ่ม '🔍 สแกนเดี๋ยวนี้' ในหน้าการ์ด หรือในแท็บ Captcha Center" -ForegroundColor Yellow
-Write-Host "    4. ระบบจะตรวจจับ DOM ของจริง, อ่านตัวนับเวลาถอยหลัง, และแสดงองค์ประกอบ Captcha ครบถ้วน!" -ForegroundColor Green
-Write-Host ""
-
-$args = @(
-    "--remote-debugging-port=$port",
-    "--user-data-dir=`"$tempUserData`"",
-    "--no-first-run",
-    "--no-default-browser-check",
-    "`"$mockUrl`""
-)
-
-Start-Process -FilePath $browserExe -ArgumentList $args
-Write-Host "✅ เบราว์เซอร์เปิดทำงานเรียบร้อยแล้ว!" -ForegroundColor Green
