@@ -96,6 +96,12 @@ public partial class InstanceCardViewModel : ObservableObject
     private string _detectedCaptchaCountdown = "00:00";
 
     [ObservableProperty]
+    private string _detectedCaptchaSessionId = "-";
+
+    [ObservableProperty]
+    private string _lastCapturedImagePath = "-";
+
+    [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(CaptchaImageSource))]
     [NotifyPropertyChangedFor(nameof(HasDirectImage))]
     [NotifyPropertyChangedFor(nameof(HasCaptchaImage))]
@@ -204,6 +210,7 @@ public partial class InstanceCardViewModel : ObservableObject
                 LastCaptchaDetectedTime = DateTime.Now.ToString("HH:mm:ss");
                 DetectedCaptchaTypeDescription = result.TypeDescription;
                 DetectedCaptchaCountdown = !string.IsNullOrEmpty(result.CountdownText) ? result.CountdownText : "N/A";
+                DetectedCaptchaSessionId = !string.IsNullOrEmpty(result.CaptchaSessionId) ? result.CaptchaSessionId : "-";
                 CaptchaAlertTitle = $"🚨 ตรวจพบ Captcha จริง! ({result.TypeDescription})";
                 CaptchaAlertMessage = $"พบ Captcha กำลังแสดงผล: {result.TypeDescription}" + 
                     (!string.IsNullOrEmpty(result.CountdownText) ? $" | เหลือเวลา: {result.CountdownText}" : "");
@@ -211,8 +218,10 @@ public partial class InstanceCardViewModel : ObservableObject
 
                 RunOnUi(() =>
                 {
-                    DirectCaptchaImageSource = ToBitmapImage(result.DirectImageBytes);
-                    CroppedCaptchaImageSource = ToBitmapImage(result.CroppedImageBytes);
+                    var directBmp = ToBitmapImage(result.DirectImageBytes);
+                    var croppedBmp = ToBitmapImage(result.CroppedImageBytes);
+                    DirectCaptchaImageSource = directBmp ?? croppedBmp;
+                    CroppedCaptchaImageSource = croppedBmp ?? directBmp;
                 });
 
                 DetectedCaptchaElements.Clear();
@@ -316,9 +325,10 @@ public partial class InstanceCardViewModel : ObservableObject
                                                  $"• เวลา: {DateTime.Now:dd/MM/yyyy HH:mm:ss}\n" +
                                                  $"• การแก้: {(_settings.AutoSolveCaptcha ? $"Auto Solve (หน่วง {_settings.AutoSolveDelaySeconds}s)" : "สั่งการด้วยมือ")}";
 
-                                if (_settings.TelegramSendPhoto && result.CapturedImageBytes != null && result.CapturedImageBytes.Length > 0)
+                                byte[]? telegramImageBytes = result.CroppedImageBytes ?? result.CapturedImageBytes;
+                                if (_settings.TelegramSendPhoto && telegramImageBytes != null && telegramImageBytes.Length > 0)
                                 {
-                                    await _telegramService.SendPhotoAsync(_settings.TelegramBotToken, _settings.TelegramChatId, result.CapturedImageBytes, caption);
+                                    await _telegramService.SendPhotoAsync(_settings.TelegramBotToken, _settings.TelegramChatId, telegramImageBytes, caption);
                                 }
                                 else
                                 {
@@ -327,6 +337,25 @@ public partial class InstanceCardViewModel : ObservableObject
                             }
                             catch { }
                         });
+                    }
+
+                    // 💾 Auto-save Captcha image if enabled
+                    if (_settings.AutoSaveCaptchaImage && result.CapturedImageBytes != null && result.CapturedImageBytes.Length > 0)
+                    {
+                        try
+                        {
+                            string saveDir = !string.IsNullOrWhiteSpace(_settings.CaptchaSaveDirectory)
+                                ? _settings.CaptchaSaveDirectory
+                                : Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonPictures), "TikTokStudioCaptures");
+                            Directory.CreateDirectory(saveDir);
+                            byte[] saveBytes = result.CroppedImageBytes ?? result.CapturedImageBytes;
+                            string ext = (saveBytes.Length > 12 && saveBytes[0] == 0x52 && saveBytes[8] == 0x57) ? "webp" : "png";
+                            string fileName = $"Captcha_{ProfileFolderName}_{result.Type}_{DateTime.Now:yyyyMMdd_HHmmss}.{ext}";
+                            string fullPath = Path.Combine(saveDir, fileName);
+                            await File.WriteAllBytesAsync(fullPath, saveBytes);
+                            LastCapturedImagePath = fullPath;
+                        }
+                        catch { }
                     }
                 }
             }
@@ -499,6 +528,8 @@ public partial class InstanceCardViewModel : ObservableObject
         SelectedCaptchaElement = null;
         DetectedCaptchaHtml = string.Empty;
         DetectedCaptchaCount = 0;
+        DetectedCaptchaSessionId = "-";
+        LastCapturedImagePath = "-";
         IsCaptchaAlertVisible = false;
         _lastReportedCaptchaHtml = null;
         _lastDetectionResult = null;

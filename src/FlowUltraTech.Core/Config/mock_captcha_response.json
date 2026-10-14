@@ -11,6 +11,16 @@
       [100, 110],
       [215, 140]
     ],
+    "raw_symbol_positions": [
+      [201, 331],
+      [432, 421]
+    ],
+    "image_width": 640,
+    "image_height": 640,
+    "display_width": 318,
+    "display_height": 212,
+    "scale_x": 0.496875,
+    "scale_y": 0.33125,
     "time": 0.245,
     "confidence": 0.95
   }

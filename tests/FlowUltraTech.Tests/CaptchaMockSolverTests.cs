@@ -9,6 +9,7 @@ using Xunit;
 
 namespace FlowUltraTech.Tests;
 
+[Collection("CaptchaBrowserE2E")]
 public class CaptchaMockSolverTests
 {
     private static readonly string SolutionDir = Path.GetFullPath(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "..", "..", "..", "..", ".."));
@@ -389,5 +390,200 @@ public class CaptchaMockSolverTests
         Assert.Equal(111.0, newReplyX); // Exactly 111px sent to TikTok verify API!
         Assert.True(Math.Abs(newResultingPieceX - targetX) < 0.001, "Error must be 0.0px");
     }
+
+    [Fact]
+    public void GetImageDimensions_RealSymbolCaptchaWebP_ParsesLossyVp8DimensionsAs552x344()
+    {
+        string path = Path.Combine(SolutionDir, "extracted_sources", "CaptchaSymbol2.html");
+        Assert.True(File.Exists(path), $"CaptchaSymbol2.html must exist at: {path}");
+
+        string html = File.ReadAllText(path);
+        var match = Regex.Match(html, @"data:image/webp;base64,([A-Za-z0-9+/=]+)");
+        Assert.True(match.Success, "Should find base64 WebP data URI in CaptchaSymbol2.html");
+
+        byte[] webpBytes = Convert.FromBase64String(match.Groups[1].Value);
+        string? dimensions = CdpAutomationService.GetImageDimensions(webpBytes);
+
+        Assert.Equal("552x344", dimensions);
+    }
+
+    [Fact]
+    public void SymbolSelectors_IncludeRealTikTokTuxSymbolImageAndSubmitSelectors()
+    {
+        Assert.Contains("#captcha-verify-container-main-page img.cap-cursor-pointer", CdpAutomationService.SymbolImageSelector);
+        Assert.Contains("img[alt*=\"Verify\" i]", CdpAutomationService.SymbolImageSelector);
+        Assert.Contains("#captcha-verify-container-main-page img[src^=\"data:image/\"]", CdpAutomationService.SymbolImageSelector);
+
+        Assert.Contains("#captcha-verify-container-main-page button.TUXButton--primary", CdpAutomationService.SymbolSubmitSelector);
+        Assert.Contains(".captcha-verify-container button.TUXButton--primary", CdpAutomationService.SymbolSubmitSelector);
+    }
+
+    [Fact]
+    public async Task SolveCaptchaAsync_RealTikTokSymbol2Html_DetectsAndClicksTwoPointsAndConfirmButton()
+    {
+        string edgeExe = @"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe";
+        if (!File.Exists(edgeExe))
+        {
+            edgeExe = @"C:\Program Files\Google\Chrome\Application\chrome.exe";
+        }
+        Assert.True(File.Exists(edgeExe), "Edge or Chrome executable must exist");
+
+        int testPort = 9228;
+        int apiPort = 18928;
+        string tempProfile = Path.Combine(Path.GetTempPath(), $"E2E_Symbol2_Profile_{Guid.NewGuid():N}");
+        Directory.CreateDirectory(tempProfile);
+
+        string realSymbolFile = Path.Combine(SolutionDir, "extracted_sources", "CaptchaSymbol2.html");
+        string fileUrl = "file:///" + realSymbolFile.Replace('\\', '/');
+
+        using var listener = new System.Net.HttpListener();
+        listener.Prefixes.Add($"http://127.0.0.1:{apiPort}/");
+        listener.Start();
+
+        string? receivedRequestBody = null;
+        var apiServerTask = Task.Run(async () =>
+        {
+            while (listener.IsListening)
+            {
+                try
+                {
+                    var ctx = await listener.GetContextAsync();
+                    using var reader = new StreamReader(ctx.Request.InputStream);
+                    string body = await reader.ReadToEndAsync();
+                    if (ctx.Request.Url?.AbsolutePath.Contains("/api/v1/captcha/symbol") == true)
+                    {
+                        receivedRequestBody = body;
+                        string respJson = @"{
+                            ""success"": true,
+                            ""symbol_positions"": [[80, 70], [180, 110]],
+                            ""raw_symbol_positions"": [[158, 138], [355, 217]],
+                            ""image_width"": 552,
+                            ""image_height"": 344,
+                            ""display_width"": 280,
+                            ""display_height"": 174,
+                            ""captchaId"": ""test-symbol-id-001""
+                        }";
+                        byte[] respBytes = System.Text.Encoding.UTF8.GetBytes(respJson);
+                        ctx.Response.StatusCode = 200;
+                        ctx.Response.ContentType = "application/json";
+                        await ctx.Response.OutputStream.WriteAsync(respBytes, 0, respBytes.Length);
+                    }
+                    else
+                    {
+                        ctx.Response.StatusCode = 200;
+                    }
+                    ctx.Response.Close();
+                }
+                catch { break; }
+            }
+        });
+
+        var psi = new System.Diagnostics.ProcessStartInfo
+        {
+            FileName = edgeExe,
+            Arguments = $"--remote-debugging-port={testPort} --user-data-dir=\"{tempProfile}\" --no-first-run --no-default-browser-check \"{fileUrl}\"",
+            UseShellExecute = false,
+            CreateNoWindow = true
+        };
+
+        using var browserProcess = System.Diagnostics.Process.Start(psi);
+        Assert.NotNull(browserProcess);
+
+        try
+        {
+            using var http = new System.Net.Http.HttpClient();
+            bool isListening = false;
+            for (int i = 0; i < 20; i++)
+            {
+                await Task.Delay(500);
+                try
+                {
+                    var ping = await http.GetAsync($"http://127.0.0.1:{testPort}/json/version");
+                    if (ping.IsSuccessStatusCode)
+                    {
+                        isListening = true;
+                        break;
+                    }
+                }
+                catch { }
+            }
+            Assert.True(isListening, $"CDP port {testPort} should be listening");
+
+            // Attach a small listener in the static HTML dump to simulate TikTok React enabling Confirm after 2 clicks and closing the modal on Confirm click
+            await using (var setupBrowser = await PuppeteerSharp.Puppeteer.ConnectAsync(new PuppeteerSharp.ConnectOptions { BrowserURL = $"http://127.0.0.1:{testPort}" }))
+            {
+                var pages = await setupBrowser.PagesAsync();
+                var page = pages.FirstOrDefault(p => p.Url.Contains("CaptchaSymbol2", StringComparison.OrdinalIgnoreCase)) ?? pages[0];
+                await page.WaitForSelectorAsync("#captcha-verify-container-main-page img.cap-cursor-pointer", new PuppeteerSharp.WaitForSelectorOptions { Timeout = 10000 });
+                await page.EvaluateFunctionAsync(@"() => {
+                    window.__symbolClicks = [];
+                    window.__confirmClicked = false;
+                    const img = document.querySelector('#captcha-verify-container-main-page img.cap-cursor-pointer');
+                    const btn = document.querySelector('#captcha-verify-container-main-page button.TUXButton--primary');
+                    if (img) {
+                        img.addEventListener('click', (e) => {
+                            window.__symbolClicks.push({ x: e.clientX, y: e.clientY });
+                            if (window.__symbolClicks.length >= 2 && btn) {
+                                btn.classList.remove('TUXButton--disabled');
+                                btn.removeAttribute('disabled');
+                            }
+                        });
+                    }
+                    if (btn) {
+                        btn.addEventListener('click', () => {
+                            window.__confirmClicked = true;
+                            const modal = document.querySelector('.tt-live-modalv2-wrapper');
+                            if (modal) modal.style.display = 'none';
+                            const main = document.querySelector('#captcha-verify-container-main-page');
+                            if (main) main.style.display = 'none';
+                        });
+                    }
+                }");
+                setupBrowser.Disconnect();
+            }
+
+            using var cdpService = new CdpAutomationService();
+
+            // 1. Verify DetectCaptchaElementsAsync extracts both DirectImageBytes (WebP 552x344) and CroppedImageBytes (PNG)
+            var detectRes = await cdpService.DetectCaptchaElementsAsync(testPort);
+            Assert.True(detectRes.IsActive, "Real TikTok Symbol2 Captcha should be detected as Active");
+            Assert.Equal(CaptchaType.Symbol, detectRes.Type);
+            Assert.Equal("20260920032154705F18BEBC56412885F9", detectRes.CaptchaSessionId);
+            Assert.NotNull(detectRes.DirectImageBytes);
+            Assert.Equal(1634, detectRes.DirectImageBytes!.Length);
+            Assert.Equal("552x344", detectRes.DirectImageDimensions);
+            Assert.NotNull(detectRes.CroppedImageBytes);
+            Assert.True(detectRes.CroppedImageBytes!.Length > 500, "CroppedImageBytes should contain the PNG element screenshot");
+
+            // 2. Verify SolveCaptchaAsync locates imgBox, sends base64 image to API, clicks 2 points, and clicks Confirm button
+            var logs = new System.Collections.Generic.List<string>();
+            var solveRes = await cdpService.SolveCaptchaAsync(
+                cdpPort: testPort,
+                detection: detectRes,
+                solverMode: CaptchaSolverType.LocalApiServer,
+                solverApiEndpoint: $"http://127.0.0.1:{apiPort}",
+                progressLogger: msg => logs.Add(msg),
+                delaySeconds: 0);
+
+            Assert.NotNull(receivedRequestBody);
+            Assert.Contains("\"image\":", receivedRequestBody);
+            Assert.Contains("UklGR", receivedRequestBody); // WebP RIFF base64 header
+
+            Assert.Contains(logs, l => l.Contains("ขนาด DOM Display ของรูปภาพ:"));
+            Assert.Contains(logs, l => l.Contains("คลิกจุดที่ 1 สำเร็จ"));
+            Assert.Contains(logs, l => l.Contains("คลิกจุดที่ 2 สำเร็จ"));
+            Assert.Contains(logs, l => l.Contains("[SYMBOL SUBMIT] กดปุ่มสำเร็จ"));
+            Assert.True(solveRes.Success, $"Symbol Captcha solve should succeed. Message: {solveRes.Message}");
+        }
+        finally
+        {
+            try { listener.Stop(); } catch { }
+            try { browserProcess.Kill(entireProcessTree: true); } catch { }
+            try { Directory.Delete(tempProfile, true); } catch { }
+        }
+    }
 }
+
+
+
 

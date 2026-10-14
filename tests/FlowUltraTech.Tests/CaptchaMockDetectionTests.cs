@@ -7,6 +7,7 @@ using Xunit;
 
 namespace FlowUltraTech.Tests;
 
+[Collection("CaptchaBrowserE2E")]
 public class CaptchaMockDetectionTests
 {
     private static readonly string MocksDirectory = Path.Combine(

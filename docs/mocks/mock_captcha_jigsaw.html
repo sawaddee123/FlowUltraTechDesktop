@@ -2957,8 +2957,8 @@
     knob.style.left = clampedX + 'px';
     trackFill.style.width = (clampedX + 20) + 'px';
 
-    // Move piece proportionally from 10px to (318 - 44 - 10) = 264px
-    const pieceX = 10 + (clampedX / MAX_KNOB_DRAG) * (318 - 44 - 10);
+    // Move piece proportionally using real TikTok JS formula: (knobDrag / usableTrack) * domW
+    const pieceX = (clampedX / MAX_KNOB_DRAG) * 318;
     piece.style.left = pieceX + 'px';
 
     if (clampedX > 10) tip.style.opacity = '0';

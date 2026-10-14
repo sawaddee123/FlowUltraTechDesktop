@@ -10,6 +10,7 @@ using Xunit;
 
 namespace FlowUltraTech.Tests;
 
+[Collection("CaptchaBrowserE2E")]
 public class CaptchaLiveApiSolverTests
 {
     [Fact]
@@ -106,6 +107,13 @@ public class CaptchaLiveApiSolverTests
             Assert.True(isListening, "CDP port 9221 should be listening on launched browser");
 
             using var cdpService = new CdpAutomationService();
+            for (int i = 0; i < 15; i++)
+            {
+                var preCheck = await cdpService.DetectCaptchaElementsAsync(9221);
+                if (preCheck.IsActive) break;
+                await Task.Delay(300);
+            }
+
             var authService = new AuthClientService();
             var loginRes = await authService.LoginAsync("root", "!WFXU#v1aO7338+", "E2E-TEST-HWID", "http://210.246.215.66:8001");
             Assert.True(loginRes.Success, $"Root login should succeed: {loginRes.Message}");
@@ -183,8 +191,13 @@ public class CaptchaLiveApiSolverTests
             var loginRes = await authService.LoginAsync("root", "!WFXU#v1aO7338+", "E2E-TEST-HWID", "http://210.246.215.66:8001");
             Assert.True(loginRes.Success);
 
-            // 1. Detect Captcha on Real TikTok DOM
+            // 1. Detect Captcha on Real TikTok DOM (poll briefly while large HTML finishes parsing)
             var detectRes = await cdpService.DetectCaptchaElementsAsync(9225);
+            for (int i = 0; i < 15 && !detectRes.IsActive; i++)
+            {
+                await Task.Delay(300);
+                detectRes = await cdpService.DetectCaptchaElementsAsync(9225);
+            }
             Assert.True(detectRes.IsActive, "Real TikTok Captcha should be detected as Active");
             Assert.Equal(CaptchaType.Jigsaw, detectRes.Type);
             Assert.NotNull(detectRes.DirectImageBytes);

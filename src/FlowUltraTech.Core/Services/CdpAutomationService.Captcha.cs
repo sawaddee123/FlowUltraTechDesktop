@@ -17,6 +17,23 @@ namespace FlowUltraTech.Core.Services;
 
 public partial class CdpAutomationService
 {
+    public const string JigsawImageSelector =
+        "#captcha-verify-image, .captcha_verify_img_slide, canvas.captcha_verify_img_slide, img[class*=\"slide\" i], #captcha-verify-container-main-page img[alt=\"Captcha\" i]";
+
+    public const string SymbolImageSelector =
+        "#captcha-verify-image, #symbol-img-box, .captcha_verify_img_symbol, .captcha_verify_img--bg, canvas.captcha_verify_img--bg, img[class*=\"symbol\" i], " +
+        "#captcha-verify-container-main-page img.cap-cursor-pointer, .captcha-verify-container img.cap-cursor-pointer, " +
+        "#captcha-verify-container-main-page img[alt*=\"Verify\" i], .captcha-verify-container img[alt*=\"Verify\" i], " +
+        "#captcha-verify-container-main-page img[src^=\"data:image/\"], .captcha-verify-container img[src^=\"data:image/\"], " +
+        "#captcha-mount-point img[src^=\"data:image/\"], img.cap-cursor-pointer[alt*=\"Verify\" i]";
+
+    public const string SymbolSubmitSelector =
+        "#symbol-submit-btn, .secsdk-captcha-submit-button, [class*=\"secsdk-captcha-submit\" i], button[class*=\"verify-btn\" i], " +
+        "#captcha-verify-container-main-page button.TUXButton--primary, " +
+        ".captcha-verify-container button.TUXButton--primary, " +
+        "#captcha-mount-point button.TUXButton--primary, " +
+        "#captcha-verify-container-main-page button[type=\"submit\"]";
+
     private static async Task<bool> IsCaptchaFrameVisibleAsync(IFrame frame)
     {
         for (var current = frame; current.ParentFrame != null; current = current.ParentFrame)
@@ -258,23 +275,29 @@ public partial class CdpAutomationService
                     if (!doc) return null;
 
                     const docText = (doc.body ? (doc.body.innerText || doc.body.textContent) : '') || '';
+                    const captchaScope = doc.querySelector('#captcha-verify-container-main-page, .captcha-verify-container, #captcha-mount-point, .captcha-modal-content-UBaIok, [class*=""captcha-modal-content""], .tt-live-modalv2-wrapper:not(.tt-live-modalv2-wrapper-exited)') || doc;
 
                     // 1. Jigsaw (Slide puzzle)
                     const hasJigsawInstruction = /drag the puzzle piece into place/i.test(docText) || /drag.*puzzle/i.test(docText) || /ลาก.*จิ๊กซอว์/i.test(docText);
-                    let slideImg = doc.querySelector('#captcha-verify-image, img.captcha_verify_img_slide, canvas.captcha_verify_img_slide, img[src*=""captcha""][class*=""slide""], img[alt=""Captcha""], img[aria-label=""Captcha""], [class*=""captcha-verify-image""]');
-                    let dragKnob = doc.querySelector('.secsdk-captcha-drag-icon, .captcha_verify_slide--drag-icon, div[role=""slider""], button[role=""slider""], .sec-captcha-drag-icon, [class*=""drag-icon""], [class*=""drag_icon""], [class*=""slider-btn""], [aria-label*=""slider"" i]');
+                    let slideImg = captchaScope.querySelector('#captcha-verify-image, img.captcha_verify_img_slide, canvas.captcha_verify_img_slide, img[src*=""captcha""][class*=""slide""], img[alt=""Captcha""], img[aria-label=""Captcha""], [class*=""captcha-verify-image""]')
+                        || doc.querySelector('#captcha-verify-image, img.captcha_verify_img_slide, canvas.captcha_verify_img_slide, img[src*=""captcha""][class*=""slide""], img[alt=""Captcha""], img[aria-label=""Captcha""], [class*=""captcha-verify-image""]');
+                    let dragKnob = captchaScope.querySelector('.secsdk-captcha-drag-icon, .captcha_verify_slide--drag-icon, div[role=""slider""], button[role=""slider""], .sec-captcha-drag-icon, [class*=""drag-icon""], [class*=""drag_icon""], [class*=""slider-btn""], [aria-label*=""slider"" i]')
+                        || doc.querySelector('.secsdk-captcha-drag-icon, .captcha_verify_slide--drag-icon, div[role=""slider""], button[role=""slider""], .sec-captcha-drag-icon, [class*=""drag-icon""], [class*=""drag_icon""], [class*=""slider-btn""], [aria-label*=""slider"" i]');
 
                     if (!slideImg && hasJigsawInstruction) {
-                        const candidateImgs = Array.from(doc.querySelectorAll('img, canvas')).filter(el => {
+                        const candidateImgs = Array.from(captchaScope.querySelectorAll('img, canvas')).filter(el => {
                             if (!isElementVisible(el)) return false;
                             const r = el.getBoundingClientRect();
                             return r.width >= 150 && r.height >= 100;
                         });
-                        if (candidateImgs.length > 0) slideImg = candidateImgs[0];
+                        slideImg = candidateImgs.find(el => el.tagName.toLowerCase() === 'img' && (el.src || '').startsWith('data:image/'))
+                            || candidateImgs.find(el => el.tagName.toLowerCase() === 'img')
+                            || candidateImgs[0]
+                            || null;
                     }
 
                     if (!dragKnob && hasJigsawInstruction) {
-                        dragKnob = doc.querySelector('[class*=""slidebar""] button, [class*=""drag-track""] button, [class*=""slide""] [role=""button""], [class*=""slidebar""] [tabindex], button:has(svg)');
+                        dragKnob = captchaScope.querySelector('[class*=""slidebar""] button, [class*=""drag-track""] button, [class*=""slide""] [role=""button""], [class*=""slidebar""] [tabindex], button:has(svg)');
                     }
 
                     if ((slideImg && dragKnob && isElementVisible(slideImg) && isElementVisible(dragKnob)) ||
@@ -333,11 +356,12 @@ public partial class CdpAutomationService
                         }
                     }
 
-                    let symbolImg = doc.querySelector('#captcha-verify-image, img.captcha_verify_img_symbol, .captcha_verify_img--bg, canvas.captcha_verify_img--bg, img[class*=""symbol""], img[src*=""captcha""], img[alt*=""captcha"" i]');
-                    let submitBtn = doc.querySelector('.secsdk-captcha-submit-button, [class*=""secsdk-captcha-submit""], button[class*=""verify-btn""], button[type=""submit""], button[class*=""submit""], button[class*=""confirm""]');
+                    const symbolImgSelector = '#captcha-verify-image, #symbol-img-box, img.captcha_verify_img_symbol, .captcha_verify_img--bg, canvas.captcha_verify_img--bg, img[class*=""symbol"" i], img[src*=""captcha"" i], img[alt*=""captcha"" i], img[alt*=""Verify"" i], img.cap-cursor-pointer, #captcha-verify-container-main-page img[src^=""data:image/""], .captcha-verify-container img[src^=""data:image/""], #captcha-mount-point img[src^=""data:image/""]';
+                    let symbolImg = captchaScope.querySelector(symbolImgSelector) || doc.querySelector(symbolImgSelector);
+                    let submitBtn = captchaScope.querySelector('#symbol-submit-btn, .secsdk-captcha-submit-button, [class*=""secsdk-captcha-submit""], button[class*=""verify-btn""], .captcha-verify-container button.TUXButton--primary, #captcha-verify-container-main-page button.TUXButton--primary, #captcha-mount-point button.TUXButton--primary, button[type=""submit""], button[class*=""submit""], button[class*=""confirm""]');
                     
                     if (!submitBtn) {
-                        const allBtns = Array.from(doc.querySelectorAll('button, div[role=""button""], a[role=""button""]'));
+                        const allBtns = Array.from(captchaScope.querySelectorAll('button, div[role=""button""], a[role=""button""]'));
                         submitBtn = allBtns.find(b => {
                             const bt = (b.innerText || b.textContent || '').trim().toLowerCase();
                             return bt === 'confirm' || bt === 'ยืนยัน' || bt.includes('confirm');
@@ -345,17 +369,20 @@ public partial class CdpAutomationService
                     }
 
                     if (!symbolImg && hasSymbolInstruction) {
-                        // Candidate images inside document or modal
-                        const candidateImgs = Array.from(doc.querySelectorAll('img, canvas')).filter(el => {
+                        // Candidate images inside captcha modal/container first (avoid picking live stream <canvas> in studio body)
+                        const candidateImgs = Array.from(captchaScope.querySelectorAll('img, canvas')).filter(el => {
                             if (!isElementVisible(el)) return false;
                             const r = el.getBoundingClientRect();
                             return r.width >= 120 && r.height >= 80;
                         });
-                        if (candidateImgs.length > 0) symbolImg = candidateImgs[0];
+                        symbolImg = candidateImgs.find(el => el.tagName.toLowerCase() === 'img' && (el.src || '').startsWith('data:image/'))
+                            || candidateImgs.find(el => el.tagName.toLowerCase() === 'img')
+                            || candidateImgs[0]
+                            || null;
                     }
 
                     let prompt = '';
-                    const promptEl = doc.querySelector('.secsdk-captcha-label, .captcha_verify_label, [class*=""tip-wrapper""], [class*=""prompt""], [class*=""title""]');
+                    const promptEl = captchaScope.querySelector('.secsdk-captcha-label, .captcha_verify_label, [class*=""tip-wrapper""], [class*=""prompt""], [class*=""title""]');
                     if (promptEl && isElementVisible(promptEl)) prompt = (promptEl.textContent || '').trim();
                     if (!prompt && matchedSymbolPrompt) prompt = matchedSymbolPrompt;
 
@@ -582,14 +609,14 @@ public partial class CdpAutomationService
                         catch { }
                     }
 
-                    // Priority 2: Fallback to direct screenshot of active Captcha element if ImageSrc is unavailable
-                    if (result.IsActive && result.Type != CaptchaType.None && result.DirectImageBytes == null)
+                    // Priority 2: Capture PNG screenshot of active Captcha element for CroppedImageBytes (and DirectImageBytes fallback)
+                    if (result.IsActive && result.Type != CaptchaType.None && (result.DirectImageBytes == null || result.CroppedImageBytes == null))
                     {
                         try
                         {
                             string imgSel = result.Type == CaptchaType.Jigsaw
-                                ? "#captcha-verify-image, .captcha_verify_img_slide, img[class*=\"slide\" i]"
-                                : "#captcha-verify-image, #symbol-img-box, .captcha_verify_img_symbol, img[class*=\"symbol\" i]";
+                                ? JigsawImageSelector
+                                : SymbolImageSelector;
 
                             IElementHandle? imgHandle = await frame.QuerySelectorAsync(imgSel);
                             if (imgHandle == null)
@@ -606,8 +633,13 @@ public partial class CdpAutomationService
                                 byte[]? freshBytes = await imgHandle.ScreenshotDataAsync(new ElementScreenshotOptions { Type = ScreenshotType.Png });
                                 if (freshBytes != null && freshBytes.Length > 0)
                                 {
-                                    result.DirectImageBytes = freshBytes;
-                                    result.DirectImageDimensions = GetImageDimensions(freshBytes);
+                                    result.CroppedImageBytes = freshBytes;
+                                    result.CroppedImageDimensions = GetImageDimensions(freshBytes);
+                                    if (result.DirectImageBytes == null)
+                                    {
+                                        result.DirectImageBytes = freshBytes;
+                                        result.DirectImageDimensions = result.CroppedImageDimensions;
+                                    }
                                 }
                             }
                         }
@@ -690,7 +722,7 @@ public partial class CdpAutomationService
 
 
 
-    private static string? GetImageDimensions(byte[]? bytes)
+    public static string? GetImageDimensions(byte[]? bytes)
     {
         if (bytes == null || bytes.Length < 24) return null;
         try
@@ -706,6 +738,14 @@ public partial class CdpAutomationService
             if (bytes.Length >= 30 && bytes[0] == 0x52 && bytes[1] == 0x49 && bytes[2] == 0x46 && bytes[3] == 0x46 &&
                 bytes[8] == 0x57 && bytes[9] == 0x45 && bytes[10] == 0x42 && bytes[11] == 0x50)
             {
+                // VP8 (Lossy WebP: 'V' 'P' '8' ' ' and start code 9D 01 2A at offset 23..25)
+                if (bytes[12] == 0x56 && bytes[13] == 0x50 && bytes[14] == 0x38 && bytes[15] == 0x20 &&
+                    bytes[23] == 0x9D && bytes[24] == 0x01 && bytes[25] == 0x2A)
+                {
+                    int width = (bytes[26] | (bytes[27] << 8)) & 0x3FFF;
+                    int height = (bytes[28] | (bytes[29] << 8)) & 0x3FFF;
+                    if (width > 0 && height > 0) return $"{width}x{height}";
+                }
                 if (bytes[12] == 0x56 && bytes[13] == 0x50 && bytes[14] == 0x38 && bytes[15] == 0x4C && bytes.Length >= 25)
                 {
                     uint b0 = bytes[21], b1 = bytes[22], b2 = bytes[23], b3 = bytes[24];
@@ -851,10 +891,17 @@ public partial class CdpAutomationService
             IPage? targetPage = null;
             IFrame? targetFrame = null;
 
+            const string activeModalProbeScript = @"(() => {
+                const el = document.querySelector('#captcha-verify-container-main-page, .captcha-verify-container, #captcha-verify-image, .secsdk-captcha-drag-icon, #jigsaw-slider-knob, #symbol-submit-btn, img.cap-cursor-pointer, [class*=""secsdk-captcha"" i]');
+                if (!el) return false;
+                if (el.closest && el.closest('.tt-live-modalv2-wrapper-exited, [class*=""exit-done""]')) return false;
+                const rect = el.getBoundingClientRect();
+                return rect.width > 0 && rect.height > 0;
+            })()";
+
             foreach (var page in pages)
             {
-                var hasModal = await page.EvaluateExpressionAsync<bool>(
-                    "!!document.querySelector('#captcha-verify-container-main-page, #captcha-verify-image, .secsdk-captcha-drag-icon, #jigsaw-slider-knob, #symbol-submit-btn, [class*=\"secsdk-captcha\" i]')");
+                var hasModal = await page.EvaluateExpressionAsync<bool>(activeModalProbeScript);
                 if (hasModal)
                 {
                     targetPage = page;
@@ -862,8 +909,7 @@ public partial class CdpAutomationService
                 }
                 foreach (var frame in page.Frames)
                 {
-                    var frameHasModal = await frame.EvaluateExpressionAsync<bool>(
-                        "!!document.querySelector('#captcha-verify-container-main-page, #captcha-verify-image, .secsdk-captcha-drag-icon, #jigsaw-slider-knob, #symbol-submit-btn, [class*=\"secsdk-captcha\" i]')");
+                    var frameHasModal = await frame.EvaluateExpressionAsync<bool>(activeModalProbeScript);
                     if (frameHasModal)
                     {
                         targetPage = page;
@@ -892,8 +938,8 @@ public partial class CdpAutomationService
 
             // Locate image element and DOM bounding box first
             string imgSel = detection.Type == CaptchaType.Jigsaw
-                ? "#captcha-verify-image, .captcha_verify_img_slide, img[class*=\"slide\" i]"
-                : "#captcha-verify-image, #symbol-img-box, .captcha_verify_img_symbol, img[class*=\"symbol\" i]";
+                ? JigsawImageSelector
+                : SymbolImageSelector;
             var imgHandle = targetFrame != null ? await targetFrame.QuerySelectorAsync(imgSel) : await targetPage.QuerySelectorAsync(imgSel);
             if (imgHandle == null && targetFrame == null)
             {
@@ -1268,27 +1314,58 @@ public partial class CdpAutomationService
             }
             else if (detection.Type == CaptchaType.Symbol)
             {
-                Log($"[{DateTime.Now:HH:mm:ss}] 🔣 [CAPTCHA SOLVE] โหมด Symbol: พิกัดคลิกเป้าหมายมี {clickPoints.Count} จุด");
+                Log($"[{DateTime.Now:HH:mm:ss}] 🔣 [CAPTCHA SOLVE] ========== เริ่มโหมด Symbol ==========");
+                Log($"[{DateTime.Now:HH:mm:ss}] 🔣 [SYMBOL DEBUG] พิกัดคลิกเป้าหมายมี {clickPoints.Count} จุด");
+                Log($"[{DateTime.Now:HH:mm:ss}] 🔣 [SYMBOL DEBUG] targetFrame: {(targetFrame != null ? $"iframe ({targetFrame.Url})" : "null")}");
+                Log($"[{DateTime.Now:HH:mm:ss}] 🔣 [SYMBOL DEBUG] targetPage: {targetPage.Url}");
 
                 if (imgBox == null)
                 {
-                    string imgSelector = "#captcha-verify-image, #symbol-img-box, .captcha_verify_img_symbol, img[class*=\"symbol\" i]";
-                    imgHandle = targetFrame != null 
+                    Log($"[{DateTime.Now:HH:mm:ss}] 🔣 [SYMBOL DEBUG] กำลังค้นหา image element...");
+                    string imgSelector = SymbolImageSelector;
+                    imgHandle = targetFrame != null
                         ? await targetFrame.QuerySelectorAsync(imgSelector)
                         : await targetPage.QuerySelectorAsync(imgSelector);
-                    if (imgHandle == null && targetFrame == null)
+
+                    if (imgHandle != null)
                     {
+                        Log($"[{DateTime.Now:HH:mm:ss}] 🔣 [SYMBOL DEBUG] ✅ พบ image element ใน {(targetFrame != null ? "iframe" : "main page")}");
+                    }
+                    else if (targetFrame == null)
+                    {
+                        Log($"[{DateTime.Now:HH:mm:ss}] 🔣 [SYMBOL DEBUG] ไม่พบใน main page, กำลังค้นหาใน frames ทั้งหมด...");
                         foreach (var frame in targetPage.Frames)
                         {
                             imgHandle = await frame.QuerySelectorAsync(imgSelector);
-                            if (imgHandle != null) break;
+                            if (imgHandle != null)
+                            {
+                                targetFrame = frame;
+                                Log($"[{DateTime.Now:HH:mm:ss}] 🔣 [SYMBOL DEBUG] ✅ พบ image element ใน frame: {frame.Url}");
+                                break;
+                            }
                         }
+                    }
+                    else
+                    {
+                        Log($"[{DateTime.Now:HH:mm:ss}] 🔣 [SYMBOL DEBUG] ❌ ไม่พบ image element ใน iframe");
                     }
 
                     if (imgHandle != null)
                     {
                         imgBox = await imgHandle.BoundingBoxAsync();
+                        if (imgBox != null)
+                        {
+                            Log($"[{DateTime.Now:HH:mm:ss}] 🔣 [SYMBOL DEBUG] ✅ Image BoundingBox: X={imgBox.X:F1}, Y={imgBox.Y:F1}, W={imgBox.Width:F1}, H={imgBox.Height:F1}");
+                        }
+                        else
+                        {
+                            Log($"[{DateTime.Now:HH:mm:ss}] 🔣 [SYMBOL DEBUG] ❌ ไม่สามารถดึง BoundingBox จาก image element");
+                        }
                     }
+                }
+                else
+                {
+                    Log($"[{DateTime.Now:HH:mm:ss}] 🔣 [SYMBOL DEBUG] ✅ ใช้ imgBox ที่มีอยู่แล้ว: W={imgBox.Width:F1}, H={imgBox.Height:F1}");
                 }
 
                 if (imgBox == null)
@@ -1305,8 +1382,25 @@ public partial class CdpAutomationService
                 double origW = parsedApiResult?.ImageWidth ?? directDims?.Width ?? 640.0;
                 double origH = parsedApiResult?.ImageHeight ?? directDims?.Height ?? 640.0;
 
+                Log($"[{DateTime.Now:HH:mm:ss}] 🔣 [SYMBOL DEBUG] DOM Size: {domW:F0}x{domH:F0}px");
+                Log($"[{DateTime.Now:HH:mm:ss}] 🔣 [SYMBOL DEBUG] Original Image Size: {origW:F0}x{origH:F0}px");
+
                 bool hasRaw = parsedApiResult?.RawClickPoints != null && parsedApiResult.RawClickPoints.Count == clickPoints.Count && parsedApiResult.RawClickPoints.Count > 0;
                 bool wasServerScaled = parsedApiResult?.ScaleX.HasValue == true && Math.Abs(parsedApiResult.ScaleX.Value - 1.0) > 0.001;
+
+                Log($"[{DateTime.Now:HH:mm:ss}] 🔣 [SYMBOL DEBUG] hasRaw: {hasRaw}, wasServerScaled: {wasServerScaled}");
+                if (hasRaw)
+                {
+                    Log($"[{DateTime.Now:HH:mm:ss}] 🔣 [SYMBOL DEBUG] ✅ ใช้ Priority 1: Raw Coordinates Mapping");
+                }
+                else if (wasServerScaled)
+                {
+                    Log($"[{DateTime.Now:HH:mm:ss}] 🔣 [SYMBOL DEBUG] ⚠️ ใช้ Priority 2: Server Scaled Coordinates");
+                }
+                else
+                {
+                    Log($"[{DateTime.Now:HH:mm:ss}] 🔣 [SYMBOL DEBUG] ⚠️⚠️ ใช้ Priority 3: Fallback (อาจไม่แม่นยำ!)");
+                }
 
                 for (int i = 0; i < clickPoints.Count; i++)
                 {
@@ -1319,7 +1413,7 @@ public partial class CdpAutomationService
                         var rawPt = parsedApiResult!.RawClickPoints![i];
                         clickX = rawPt.X * (domW / origW);
                         clickY = rawPt.Y * (domH / origH);
-                        Log($"[{DateTime.Now:HH:mm:ss}] 📐 [CAPTCHA SOLVE] จุดที่ {i + 1}: แมปจาก Raw ({rawPt.X:F0}, {rawPt.Y:F0}) [ขนาดภาพ: {origW:F0}x{origH:F0}] สู่ DOM ({domW:F0}x{domH:F0}px) -> ({clickX:F1}, {clickY:F1})");
+                        Log($"[{DateTime.Now:HH:mm:ss}] 📐 [SYMBOL P1] จุดที่ {i + 1}: Raw({rawPt.X:F0},{rawPt.Y:F0}) × ({domW:F0}/{origW:F0}, {domH:F0}/{origH:F0}) = DOM({clickX:F1},{clickY:F1})");
                     }
                     else if (wasServerScaled)
                     {
@@ -1331,6 +1425,7 @@ public partial class CdpAutomationService
                         double adjustY = (srvH > 0 && Math.Abs(srvH - domH) > 1.0) ? (domH / srvH) : 1.0;
                         clickX = pt.X * adjustX;
                         clickY = pt.Y * adjustY;
+                        Log($"[{DateTime.Now:HH:mm:ss}] 📐 [SYMBOL P2] จุดที่ {i + 1}: Scaled({pt.X:F0},{pt.Y:F0}) × adjust({adjustX:F3},{adjustY:F3}) = DOM({clickX:F1},{clickY:F1})");
                     }
                     else
                     {
@@ -1338,6 +1433,8 @@ public partial class CdpAutomationService
                         var pt = clickPoints[i];
                         clickX = pt.X;
                         clickY = pt.Y;
+
+                        Log($"[{DateTime.Now:HH:mm:ss}] 📐 [SYMBOL P3] จุดที่ {i + 1}: Direct({pt.X:F0},{pt.Y:F0})");
 
                         // Only scale if the coordinates clearly exceed DOM dimensions (i.e. they are raw 640px or 552px coordinates)
                         if (clickX > domW || clickY > domH)
@@ -1353,35 +1450,100 @@ public partial class CdpAutomationService
                     }
 
                     // Clamp safely within DOM boundaries (with 5px safety margin from borders)
-                    clickX = Math.Clamp(clickX, 5.0, Math.Max(5.0, domW - 5.0));
-                    clickY = Math.Clamp(clickY, 5.0, Math.Max(5.0, domH - 5.0));
+                    double clampedX = Math.Clamp(clickX, 5.0, Math.Max(5.0, domW - 5.0));
+                    double clampedY = Math.Clamp(clickY, 5.0, Math.Max(5.0, domH - 5.0));
+
+                    if (Math.Abs(clampedX - clickX) > 0.1 || Math.Abs(clampedY - clickY) > 0.1)
+                    {
+                        Log($"[{DateTime.Now:HH:mm:ss}] ⚠️ [SYMBOL DEBUG] จุดที่ {i + 1} ถูก clamp: ({clickX:F1},{clickY:F1}) → ({clampedX:F1},{clampedY:F1})");
+                    }
+
+                    clickX = clampedX;
+                    clickY = clampedY;
 
                     decimal targetClickX = imgBox.X + (decimal)clickX;
                     decimal targetClickY = imgBox.Y + (decimal)clickY;
 
-                    Log($"[{DateTime.Now:HH:mm:ss}] 🎯 [CAPTCHA SOLVE] คลิกเลือกสัญลักษณ์จุดที่ {i + 1}: ({clickX:F1}, {clickY:F1}) (หน้าจอ: {targetClickX:F1}, {targetClickY:F1})");
-                    await targetPage.Mouse.ClickAsync(targetClickX, targetClickY);
+                    Log($"[{DateTime.Now:HH:mm:ss}] 🎯 [SYMBOL CLICK] จุดที่ {i + 1}: DOM({clickX:F1},{clickY:F1}) + ImgBox({imgBox.X:F1},{imgBox.Y:F1}) = Screen({targetClickX:F1},{targetClickY:F1})");
+                    await targetPage.Mouse.MoveAsync(targetClickX, targetClickY);
+                    await Task.Delay(30);
+                    await targetPage.Mouse.ClickAsync(targetClickX, targetClickY, new ClickOptions { Delay = Random.Shared.Next(35, 75) });
+                    Log($"[{DateTime.Now:HH:mm:ss}] ✅ [SYMBOL CLICK] คลิกจุดที่ {i + 1} สำเร็จ");
                     await Task.Delay(Random.Shared.Next(250, 450));
                 }
 
-                string submitSelector = "#symbol-submit-btn, .secsdk-captcha-submit-button, button[class*=\"verify-btn\" i]";
+                Log($"[{DateTime.Now:HH:mm:ss}] 🔣 [SYMBOL DEBUG] กำลังค้นหาปุ่ม Submit / Confirm...");
+                string submitSelector = SymbolSubmitSelector;
                 var submitHandle = targetFrame != null
                     ? await targetFrame.QuerySelectorAsync(submitSelector)
                     : await targetPage.QuerySelectorAsync(submitSelector);
 
-                if (submitHandle == null && targetFrame == null)
+                if (submitHandle != null)
                 {
+                    Log($"[{DateTime.Now:HH:mm:ss}] 🔣 [SYMBOL DEBUG] ✅ พบปุ่ม Submit ใน {(targetFrame != null ? "iframe" : "main page")}");
+                }
+                else if (targetFrame == null)
+                {
+                    Log($"[{DateTime.Now:HH:mm:ss}] 🔣 [SYMBOL DEBUG] ไม่พบใน main page, กำลังค้นหาใน frames...");
                     foreach (var frame in targetPage.Frames)
                     {
                         submitHandle = await frame.QuerySelectorAsync(submitSelector);
-                        if (submitHandle != null) break;
+                        if (submitHandle != null)
+                        {
+                            targetFrame = frame;
+                            Log($"[{DateTime.Now:HH:mm:ss}] 🔣 [SYMBOL DEBUG] ✅ พบปุ่ม Submit ใน frame: {frame.Url}");
+                            break;
+                        }
                     }
                 }
 
                 if (submitHandle != null)
                 {
-                    Log($"[{DateTime.Now:HH:mm:ss}] 🔘 [CAPTCHA SOLVE] กดปุ่มยืนยันผล (Submit / Confirm)...");
-                    await submitHandle.ClickAsync();
+                    // Wait up to 600ms for React TUXButton to remove disabled state after the 2nd click
+                    for (int waitIdx = 0; waitIdx < 6; waitIdx++)
+                    {
+                        try
+                        {
+                            bool isDisabled = await submitHandle.EvaluateFunctionAsync<bool>(
+                                "btn => btn.disabled || btn.getAttribute('aria-disabled') === 'true' || btn.classList.contains('TUXButton--disabled')");
+                            if (!isDisabled) break;
+                        }
+                        catch { break; }
+                        await Task.Delay(100);
+                    }
+
+                    Log($"[{DateTime.Now:HH:mm:ss}] 🔘 [SYMBOL SUBMIT] กดปุ่มยืนยันผล (Submit / Confirm)...");
+                    await submitHandle.ClickAsync(new ClickOptions { Delay = Random.Shared.Next(35, 75) });
+                    Log($"[{DateTime.Now:HH:mm:ss}] ✅ [SYMBOL SUBMIT] กดปุ่มสำเร็จ");
+                }
+                else
+                {
+                    // Fallback: search by button text ("Confirm" / "ยืนยัน") inside captcha container
+                    const string fallbackClickConfirmScript = @"(() => {
+                        const scope = document.querySelector('#captcha-verify-container-main-page, .captcha-verify-container, #captcha-mount-point, .captcha-modal-content-UBaIok, .tt-live-modalv2-wrapper') || document;
+                        const btns = Array.from(scope.querySelectorAll('button, [role=""button""]'));
+                        const confirmBtn = btns.find(b => {
+                            const txt = (b.innerText || b.textContent || '').trim().toLowerCase();
+                            return txt === 'confirm' || txt === 'ยืนยัน' || txt.includes('confirm');
+                        });
+                        if (confirmBtn) {
+                            confirmBtn.click();
+                            return true;
+                        }
+                        return false;
+                    })()";
+                    bool clickedViaJs = targetFrame != null
+                        ? await targetFrame.EvaluateExpressionAsync<bool>(fallbackClickConfirmScript)
+                        : await targetPage.EvaluateExpressionAsync<bool>(fallbackClickConfirmScript);
+
+                    if (clickedViaJs)
+                    {
+                        Log($"[{DateTime.Now:HH:mm:ss}] ✅ [SYMBOL SUBMIT] กดปุ่ม Confirm ผ่าน JS Fallback สำเร็จ");
+                    }
+                    else
+                    {
+                        Log($"[{DateTime.Now:HH:mm:ss}] ⚠️ [SYMBOL SUBMIT] ไม่พบปุ่ม Submit! อาจต้องตรวจสอบ selector");
+                    }
                 }
             }
             else
@@ -1390,6 +1552,8 @@ public partial class CdpAutomationService
             }
 
             // Verification phase
+            Log($"[{DateTime.Now:HH:mm:ss}] 🔍 [VERIFY] ========== เริ่มตรวจสอบผล ==========");
+            Log($"[{DateTime.Now:HH:mm:ss}] 🔍 [VERIFY] รอ 1.5 วินาทีให้ระบบประมวลผล...");
             await Task.Delay(1500);
 
             var verifyScript = @"(() => {
@@ -1397,26 +1561,121 @@ public partial class CdpAutomationService
                 const modal = document.querySelector('#captcha-modal-wrapper, .tt-live-modalv2-wrapper, #captcha-mount-point, #captcha-verify-container-main-page');
                 const isModalHidden = !modal || window.getComputedStyle(modal).display === 'none' || modal.classList.contains('tt-live-modalv2-wrapper-exited');
                 const toastText = toast ? (toast.textContent || '') : '';
-                return JSON.stringify({ isModalHidden, toastText });
+                const toastVisible = toast ? (window.getComputedStyle(toast).display !== 'none') : false;
+                const modalDisplay = modal ? window.getComputedStyle(modal).display : 'not-found';
+                return JSON.stringify({
+                    isModalHidden,
+                    toastText,
+                    toastVisible,
+                    modalDisplay,
+                    hasToast: !!toast,
+                    hasModal: !!modal,
+                    toastClasses: toast ? toast.className : '',
+                    modalClasses: modal ? modal.className : ''
+                });
             })()";
 
-            string verifyJson = targetFrame != null && detection.Type == CaptchaType.Symbol
-                ? await targetFrame.EvaluateExpressionAsync<string>(verifyScript)
-                : await targetPage.EvaluateExpressionAsync<string>(verifyScript);
+            // ตรวจสอบทั้ง iframe และ main page
+            string verifyJsonFrame = "";
+            string verifyJsonMain = "";
+            bool checkedFrame = false;
+            bool checkedMain = false;
+
+            if (targetFrame != null && detection.Type == CaptchaType.Symbol)
+            {
+                try
+                {
+                    Log($"[{DateTime.Now:HH:mm:ss}] 🔍 [VERIFY] กำลังตรวจสอบใน iframe: {targetFrame.Url}");
+                    verifyJsonFrame = await targetFrame.EvaluateExpressionAsync<string>(verifyScript);
+                    checkedFrame = true;
+                    Log($"[{DateTime.Now:HH:mm:ss}] 🔍 [VERIFY] ✅ ตรวจสอบ iframe สำเร็จ");
+                }
+                catch (Exception ex)
+                {
+                    Log($"[{DateTime.Now:HH:mm:ss}] 🔍 [VERIFY] ⚠️ ตรวจสอบ iframe ล้มเหลว: {ex.Message}");
+                }
+            }
+
+            try
+            {
+                Log($"[{DateTime.Now:HH:mm:ss}] 🔍 [VERIFY] กำลังตรวจสอบใน main page: {targetPage.Url}");
+                verifyJsonMain = await targetPage.EvaluateExpressionAsync<string>(verifyScript);
+                checkedMain = true;
+                Log($"[{DateTime.Now:HH:mm:ss}] 🔍 [VERIFY] ✅ ตรวจสอบ main page สำเร็จ");
+            }
+            catch (Exception ex)
+            {
+                Log($"[{DateTime.Now:HH:mm:ss}] 🔍 [VERIFY] ⚠️ ตรวจสอบ main page ล้มเหลว: {ex.Message}");
+            }
+
             bool isResolved = false;
             string feedbackMsg = "";
 
-            if (!string.IsNullOrEmpty(verifyJson))
+            // ตรวจสอบผลจาก iframe
+            if (!string.IsNullOrEmpty(verifyJsonFrame))
             {
-                using var verifyDoc = JsonDocument.Parse(verifyJson);
-                bool isModalHidden = verifyDoc.RootElement.TryGetProperty("isModalHidden", out var h) && h.GetBoolean();
-                string toastText = verifyDoc.RootElement.TryGetProperty("toastText", out var t) ? t.GetString() ?? "" : "";
-                isResolved = isModalHidden || toastText.Contains("Success", StringComparison.OrdinalIgnoreCase) || toastText.Contains("สำเร็จ", StringComparison.OrdinalIgnoreCase);
-                feedbackMsg = toastText;
+                try
+                {
+                    using var doc = JsonDocument.Parse(verifyJsonFrame);
+                    bool isModalHidden = doc.RootElement.TryGetProperty("isModalHidden", out var h) && h.GetBoolean();
+                    string toastText = doc.RootElement.TryGetProperty("toastText", out var t) ? t.GetString() ?? "" : "";
+                    bool toastVisible = doc.RootElement.TryGetProperty("toastVisible", out var tv) && tv.GetBoolean();
+                    string modalDisplay = doc.RootElement.TryGetProperty("modalDisplay", out var md) ? md.GetString() ?? "" : "";
+                    bool hasToast = doc.RootElement.TryGetProperty("hasToast", out var ht) && ht.GetBoolean();
+                    bool hasModal = doc.RootElement.TryGetProperty("hasModal", out var hm) && hm.GetBoolean();
+
+                    Log($"[{DateTime.Now:HH:mm:ss}] 🔍 [VERIFY FRAME] hasModal={hasModal}, modalDisplay={modalDisplay}, isModalHidden={isModalHidden}");
+                    Log($"[{DateTime.Now:HH:mm:ss}] 🔍 [VERIFY FRAME] hasToast={hasToast}, toastVisible={toastVisible}, toastText='{toastText}'");
+
+                    if (isModalHidden || toastText.Contains("Success", StringComparison.OrdinalIgnoreCase) || toastText.Contains("สำเร็จ", StringComparison.OrdinalIgnoreCase))
+                    {
+                        isResolved = true;
+                        feedbackMsg = toastText;
+                        Log($"[{DateTime.Now:HH:mm:ss}] 🔍 [VERIFY FRAME] ✅ ตรวจพบว่าสำเร็จจาก iframe!");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Log($"[{DateTime.Now:HH:mm:ss}] 🔍 [VERIFY FRAME] ⚠️ Parse JSON ล้มเหลว: {ex.Message}");
+                }
+            }
+
+            // ตรวจสอบผลจาก main page
+            if (!string.IsNullOrEmpty(verifyJsonMain))
+            {
+                try
+                {
+                    using var doc = JsonDocument.Parse(verifyJsonMain);
+                    bool isModalHidden = doc.RootElement.TryGetProperty("isModalHidden", out var h) && h.GetBoolean();
+                    string toastText = doc.RootElement.TryGetProperty("toastText", out var t) ? t.GetString() ?? "" : "";
+                    bool toastVisible = doc.RootElement.TryGetProperty("toastVisible", out var tv) && tv.GetBoolean();
+                    string modalDisplay = doc.RootElement.TryGetProperty("modalDisplay", out var md) ? md.GetString() ?? "" : "";
+                    bool hasToast = doc.RootElement.TryGetProperty("hasToast", out var ht) && ht.GetBoolean();
+                    bool hasModal = doc.RootElement.TryGetProperty("hasModal", out var hm) && hm.GetBoolean();
+
+                    Log($"[{DateTime.Now:HH:mm:ss}] 🔍 [VERIFY MAIN] hasModal={hasModal}, modalDisplay={modalDisplay}, isModalHidden={isModalHidden}");
+                    Log($"[{DateTime.Now:HH:mm:ss}] 🔍 [VERIFY MAIN] hasToast={hasToast}, toastVisible={toastVisible}, toastText='{toastText}'");
+
+                    if (isModalHidden || toastText.Contains("Success", StringComparison.OrdinalIgnoreCase) || toastText.Contains("สำเร็จ", StringComparison.OrdinalIgnoreCase))
+                    {
+                        isResolved = true;
+                        if (!string.IsNullOrEmpty(toastText)) feedbackMsg = toastText;
+                        Log($"[{DateTime.Now:HH:mm:ss}] 🔍 [VERIFY MAIN] ✅ ตรวจพบว่าสำเร็จจาก main page!");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Log($"[{DateTime.Now:HH:mm:ss}] 🔍 [VERIFY MAIN] ⚠️ Parse JSON ล้มเหลว: {ex.Message}");
+                }
             }
 
             stopwatch.Stop();
             solveResult.ElapsedSeconds = stopwatch.Elapsed.TotalSeconds;
+
+            Log($"[{DateTime.Now:HH:mm:ss}] 🔍 [VERIFY] ========== สรุปผลการตรวจสอบ ==========");
+            Log($"[{DateTime.Now:HH:mm:ss}] 🔍 [VERIFY] isResolved: {isResolved}");
+            Log($"[{DateTime.Now:HH:mm:ss}] 🔍 [VERIFY] feedbackMsg: '{feedbackMsg}'");
+            Log($"[{DateTime.Now:HH:mm:ss}] 🔍 [VERIFY] ใช้เวลารวม: {solveResult.ElapsedSeconds:F2}s");
 
             if (isResolved)
             {
