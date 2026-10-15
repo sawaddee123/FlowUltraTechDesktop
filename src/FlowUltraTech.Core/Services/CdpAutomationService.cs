@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.IO;
@@ -17,6 +17,7 @@ namespace FlowUltraTech.Core.Services;
 public partial class CdpAutomationService : ICdpAutomationService, IDisposable
 {
     private readonly HttpClient _httpClient = new() { Timeout = TimeSpan.FromSeconds(2) };
+    private readonly HttpClient _solverHttpClient = new() { Timeout = TimeSpan.FromSeconds(30) };
     private readonly ConcurrentDictionary<int, IBrowser> _connectedBrowsers = new();
     private readonly ConcurrentDictionary<string, (NetworkTrafficItem item, Stopwatch sw)> _activeRequests = new();
     private readonly ConcurrentDictionary<int, bool> _hookedPorts = new();
@@ -169,5 +170,6 @@ public partial class CdpAutomationService : ICdpAutomationService, IDisposable
         }
         _connectedBrowsers.Clear();
         _httpClient.Dispose();
+        _solverHttpClient.Dispose();
     }
 }

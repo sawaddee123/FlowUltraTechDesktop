@@ -146,6 +146,8 @@ public partial class InstanceCardViewModel : ObservableObject
         }
     }
 
+    private bool _isCheckingCaptcha;
+
     private void EnsureCaptchaTimer()
     {
         if (_captchaDetectTimer == null)
@@ -158,7 +160,7 @@ public partial class InstanceCardViewModel : ObservableObject
                 };
                 _captchaDetectTimer.Tick += async (_, _) =>
                 {
-                    if (IsRunning && IsCaptchaAutoDetect)
+                    if (IsRunning && IsCaptchaAutoDetect && !_isCheckingCaptcha && !IsSolvingCaptcha)
                     {
                         await CheckCaptchaInternalAsync(isAuto: true);
                     }
@@ -174,7 +176,7 @@ public partial class InstanceCardViewModel : ObservableObject
         if (value)
         {
             _captchaDetectTimer?.Start();
-            if (IsRunning)
+            if (IsRunning && !_isCheckingCaptcha && !IsSolvingCaptcha)
             {
                 _ = CheckCaptchaInternalAsync(isAuto: true);
             }
@@ -192,7 +194,9 @@ public partial class InstanceCardViewModel : ObservableObject
     public async Task<CaptchaDetectionResult> CheckCaptchaInternalAsync(bool isAuto)
     {
         if (Status != InstanceStatus.Running) return new CaptchaDetectionResult();
+        if (isAuto && (_isCheckingCaptcha || IsSolvingCaptcha)) return new CaptchaDetectionResult();
 
+        _isCheckingCaptcha = true;
         try
         {
             var sw = System.Diagnostics.Stopwatch.StartNew();
@@ -421,6 +425,10 @@ public partial class InstanceCardViewModel : ObservableObject
         {
             Logger.Error("Captcha", $"Error checking captcha: {ex.Message}", ex);
             return new CaptchaDetectionResult();
+        }
+        finally
+        {
+            _isCheckingCaptcha = false;
         }
     }
 

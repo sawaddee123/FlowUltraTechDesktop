@@ -1,6 +1,6 @@
 ; Script generated for FlowUltraTech
 #define MyAppName "FlowUltraTech"
-#define MyAppVersion "1.5.4"
+#define MyAppVersion "1.5.5"
 #define MyAppPublisher "FlowUltraTech"
 #define MyAppURL "https://github.com/sawaddee123/FlowUltraTech"
 #define MyAppExeName "FlowUltraTech.App.exe"

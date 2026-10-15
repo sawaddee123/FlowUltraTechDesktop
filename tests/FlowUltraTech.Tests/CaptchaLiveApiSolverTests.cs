@@ -244,5 +244,133 @@ public class CaptchaLiveApiSolverTests
         string body = await resp.Content.ReadAsStringAsync();
         Assert.Contains("Token expired", body);
     }
+
+    [Fact]
+    public async Task SolveCaptchaAsync_RealTikTokSymbolDOM_AgainstLiveServer_SelectsMatchingObjectsAndClicksConfirm()
+    {
+        string edgeExe = @"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe";
+        if (!File.Exists(edgeExe))
+        {
+            edgeExe = @"C:\Program Files\Google\Chrome\Application\chrome.exe";
+        }
+        Assert.True(File.Exists(edgeExe), "Edge or Chrome executable must exist");
+
+        string tempProfile = Path.Combine(Path.GetTempPath(), $"E2E_Test_SymbolLive_{Guid.NewGuid():N}");
+        Directory.CreateDirectory(tempProfile);
+
+        string realSymbolHtml = Path.GetFullPath(@"D:\Script\Test\FlowUltraTech\extracted_sources\CaptchaSymbol2.html");
+        string realSymbolWebp = Path.GetFullPath(@"D:\Script\Test\FlowUltraTech\extracted_sources\Acc08_Symbol_SameShape.webp");
+        Assert.True(File.Exists(realSymbolHtml), $"File must exist: {realSymbolHtml}");
+        Assert.True(File.Exists(realSymbolWebp), $"File must exist: {realSymbolWebp}");
+
+        string fileUrl = "file:///" + realSymbolHtml.Replace('\\', '/');
+        int testPort = 9228;
+
+        var psi = new System.Diagnostics.ProcessStartInfo
+        {
+            FileName = edgeExe,
+            Arguments = $"--remote-debugging-port={testPort} --user-data-dir=\"{tempProfile}\" --no-first-run --no-default-browser-check \"{fileUrl}\"",
+            UseShellExecute = false,
+            CreateNoWindow = true
+        };
+
+        using var browserProcess = System.Diagnostics.Process.Start(psi);
+        Assert.NotNull(browserProcess);
+
+        try
+        {
+            using var http = new HttpClient();
+            bool isListening = false;
+            for (int i = 0; i < 20; i++)
+            {
+                await Task.Delay(500);
+                try
+                {
+                    var ping = await http.GetAsync($"http://127.0.0.1:{testPort}/json/version");
+                    if (ping.IsSuccessStatusCode)
+                    {
+                        isListening = true;
+                        break;
+                    }
+                }
+                catch { }
+            }
+            Assert.True(isListening, $"CDP port {testPort} should be listening");
+
+            string webpBase64 = Convert.ToBase64String(await File.ReadAllBytesAsync(realSymbolWebp));
+            string dataUri = $"data:image/webp;base64,{webpBase64}";
+
+            // Inject the exact Acc08 Symbol Captcha image (light-blue 3D polyhedron pair at (213,202) and (449,112) on 552x344)
+            // and attach click listeners that record DOM-relative click coordinates and enable Confirm after 2 clicks
+            await using (var setupBrowser = await PuppeteerSharp.Puppeteer.ConnectAsync(new PuppeteerSharp.ConnectOptions { BrowserURL = $"http://127.0.0.1:{testPort}" }))
+            {
+                var pages = await setupBrowser.PagesAsync();
+                var page = pages[0];
+                await page.WaitForSelectorAsync("#captcha-verify-container-main-page img.cap-cursor-pointer", new PuppeteerSharp.WaitForSelectorOptions { Timeout = 10000 });
+                await page.EvaluateFunctionAsync(@"(newSrc) => {
+                    window.__symbolRelativeClicks = [];
+                    window.__confirmClicked = false;
+                    const img = document.querySelector('#captcha-verify-container-main-page img.cap-cursor-pointer');
+                    const btn = document.querySelector('#captcha-verify-container-main-page button.TUXButton--primary');
+                    if (img) {
+                        img.src = newSrc;
+                        img.addEventListener('click', (e) => {
+                            const rect = img.getBoundingClientRect();
+                            window.__symbolRelativeClicks.push({
+                                relX: e.clientX - rect.left,
+                                relY: e.clientY - rect.top
+                            });
+                            if (window.__symbolRelativeClicks.length >= 2 && btn) {
+                                btn.classList.remove('TUXButton--disabled');
+                                btn.removeAttribute('disabled');
+                            }
+                        });
+                    }
+                    if (btn) {
+                        btn.addEventListener('click', () => {
+                            window.__confirmClicked = true;
+                            const modal = document.querySelector('.tt-live-modalv2-wrapper');
+                            if (modal) modal.style.display = 'none';
+                            const main = document.querySelector('#captcha-verify-container-main-page');
+                            if (main) main.style.display = 'none';
+                        });
+                    }
+                }", dataUri);
+                setupBrowser.Disconnect();
+            }
+
+            using var cdpService = new CdpAutomationService();
+            var authService = new AuthClientService();
+            var loginRes = await authService.LoginAsync("root", "!WFXU#v1aO7338+", "E2E-TEST-HWID", "http://210.246.215.66:8001");
+            Assert.True(loginRes.Success, $"Root login should succeed: {loginRes.Message}");
+
+            var detectRes = await cdpService.DetectCaptchaElementsAsync(testPort);
+            Assert.True(detectRes.IsActive, "Symbol Captcha should be detected as Active");
+            Assert.Equal(CaptchaType.Symbol, detectRes.Type);
+            Assert.Equal("552x344", detectRes.DirectImageDimensions);
+
+            var logs = new System.Collections.Generic.List<string>();
+            var solveRes = await cdpService.SolveCaptchaAsync(
+                cdpPort: testPort,
+                detection: detectRes,
+                solverMode: CaptchaSolverType.LocalApiServer,
+                solverApiEndpoint: "http://210.246.215.66:8001",
+                solverJwtToken: loginRes.AccessToken,
+                progressLogger: msg => { logs.Add(msg); Console.WriteLine(msg); },
+                delaySeconds: 0);
+
+            Assert.True(solveRes.Success, $"Live Symbol Captcha solve should succeed. Message: {solveRes.Message}\nLogs:\n{string.Join('\n', logs)}");
+            Assert.NotNull(solveRes.ServerResponseJson);
+            Assert.Contains("symbol_positions", solveRes.ServerResponseJson);
+            // Verify raw coordinates (213, 202) and (449, 112) mapped onto 280x174 DOM -> ~(108, 102.5) and ~(227.8, 56.8)
+            Assert.Contains(logs, l => l.Contains("Raw(213,202)") || l.Contains("Raw(449,112)"));
+            Assert.Contains(logs, l => l.Contains("[SYMBOL SUBMIT] กดปุ่มสำเร็จ"));
+        }
+        finally
+        {
+            try { browserProcess.Kill(entireProcessTree: true); } catch { }
+            try { Directory.Delete(tempProfile, true); } catch { }
+        }
+    }
 }
 

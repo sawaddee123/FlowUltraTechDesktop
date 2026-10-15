@@ -1047,7 +1047,7 @@ public partial class CdpAutomationService
                             req.Headers.TryAddWithoutValidation("X-Instance-Lease", instanceLeaseId.Trim());
                         }
 
-                        using var resp = await _httpClient.SendAsync(req);
+                        using var resp = await _solverHttpClient.SendAsync(req);
                         if (!resp.IsSuccessStatusCode && resp.StatusCode == System.Net.HttpStatusCode.NotFound)
                         {
                             // Fallback to non-prefixed route /captcha/slide or /captcha/symbol
@@ -1065,7 +1065,7 @@ public partial class CdpAutomationService
                             {
                                 altReq.Headers.TryAddWithoutValidation("X-Instance-Lease", instanceLeaseId.Trim());
                             }
-                            using var altResp = await _httpClient.SendAsync(altReq);
+                            using var altResp = await _solverHttpClient.SendAsync(altReq);
                             if (altResp.IsSuccessStatusCode)
                             {
                                 string altJson = await altResp.Content.ReadAsStringAsync();
@@ -1742,7 +1742,7 @@ public partial class CdpAutomationService
             if (!string.IsNullOrWhiteSpace(leaseId))
                 req.Headers.TryAddWithoutValidation("X-Instance-Lease", leaseId.Trim());
 
-            using var resp = await _httpClient.SendAsync(req);
+            using var resp = await _solverHttpClient.SendAsync(req);
             Debug.WriteLine($"[{DateTime.Now:HH:mm:ss}] 📡 [CAPTCHA VERIFY] ส่งผลยืนยันไปยัง Server: {(isSuccess ? "VERIFIED_SUCCESS" : "REJECTED_BY_TIKTOK")} (Status {resp.StatusCode})");
         }
         catch (Exception ex)
@@ -1932,7 +1932,7 @@ public partial class CdpAutomationService
                 req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", jwtToken.Trim());
             }
 
-            using var resp = await _httpClient.SendAsync(req);
+            using var resp = await _solverHttpClient.SendAsync(req);
             return (true, $"เชื่อมต่อ Captcha Solver API ที่ '{targetEndpoint}' สำเร็จ! (HTTP Status: {resp.StatusCode})");
         }
         catch (Exception ex)

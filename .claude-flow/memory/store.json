@@ -1,0 +1,113 @@
+{
+  "entries": {
+    "cmd-1791867947881": {
+      "key": "cmd-1791867947881",
+      "value": "{\"command\":\"find . -name \\\"*.log\\\" -type f -exec ls -lht {} + 2>/dev/null | head -10\",\"exitCode\":0,\"success\":true}",
+      "namespace": "commands",
+      "storedAt": "2026-10-13T05:05:47.881Z",
+      "lastAccessed": "2026-10-13T05:05:47.881Z",
+      "accessCount": 0,
+      "expiresAt": "2026-11-12T05:05:47.881Z"
+    },
+    "cmd-1791868033897": {
+      "key": "cmd-1791868033897",
+      "value": "{\"command\":\"grep -A 5 -B 5 \\\"symbol-submit-btn\\\\|modal.*wrapper\\\\|toast\\\" docs/mocks/mock_captcha_symbol.html | head -60\",\"exitCode\":0,\"success\":true}",
+      "namespace": "commands",
+      "storedAt": "2026-10-13T05:07:13.897Z",
+      "lastAccessed": "2026-10-13T05:07:13.897Z",
+      "accessCount": 0,
+      "expiresAt": "2026-11-12T05:07:13.897Z"
+    },
+    "cmd-1791868048638": {
+      "key": "cmd-1791868048638",
+      "value": "{\"command\":\"grep -o 'id=\\\"[^\\\"]*symbol[^\\\"]*\\\"' docs/mocks/mock_captcha_symbol.html | head -20\",\"exitCode\":0,\"success\":true}",
+      "namespace": "commands",
+      "storedAt": "2026-10-13T05:07:28.638Z",
+      "lastAccessed": "2026-10-13T05:07:28.638Z",
+      "accessCount": 0,
+      "expiresAt": "2026-11-12T05:07:28.638Z"
+    },
+    "cmd-1791868050743": {
+      "key": "cmd-1791868050743",
+      "value": "{\"command\":\"grep -o 'id=\\\"[^\\\"]*modal[^\\\"]*\\\"' docs/mocks/mock_captcha_symbol.html | head -20\",\"exitCode\":0,\"success\":true}",
+      "namespace": "commands",
+      "storedAt": "2026-10-13T05:07:30.743Z",
+      "lastAccessed": "2026-10-13T05:07:30.743Z",
+      "accessCount": 0,
+      "expiresAt": "2026-11-12T05:07:30.743Z"
+    },
+    "cmd-1791868050935": {
+      "key": "cmd-1791868050935",
+      "value": "{\"command\":\"grep -o 'id=\\\"[^\\\"]*toast[^\\\"]*\\\"' docs/mocks/mock_captcha_symbol.html | head -20\",\"exitCode\":0,\"success\":true}",
+      "namespace": "commands",
+      "storedAt": "2026-10-13T05:07:30.935Z",
+      "lastAccessed": "2026-10-13T05:07:30.935Z",
+      "accessCount": 0,
+      "expiresAt": "2026-11-12T05:07:30.935Z"
+    },
+    "cmd-1791868069950": {
+      "key": "cmd-1791868069950",
+      "value": "{\"command\":\"grep -A 10 'id=\\\"symbol-toast\\\"' docs/mocks/mock_captcha_symbol.html\",\"exitCode\":0,\"success\":true}",
+      "namespace": "commands",
+      "storedAt": "2026-10-13T05:07:49.950Z",
+      "lastAccessed": "2026-10-13T05:07:49.950Z",
+      "accessCount": 0,
+      "expiresAt": "2026-11-12T05:07:49.950Z"
+    },
+    "cmd-1791868070099": {
+      "key": "cmd-1791868070099",
+      "value": "{\"command\":\"grep -A 10 'id=\\\"captcha-modal-wrapper\\\"' docs/mocks/mock_captcha_symbol.html\",\"exitCode\":0,\"success\":true}",
+      "namespace": "commands",
+      "storedAt": "2026-10-13T05:07:50.099Z",
+      "lastAccessed": "2026-10-13T05:07:50.099Z",
+      "accessCount": 0,
+      "expiresAt": "2026-11-12T05:07:50.099Z"
+    },
+    "cmd-1791868070523": {
+      "key": "cmd-1791868070523",
+      "value": "{\"command\":\"grep -A 5 'id=\\\"symbol-submit-btn\\\"' docs/mocks/mock_captcha_symbol.html\",\"exitCode\":0,\"success\":true}",
+      "namespace": "commands",
+      "storedAt": "2026-10-13T05:07:50.523Z",
+      "lastAccessed": "2026-10-13T05:07:50.523Z",
+      "accessCount": 0,
+      "expiresAt": "2026-11-12T05:07:50.523Z"
+    },
+    "cmd-1791868083684": {
+      "key": "cmd-1791868083684",
+      "value": "{\"command\":\"grep -A 80 \\\"function handleSubmit\\\" docs/mocks/mock_captcha_symbol.html | head -100\",\"exitCode\":0,\"success\":true}",
+      "namespace": "commands",
+      "storedAt": "2026-10-13T05:08:03.684Z",
+      "lastAccessed": "2026-10-13T05:08:03.684Z",
+      "accessCount": 0,
+      "expiresAt": "2026-11-12T05:08:03.684Z"
+    },
+    "cmd-1791868096181": {
+      "key": "cmd-1791868096181",
+      "value": "{\"command\":\"grep -A 50 \\\"symbol-submit-btn.*addEventListener\\\\|submitBtn.*click\\\" docs/mocks/mock_captcha_symbol.html | head -80\",\"exitCode\":0,\"success\":true}",
+      "namespace": "commands",
+      "storedAt": "2026-10-13T05:08:16.181Z",
+      "lastAccessed": "2026-10-13T05:08:16.181Z",
+      "accessCount": 0,
+      "expiresAt": "2026-11-12T05:08:16.181Z"
+    },
+    "cmd-1791868119998": {
+      "key": "cmd-1791868119998",
+      "value": "{\"command\":\"grep -o \\\"modalWrapper\\\\s*=\\\\s*document[^;]*\\\" docs/mocks/mock_captcha_symbol.html\",\"exitCode\":0,\"success\":true}",
+      "namespace": "commands",
+      "storedAt": "2026-10-13T05:08:39.998Z",
+      "lastAccessed": "2026-10-13T05:08:39.998Z",
+      "accessCount": 0,
+      "expiresAt": "2026-11-12T05:08:39.998Z"
+    },
+    "cmd-1791868121203": {
+      "key": "cmd-1791868121203",
+      "value": "{\"command\":\"grep -B 5 \\\"const modalWrapper\\\" docs/mocks/mock_captcha_symbol.html | head -10\",\"exitCode\":0,\"success\":true}",
+      "namespace": "commands",
+      "storedAt": "2026-10-13T05:08:41.203Z",
+      "lastAccessed": "2026-10-13T05:08:41.203Z",
+      "accessCount": 0,
+      "expiresAt": "2026-11-12T05:08:41.203Z"
+    }
+  },
+  "version": "3.0.0"
+}
