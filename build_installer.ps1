@@ -100,7 +100,8 @@ if (Test-Path $issPath) {
 $isccCandidates = @(
     "C:\Users\$env:USERNAME\AppData\Local\Programs\Inno Setup 6\ISCC.exe",
     "C:\Program Files (x86)\Inno Setup 6\ISCC.exe",
-    "C:\Program Files\Inno Setup 6\ISCC.exe"
+    "C:\Program Files\Inno Setup 6\ISCC.exe",
+    "C:\Users\$env:USERNAME\AppData\Local\Temp\FlowUltraTech-installer-build\InnoSetup6\ISCC.exe"
 )
 
 $isccPath = $null
@@ -129,7 +130,14 @@ if (Test-Path $distAppDir) {
     Remove-Item -Recurse -Force $distAppDir
 }
 
-dotnet publish $projectPath -c Release -r win-x64 --self-contained true -o $distAppDir
+$dotnetExe = "dotnet"
+if (Test-Path "$env:USERPROFILE\.dotnet\dotnet.exe") {
+    $env:DOTNET_ROOT = "$env:USERPROFILE\.dotnet"
+    $env:DOTNET_MULTILEVEL_LOOKUP = "0"
+    $dotnetExe = "$env:USERPROFILE\.dotnet\dotnet.exe"
+}
+
+& $dotnetExe publish $projectPath -c Release -r win-x64 --self-contained true -o $distAppDir
 
 if (-not (Test-Path (Join-Path $distAppDir "FlowUltraTech.App.exe"))) {
     Write-Error "Published executable not found!"

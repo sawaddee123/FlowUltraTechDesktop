@@ -110,21 +110,32 @@ public partial class InstanceCardViewModel : ObservableObject
         FilteredSessionStorage?.Refresh();
     }
 
+    private bool _isFetchingStorage;
+
     private void EnsureStorageTimer()
     {
         if (_storageRefreshTimer == null)
         {
             try
             {
-                _storageRefreshTimer = new System.Windows.Threading.DispatcherTimer
+                _storageRefreshTimer = new System.Windows.Threading.DispatcherTimer(
+                    System.Windows.Threading.DispatcherPriority.Background)
                 {
-                    Interval = TimeSpan.FromSeconds(10)
+                    Interval = TimeSpan.FromSeconds(15)
                 };
                 _storageRefreshTimer.Tick += async (_, _) =>
                 {
-                    if (IsRunning)
+                    if (IsRunning && !_isFetchingStorage && !_isCheckingCaptcha && !IsSolvingCaptcha)
                     {
-                        await FetchCookiesAndStorageAsync();
+                        _isFetchingStorage = true;
+                        try
+                        {
+                            await FetchCookiesAndStorageAsync();
+                        }
+                        finally
+                        {
+                            _isFetchingStorage = false;
+                        }
                     }
                 };
             }
@@ -249,11 +260,12 @@ public partial class InstanceCardViewModel : ObservableObject
         EnsureStorageTimer();
         _storageRefreshTimer?.Start();
 
-        // 2. Ensure Captcha Auto-Detection timer is running (every 5 seconds)
+        // 2. Ensure Captcha Auto-Detection timer is running (every 2 seconds)
         if (IsCaptchaAutoDetect)
         {
             EnsureCaptchaTimer();
             _captchaDetectTimer?.Start();
+            _ = CheckCaptchaInternalAsync(isAuto: true);
         }
 
         // 3. Start Network Hooking automatically

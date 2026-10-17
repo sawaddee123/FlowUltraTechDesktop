@@ -129,7 +129,8 @@ public partial class CdpAutomationService
                             if (!isAuthEndpoint && (item.ResourceType == "xhr" || item.ResourceType == "fetch" || item.Url.Contains("/webcast/")))
                             {
                                 var textTask = e.Response.TextAsync();
-                                if (await Task.WhenAny(textTask, Task.Delay(300)) == textTask)
+                                _ = textTask.ContinueWith(t => _ = t.Exception, TaskContinuationOptions.OnlyOnFaulted);
+                                if (await Task.WhenAny(textTask, Task.Delay(300)) == textTask && textTask.Status == TaskStatus.RanToCompletion)
                                 {
                                     item.ResponseBody = await textTask;
                                 }
@@ -208,44 +209,52 @@ public partial class CdpAutomationService
             try
             {
                 var cdpSession = await page.CreateCDPSessionAsync();
-                var cdpResponse = await cdpSession.SendAsync("Network.getAllCookies");
-                if (cdpResponse.HasValue && cdpResponse.Value.TryGetProperty("cookies", out var cookiesElem) && cookiesElem.ValueKind == JsonValueKind.Array)
+                try
                 {
-                    foreach (var c in cookiesElem.EnumerateArray())
+                    var (_, cdpResponse) = await TryWaitWithTimeoutAsync(cdpSession.SendAsync("Network.getAllCookies"), 3000);
+                    if (cdpResponse.HasValue && cdpResponse.Value.TryGetProperty("cookies", out var cookiesElem) && cookiesElem.ValueKind == JsonValueKind.Array)
                     {
-                        string name = c.TryGetProperty("name", out var n) ? n.GetString() ?? "" : "";
-                        string val = c.TryGetProperty("value", out var v) ? v.GetString() ?? "" : "";
-                        string domain = c.TryGetProperty("domain", out var d) ? d.GetString() ?? "" : "";
-                        string path = c.TryGetProperty("path", out var p) ? p.GetString() ?? "" : "/";
-                        bool httpOnly = c.TryGetProperty("httpOnly", out var ho) && ho.GetBoolean();
-                        bool secure = c.TryGetProperty("secure", out var sec) && sec.GetBoolean();
-                        string expires = c.TryGetProperty("expires", out var exp) ? exp.ToString() : "";
-
-                        bool isAuth = name.Equals("sessionid", StringComparison.OrdinalIgnoreCase) ||
-                                      name.Equals("sessionid_ss", StringComparison.OrdinalIgnoreCase) ||
-                                      name.Equals("tt_csrf_token", StringComparison.OrdinalIgnoreCase) ||
-                                      name.Equals("passport_csrf_token", StringComparison.OrdinalIgnoreCase) ||
-                                      name.Equals("msToken", StringComparison.OrdinalIgnoreCase) ||
-                                      name.Equals("access_token", StringComparison.OrdinalIgnoreCase) ||
-                                      name.Equals("sid_guard", StringComparison.OrdinalIgnoreCase) ||
-                                      name.Equals("odin_tt", StringComparison.OrdinalIgnoreCase);
-
-                        if (name.Equals("sessionid", StringComparison.OrdinalIgnoreCase) && string.IsNullOrEmpty(result.SessionIdToken)) result.SessionIdToken = val;
-                        if (name.Equals("tt_csrf_token", StringComparison.OrdinalIgnoreCase) && string.IsNullOrEmpty(result.CsrfToken)) result.CsrfToken = val;
-                        if (name.Equals("msToken", StringComparison.OrdinalIgnoreCase) && string.IsNullOrEmpty(result.MsToken)) result.MsToken = val;
-
-                        result.Cookies.Add(new CookieItem
+                        foreach (var c in cookiesElem.EnumerateArray())
                         {
-                            Name = name,
-                            Value = val,
-                            Domain = domain,
-                            Path = path,
-                            Expires = expires,
-                            HttpOnly = httpOnly,
-                            Secure = secure,
-                            IsAuthToken = isAuth
-                        });
+                            string name = c.TryGetProperty("name", out var n) ? n.GetString() ?? "" : "";
+                            string val = c.TryGetProperty("value", out var v) ? v.GetString() ?? "" : "";
+                            string domain = c.TryGetProperty("domain", out var d) ? d.GetString() ?? "" : "";
+                            string path = c.TryGetProperty("path", out var p) ? p.GetString() ?? "" : "/";
+                            bool httpOnly = c.TryGetProperty("httpOnly", out var ho) && ho.GetBoolean();
+                            bool secure = c.TryGetProperty("secure", out var sec) && sec.GetBoolean();
+                            string expires = c.TryGetProperty("expires", out var exp) ? exp.ToString() : "";
+
+                            bool isAuth = name.Equals("sessionid", StringComparison.OrdinalIgnoreCase) ||
+                                          name.Equals("sessionid_ss", StringComparison.OrdinalIgnoreCase) ||
+                                          name.Equals("tt_csrf_token", StringComparison.OrdinalIgnoreCase) ||
+                                          name.Equals("passport_csrf_token", StringComparison.OrdinalIgnoreCase) ||
+                                          name.Equals("msToken", StringComparison.OrdinalIgnoreCase) ||
+                                          name.Equals("access_token", StringComparison.OrdinalIgnoreCase) ||
+                                          name.Equals("sid_guard", StringComparison.OrdinalIgnoreCase) ||
+                                          name.Equals("odin_tt", StringComparison.OrdinalIgnoreCase);
+
+                            if (name.Equals("sessionid", StringComparison.OrdinalIgnoreCase) && string.IsNullOrEmpty(result.SessionIdToken)) result.SessionIdToken = val;
+                            if (name.Equals("tt_csrf_token", StringComparison.OrdinalIgnoreCase) && string.IsNullOrEmpty(result.CsrfToken)) result.CsrfToken = val;
+                            if (name.Equals("msToken", StringComparison.OrdinalIgnoreCase) && string.IsNullOrEmpty(result.MsToken)) result.MsToken = val;
+
+                            result.Cookies.Add(new CookieItem
+                            {
+                                Name = name,
+                                Value = val,
+                                Domain = domain,
+                                Path = path,
+                                Expires = expires,
+                                HttpOnly = httpOnly,
+                                Secure = secure,
+                                IsAuthToken = isAuth
+                            });
+                        }
                     }
+                }
+                finally
+                {
+                    try { await cdpSession.DetachAsync(); } catch { }
+                    try { (cdpSession as IDisposable)?.Dispose(); } catch { }
                 }
             }
             catch (Exception ex)
@@ -260,7 +269,8 @@ public partial class CdpAutomationService
                 {
                     try
                     {
-                        var rawCookies = await p.GetCookiesAsync();
+                        var (_, rawCookies) = await TryWaitWithTimeoutAsync(p.GetCookiesAsync(), 2000);
+                        if (rawCookies == null) continue;
                         foreach (var c in rawCookies)
                         {
                             if (result.Cookies.Any(existing => existing.Name == c.Name && existing.Domain == c.Domain)) continue;
@@ -293,12 +303,15 @@ public partial class CdpAutomationService
                 }
             }
 
-            // 3. Extract LocalStorage and SessionStorage across all pages
+            // 3. Extract LocalStorage and SessionStorage across active pages
             foreach (var p in pages)
             {
+                if (string.IsNullOrEmpty(p.Url) || p.Url.StartsWith("devtools://", StringComparison.OrdinalIgnoreCase) || p.Url.Equals("about:blank", StringComparison.OrdinalIgnoreCase))
+                    continue;
+
                 try
                 {
-                    string storageJson = await p.EvaluateFunctionAsync<string>(@"() => {
+                    var (_, storageJson) = await TryWaitWithTimeoutAsync(p.EvaluateFunctionAsync<string>(@"() => {
                         const ls = {};
                         for (let i = 0; i < localStorage.length; i++) {
                             const k = localStorage.key(i);
@@ -310,7 +323,8 @@ public partial class CdpAutomationService
                             ss[k] = sessionStorage.getItem(k);
                         }
                         return JSON.stringify({ ls, ss });
-                    }");
+                    }"), 2000);
+                    if (string.IsNullOrWhiteSpace(storageJson)) continue;
 
                     using var doc = JsonDocument.Parse(storageJson);
                     if (doc.RootElement.TryGetProperty("ls", out var lsElem))

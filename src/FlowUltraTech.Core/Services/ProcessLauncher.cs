@@ -101,9 +101,11 @@ public class ProcessLauncher : IProcessLauncher
             catch { }
         }
 
+        const string antiThrottlingFlags = "--disable-background-timer-throttling --disable-renderer-backgrounding --disable-backgrounding-occluded-windows --disable-ipc-flooding-protection";
+
         string baseFlags = ultraLight
-            ? "--disable-gpu --disable-gpu-compositing --disable-software-rasterizer --disable-d3d11 --disable-accelerated-2d-canvas --disable-gpu-rasterization --no-sandbox"
-            : settings.DefaultChromiumFlags;
+            ? $"--disable-gpu --disable-gpu-compositing --disable-software-rasterizer --disable-d3d11 --disable-accelerated-2d-canvas --disable-gpu-rasterization --no-sandbox {antiThrottlingFlags}"
+            : $"{antiThrottlingFlags} {settings.DefaultChromiumFlags}".Trim();
 
         string chromiumArgs = $"--remote-debugging-port={instance.CdpPort} {baseFlags} {instance.CustomChromiumFlags}".Trim();
 

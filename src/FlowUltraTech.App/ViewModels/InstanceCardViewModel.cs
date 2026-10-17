@@ -337,9 +337,11 @@ public partial class InstanceCardViewModel : ObservableObject
                 OnPropertyChanged(nameof(LogCountSummary));
             }
 
-            if (Application.Current != null)
+            if (Application.Current?.Dispatcher != null && !Application.Current.Dispatcher.CheckAccess())
             {
-                Application.Current.Dispatcher.Invoke(AddEntry);
+                Application.Current.Dispatcher.BeginInvoke(
+                    System.Windows.Threading.DispatcherPriority.Background,
+                    (Action)AddEntry);
             }
             else
             {

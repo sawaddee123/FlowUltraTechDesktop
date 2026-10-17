@@ -154,9 +154,10 @@ public partial class InstanceCardViewModel : ObservableObject
         {
             try
             {
-                _captchaDetectTimer = new System.Windows.Threading.DispatcherTimer
+                _captchaDetectTimer = new System.Windows.Threading.DispatcherTimer(
+                    System.Windows.Threading.DispatcherPriority.Normal)
                 {
-                    Interval = TimeSpan.FromSeconds(5)
+                    Interval = TimeSpan.FromSeconds(2)
                 };
                 _captchaDetectTimer.Tick += async (_, _) =>
                 {
@@ -200,7 +201,18 @@ public partial class InstanceCardViewModel : ObservableObject
         try
         {
             var sw = System.Diagnostics.Stopwatch.StartNew();
-            var result = await _cdpService.DetectCaptchaElementsAsync(CdpPort);
+            var detectTask = _cdpService.DetectCaptchaElementsAsync(CdpPort, forceFullHtml: !isAuto);
+            CaptchaDetectionResult result;
+            if (await Task.WhenAny(detectTask, Task.Delay(isAuto ? 8000 : 15000)) == detectTask)
+            {
+                result = await detectTask;
+            }
+            else
+            {
+                _ = detectTask.ContinueWith(t => _ = t.Exception, TaskContinuationOptions.OnlyOnFaulted);
+                Logger.Warn("Captcha", $"[Auto-Detect] Captcha check on '{Name}' (Port {CdpPort}) timed out after {(isAuto ? 8 : 15)}s.");
+                return new CaptchaDetectionResult();
+            }
             sw.Stop();
             if (isAuto) _autoCaptchaScanCount++;
 
@@ -208,6 +220,33 @@ public partial class InstanceCardViewModel : ObservableObject
             if (result.IsActive)
             {
                 Logger.Info("Captcha", $"[Auto-Detect] Active captcha detected on '{Name}' in {sw.ElapsedMilliseconds}ms: {result.TypeDescription}");
+
+                // 1. Trigger audio alert IMMEDIATELY (zero delay before any UI/Bitmap/IO work)
+                if (_settings.EnableCaptchaSoundAlert)
+                {
+                    Logger.Info("Captcha", $"Triggering immediate audio alert for captcha on '{Name}' (Volume: {_settings.CaptchaSoundVolume:P0}, Loop: {_settings.LoopCaptchaSoundAlert})");
+                    AudioAlertService.PlayAlert(
+                        _settings.CaptchaSoundVolume,
+                        _settings.CaptchaSoundFilePath,
+                        _settings.LoopCaptchaSoundAlert);
+                }
+
+                // 2. Immediately bring window to front so Chromium compositor un-throttles and user can see Captcha
+                try
+                {
+                    Logger.Info("Captcha", $"Auto-bringing TikTok Studio window to front for '{Name}' (Port {CdpPort})...");
+                    bool showOk = _orchestrator.ShowWindow(Profile);
+                    SyncFromProfile();
+                    if (!showOk)
+                    {
+                        Logger.Warn("Captcha", $"Auto-bring window to front returned false for '{Name}' (Window handle not available yet).");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Logger.Error("Captcha", $"Failed to auto-show window on captcha detection: {ex.Message}", ex);
+                }
+
                 _lastDetectionResult = result;
                 DetectedCaptchaHtml = result.CombinedHtml;
                 DetectedCaptchaCount = result.Elements.Count;
@@ -252,32 +291,6 @@ public partial class InstanceCardViewModel : ObservableObject
                     StatusMessage = $"🚨 ตรวจพบ Captcha จริง ({result.TypeDescription})! สามารถกดคัดลอก Full HTML หรือสั่งแก้ได้ทันที";
                 }
 
-                // Audio alert on real captcha
-                if (_settings.EnableCaptchaSoundAlert)
-                {
-                    Logger.Info("Captcha", $"Triggering audio alert for captcha on '{Name}' (Volume: {_settings.CaptchaSoundVolume:P0}, Loop: {_settings.LoopCaptchaSoundAlert})");
-                    AudioAlertService.PlayAlert(
-                        _settings.CaptchaSoundVolume,
-                        _settings.CaptchaSoundFilePath,
-                        _settings.LoopCaptchaSoundAlert);
-                }
-
-                // Automatically bring window to front so user can see and verify Captcha
-                try
-                {
-                    Logger.Info("Captcha", $"Auto-bringing TikTok Studio window to front for '{Name}' (Port {CdpPort})...");
-                    bool showOk = _orchestrator.ShowWindow(Profile);
-                    SyncFromProfile();
-                    if (!showOk)
-                    {
-                        Logger.Warn("Captcha", $"Auto-bring window to front returned false for '{Name}' (Window handle not available yet).");
-                    }
-                }
-                catch (Exception ex)
-                {
-                    Logger.Error("Captcha", $"Failed to auto-show window on captcha detection: {ex.Message}", ex);
-                }
-
                 // Auto solve if enabled
                 if (IsAutoSolveCaptcha && !IsSolvingCaptcha && IsRunning)
                 {
@@ -287,9 +300,12 @@ public partial class InstanceCardViewModel : ObservableObject
                     });
                 }
 
-                if (_lastReportedCaptchaHtml != result.CombinedHtml)
+                string reportKey = !string.IsNullOrEmpty(result.CombinedHtml)
+                    ? result.CombinedHtml
+                    : $"{result.Type}_{result.CaptchaSessionId}_{result.PromptText}";
+                if (_lastReportedCaptchaHtml != reportKey)
                 {
-                    _lastReportedCaptchaHtml = result.CombinedHtml;
+                    _lastReportedCaptchaHtml = reportKey;
                     AppendConsole($"[{DateTime.Now:HH:mm:ss}] 🚨 ====================================================================");
                     AppendConsole($"[{DateTime.Now:HH:mm:ss}] 🚨 [CAPTCHA DETECTED] ตรวจพบ Captcha กำลังแสดงผลอยู่จริงบนหน้าจอ!");
                     AppendConsole($"[{DateTime.Now:HH:mm:ss}] 🚨 บัญชี: '{Name}' | CDP Port: {CdpPort} | ประเภท: {result.TypeDescription}");

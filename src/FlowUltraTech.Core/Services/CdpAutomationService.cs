@@ -19,6 +19,7 @@ public partial class CdpAutomationService : ICdpAutomationService, IDisposable
     private readonly HttpClient _httpClient = new() { Timeout = TimeSpan.FromSeconds(2) };
     private readonly HttpClient _solverHttpClient = new() { Timeout = TimeSpan.FromSeconds(30) };
     private readonly ConcurrentDictionary<int, IBrowser> _connectedBrowsers = new();
+    private readonly ConcurrentDictionary<int, SemaphoreSlim> _connectLocks = new();
     private readonly ConcurrentDictionary<string, (NetworkTrafficItem item, Stopwatch sw)> _activeRequests = new();
     private readonly ConcurrentDictionary<int, bool> _hookedPorts = new();
     private readonly IInstanceLogManager _logManager;
@@ -97,63 +98,100 @@ public partial class CdpAutomationService : ICdpAutomationService, IDisposable
     }
 
 
+    private void InvalidateBrowserConnection(int cdpPort)
+    {
+        _hookedPorts.TryRemove(cdpPort, out _);
+        if (_connectedBrowsers.TryRemove(cdpPort, out var staleBrowser))
+        {
+            try { staleBrowser.Disconnect(); } catch { }
+            try { staleBrowser.Dispose(); } catch { }
+        }
+    }
+
     private async Task<IBrowser?> GetOrConnectBrowserAsync(int cdpPort)
     {
-        if (_connectedBrowsers.TryGetValue(cdpPort, out var existingBrowser) && !existingBrowser.IsClosed)
+        if (_connectedBrowsers.TryGetValue(cdpPort, out var existingBrowser) && !existingBrowser.IsClosed && existingBrowser.IsConnected)
         {
             return existingBrowser;
         }
 
-        for (int attempt = 0; attempt < 5; attempt++)
+        var portLock = _connectLocks.GetOrAdd(cdpPort, _ => new SemaphoreSlim(1, 1));
+        if (!await portLock.WaitAsync(TimeSpan.FromSeconds(5)))
         {
-            try
-            {
-                var options = new ConnectOptions
-                {
-                    BrowserURL = $"http://127.0.0.1:{cdpPort}",
-                    DefaultViewport = null // Prevents Puppeteer from forcing 800x600 viewport shrink!
-                };
-
-                var browser = await Puppeteer.ConnectAsync(options);
-                _connectedBrowsers[cdpPort] = browser;
-
-                // Anti-detection & Viewport preservation
-                try
-                {
-                    var pages = await browser.PagesAsync();
-                    foreach (var p in pages)
-                    {
-                        try
-                        {
-                            await p.SetViewportAsync(null);
-                        }
-                        catch { }
-
-                        try
-                        {
-                            await p.EvaluateFunctionOnNewDocumentAsync("() => { Object.defineProperty(navigator, 'webdriver', { get: () => undefined }); }");
-                        }
-                        catch { }
-                    }
-                }
-                catch { }
-
-                return browser;
-            }
-            catch (Exception ex)
-            {
-                if (attempt == 4)
-                {
-                    Debug.WriteLine($"[CdpAutomationService] ConnectAsync failed for port {cdpPort}: {ex.Message}");
-                }
-                else
-                {
-                    await Task.Delay(400);
-                }
-            }
+            return _connectedBrowsers.TryGetValue(cdpPort, out var current) && !current.IsClosed ? current : null;
         }
 
-        return null;
+        try
+        {
+            if (_connectedBrowsers.TryGetValue(cdpPort, out existingBrowser) && !existingBrowser.IsClosed && existingBrowser.IsConnected)
+            {
+                return existingBrowser;
+            }
+
+            for (int attempt = 0; attempt < 3; attempt++)
+            {
+                try
+                {
+                    var options = new ConnectOptions
+                    {
+                        BrowserURL = $"http://127.0.0.1:{cdpPort}",
+                        DefaultViewport = null, // Prevents Puppeteer from forcing 800x600 viewport shrink!
+                        ProtocolTimeout = 8000  // Prevent 180s (3m) default CDP protocol freeze on occluded/minimized windows
+                    };
+
+                    var connectTask = Puppeteer.ConnectAsync(options);
+                    if (await Task.WhenAny(connectTask, Task.Delay(4000)) != connectTask)
+                    {
+                        _ = connectTask.ContinueWith(t => _ = t.Exception, TaskContinuationOptions.OnlyOnFaulted);
+                        throw new TimeoutException($"Timed out connecting to CDP port {cdpPort}");
+                    }
+
+                    var browser = await connectTask;
+                    _connectedBrowsers[cdpPort] = browser;
+
+                    // Anti-detection & Viewport preservation
+                    try
+                    {
+                        var pages = await browser.PagesAsync();
+                        foreach (var p in pages)
+                        {
+                            try
+                            {
+                                p.DefaultTimeout = 5000;
+                                await p.SetViewportAsync(null);
+                            }
+                            catch { }
+
+                            try
+                            {
+                                await p.EvaluateFunctionOnNewDocumentAsync("() => { Object.defineProperty(navigator, 'webdriver', { get: () => undefined }); }");
+                            }
+                            catch { }
+                        }
+                    }
+                    catch { }
+
+                    return browser;
+                }
+                catch (Exception ex)
+                {
+                    if (attempt == 2)
+                    {
+                        Debug.WriteLine($"[CdpAutomationService] ConnectAsync failed for port {cdpPort}: {ex.Message}");
+                    }
+                    else
+                    {
+                        await Task.Delay(250);
+                    }
+                }
+            }
+
+            return null;
+        }
+        finally
+        {
+            portLock.Release();
+        }
     }
 
 
@@ -169,6 +207,11 @@ public partial class CdpAutomationService : ICdpAutomationService, IDisposable
             pair.Value.Dispose();
         }
         _connectedBrowsers.Clear();
+        foreach (var pair in _connectLocks)
+        {
+            try { pair.Value.Dispose(); } catch { }
+        }
+        _connectLocks.Clear();
         _httpClient.Dispose();
         _solverHttpClient.Dispose();
     }

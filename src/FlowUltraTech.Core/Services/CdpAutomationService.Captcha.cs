@@ -34,23 +34,47 @@ public partial class CdpAutomationService
         "#captcha-mount-point button.TUXButton--primary, " +
         "#captcha-verify-container-main-page button[type=\"submit\"]";
 
+    private static async Task<(bool Completed, T? Value)> TryWaitWithTimeoutAsync<T>(Task<T> task, int timeoutMs)
+    {
+        try
+        {
+            var completed = await Task.WhenAny(task, Task.Delay(timeoutMs));
+            if (completed == task)
+            {
+                return (true, await task);
+            }
+            _ = task.ContinueWith(t => _ = t.Exception, TaskContinuationOptions.OnlyOnFaulted);
+            return (false, default);
+        }
+        catch
+        {
+            return (false, default);
+        }
+    }
+
     private static async Task<bool> IsCaptchaFrameVisibleAsync(IFrame frame)
     {
+        if (frame.ParentFrame == null) return true;
+
         for (var current = frame; current.ParentFrame != null; current = current.ParentFrame)
         {
-            await using var owner = await current.FrameElementAsync();
-            if (owner == null) return false;
-            if (!await owner.EvaluateFunctionAsync<bool>(@"(el) => {
-                if (el.closest('.tt-live-modalv2-wrapper-exited, [class*=""exit-done""]')) return false;
-                const rect = el.getBoundingClientRect();
-                if (rect.width <= 0 || rect.height <= 0) return false;
-                for (let node = el; node; node = node.parentElement) {
-                    const style = node.ownerDocument.defaultView.getComputedStyle(node);
-                    if (style.display === 'none' || style.visibility === 'hidden' ||
-                        style.visibility === 'collapse' || parseFloat(style.opacity || '1') <= 0.01) return false;
-                }
-                return true;
-            }")) return false;
+            var (ownerOk, owner) = await TryWaitWithTimeoutAsync(current.FrameElementAsync(), 1500);
+            if (!ownerOk || owner == null) return false;
+            await using (owner)
+            {
+                var (visOk, isVis) = await TryWaitWithTimeoutAsync(owner.EvaluateFunctionAsync<bool>(@"(el) => {
+                    if (el.closest('.tt-live-modalv2-wrapper-exited, [class*=""exit-done""]')) return false;
+                    const rect = el.getBoundingClientRect();
+                    if (rect.width <= 0 || rect.height <= 0) return false;
+                    for (let node = el; node; node = node.parentElement) {
+                        const style = node.ownerDocument.defaultView.getComputedStyle(node);
+                        if (style.display === 'none' || style.visibility === 'hidden' ||
+                            style.visibility === 'collapse' || parseFloat(style.opacity || '1') <= 0.01) return false;
+                    }
+                    return true;
+                }"), 1500);
+                if (!visOk || !isVis) return false;
+            }
         }
         return true;
     }
@@ -65,11 +89,21 @@ public partial class CdpAutomationService
             var browser = await GetOrConnectBrowserAsync(cdpPort);
             if (browser == null) return result;
 
-            var pages = await browser.PagesAsync();
-            if (pages == null || pages.Length == 0) return result;
+            var (pagesOk, pages) = await TryWaitWithTimeoutAsync(browser.PagesAsync(), 3000);
+            if (!pagesOk || pages == null)
+            {
+                InvalidateBrowserConnection(cdpPort);
+                browser = await GetOrConnectBrowserAsync(cdpPort);
+                if (browser == null) return result;
+                (pagesOk, pages) = await TryWaitWithTimeoutAsync(browser.PagesAsync(), 3000);
+            }
+
+            if (!pagesOk || pages == null || pages.Length == 0) return result;
 
             // Script for smart detection, topmost layer calculation, visibility verification, and full HTML extraction
-            const string detectScript = @"(() => {
+            string detectScript = @"(() => {
+                const forceFullHtml = " + (forceFullHtml ? "true" : "false") + @";
+
                 function getDepth(el) {
                     let d = 0;
                     let cur = el;
@@ -113,43 +147,68 @@ public partial class CdpAutomationService
                     return el.offsetParent !== null || el.tagName.toLowerCase() === 'body';
                 }
 
+                function extractElementDataUrl(el) {
+                    if (!el) return '';
+                    const rawSrc = el.src || (el.getAttribute && el.getAttribute('src')) || '';
+                    if (rawSrc.startsWith('data:image/')) return rawSrc;
+                    try {
+                        const tag = el.tagName ? el.tagName.toLowerCase() : '';
+                        if (tag === 'canvas' && el.width > 0 && el.height > 0) {
+                            return el.toDataURL('image/png');
+                        }
+                        if (tag === 'img' && el.complete && el.naturalWidth > 0 && el.naturalHeight > 0) {
+                            const c = document.createElement('canvas');
+                            c.width = el.naturalWidth;
+                            c.height = el.naturalHeight;
+                            const ctx = c.getContext('2d');
+                            if (ctx) {
+                                ctx.drawImage(el, 0, 0);
+                                const dataUrl = c.toDataURL('image/png');
+                                if (dataUrl && dataUrl.startsWith('data:image/')) return dataUrl;
+                            }
+                        }
+                    } catch (e) {}
+                    return rawSrc;
+                }
+
                 function isCaptchaElement(el) {
                     if (!el || !el.tagName) return false;
                     const tag = el.tagName.toLowerCase();
-                    if (['html', 'head', 'body', 'script', 'style', 'link', 'meta', 'title'].includes(tag)) return false;
+                    if (['html', 'head', 'body', 'script', 'style', 'link', 'meta', 'title', 'svg', 'path', 'g', 'defs'].includes(tag)) return false;
 
                     // 1. Check ID
-                    if (el.id && el.id.toLowerCase().includes('captcha')) return true;
+                    const idLower = el.id ? el.id.toLowerCase() : '';
+                    if (idLower && (idLower.includes('captcha') || idLower.includes('secsdk') || idLower.includes('verify-bar') || idLower.includes('verify_container') || idLower.includes('verify-image'))) return true;
 
                     // 2. Check ClassName
                     const className = typeof el.className === 'string' ? el.className : (el.className && el.className.baseVal ? el.className.baseVal : '');
-                    if (className && className.toLowerCase().includes('captcha')) return true;
+                    const classLower = className ? className.toLowerCase() : '';
+                    if (classLower && (classLower.includes('captcha') || classLower.includes('secsdk') || classLower.includes('verify-bar') || classLower.includes('verify_container') || classLower.includes('verify-image') || classLower.includes('whirl'))) return true;
 
                     // 3. Check all attributes
-                    if (el.attributes) {
+                    if (el.attributes && el.attributes.length > 0) {
                         for (let i = 0; i < el.attributes.length; i++) {
                             const a = el.attributes[i];
                             const name = a.name.toLowerCase();
+                            if (name === 'id' || name === 'class' || name === 'style') continue;
                             const val = (a.value || '').toLowerCase();
-                            if (name.includes('captcha') || val.includes('captcha')) return true;
+                            if (name.includes('captcha') || (val.length < 200 && val.includes('captcha'))) return true;
                         }
                     }
 
-                    // 4. Check known SecSDK / verification tags
-                    if (el.id && (el.id.toLowerCase().includes('secsdk') || el.id.toLowerCase().includes('verify-bar') || el.id.toLowerCase().includes('verify_container') || el.id.toLowerCase().includes('verify-image'))) return true;
-                    if (className && (className.toLowerCase().includes('secsdk') || className.toLowerCase().includes('verify-bar') || className.toLowerCase().includes('verify_container') || className.toLowerCase().includes('verify-image') || className.toLowerCase().includes('whirl'))) return true;
-
-                    // 5. Check text content for captcha / verification prompt
-                    const text = (el.innerText || el.textContent || '').trim();
-                    if (text.length > 0 && text.length < 300) {
-                        if (text.includes('detected inactivity during your current LIVE') ||
-                            text.includes('Complete the verification to continue your current LIVE') ||
-                            text.includes('LIVE will end in:') ||
-                            text.includes('Select 2 objects that are the same shape') ||
-                            /select.*2.*objects?/i.test(text) ||
-                            /same\s*shape/i.test(text) ||
-                            /drag the puzzle piece/i.test(text)) {
-                            return true;
+                    // 5. Check text content only on leaf/small elements (avoid O(N^2) innerText layout reflows and matching #root)
+                    if (el.children && el.children.length <= 4) {
+                        const text = (el.textContent || '').trim();
+                        if (text.length > 0 && text.length < 300) {
+                            if (text.includes('detected inactivity during your current LIVE') ||
+                                text.includes('Complete the verification to continue your current LIVE') ||
+                                text.includes('LIVE will end in:') ||
+                                text.includes('Select 2 objects that are the same shape') ||
+                                /select[^.\n]{0,40}2[^.\n]{0,40}objects?/i.test(text) ||
+                                /same\s*shape/i.test(text) ||
+                                /drag the puzzle piece/i.test(text)) {
+                                return true;
+                            }
                         }
                     }
 
@@ -171,13 +230,14 @@ public partial class CdpAutomationService
 
                     return topmost.map(el => {
                         const rect = el.getBoundingClientRect();
+                        const vis = isElementVisible(el);
                         return {
                             tagName: el.tagName.toLowerCase(),
                             id: el.id || '',
                             className: typeof el.className === 'string' ? el.className : (el.className && el.className.baseVal ? el.className.baseVal : ''),
-                            html: el.outerHTML,
+                            html: (forceFullHtml || vis || (el.outerHTML && el.outerHTML.length <= 32768)) ? el.outerHTML : `<${el.tagName.toLowerCase()} id=""${el.id || ''}"" class=""${typeof el.className === 'string' ? el.className : ''}"" />`,
                             depth: getDepth(el),
-                            isVisible: isElementVisible(el),
+                            isVisible: vis,
                             width: rect.width || 0,
                             height: rect.height || 0,
                             x: rect.x || 0,
@@ -194,13 +254,15 @@ public partial class CdpAutomationService
                 // Inactivity warning modal status
                 let inactModalContent = document.querySelector('.captcha-modal-content-UBaIok, [class*=""captcha-modal-content""]');
                 if (!inactModalContent) {
-                    // Fallback to text detection for inactivity modal
+                    // Fallback to text detection for inactivity modal (only inspect leaf/small nodes so #root is never matched)
                     const candidateEls = Array.from(document.querySelectorAll('div, section, p, span, h1, h2, h3, h4'));
                     for (const el of candidateEls) {
+                        if (el.children && el.children.length > 5) continue;
                         const txt = el.textContent || '';
-                        if (txt.includes('detected inactivity during your current LIVE') ||
-                            txt.includes('Complete the verification to continue your current LIVE') ||
-                            txt.includes('LIVE will end in:')) {
+                        if (txt.length > 0 && txt.length < 400 &&
+                            (txt.includes('detected inactivity during your current LIVE') ||
+                             txt.includes('Complete the verification to continue your current LIVE') ||
+                             txt.includes('LIVE will end in:'))) {
                             inactModalContent = el.closest('[role=""dialog""], .tt-live-modalv2-wrapper, [class*=""modalv2""], [class*=""modal""]') || el;
                             break;
                         }
@@ -231,11 +293,6 @@ public partial class CdpAutomationService
                     });
                 }
 
-                let mainFullHtml = '';
-                if (items.length > 0 || (inactModalContent && isModalVisible && !isModalExited)) {
-                    mainFullHtml = document.documentElement ? document.documentElement.outerHTML : (document.body ? document.body.outerHTML : '');
-                }
-
                 let countdownText = '';
                 try {
                     const cdEl = document.querySelector('.countdown-EXaokG, [class*=""countdown""], #captcha-mount-point [class*=""countdown""]');
@@ -247,12 +304,12 @@ public partial class CdpAutomationService
                 if (!countdownText || !/\d{1,2}:\d{2}/.test(countdownText)) {
                     const scope = inactModalContent || document.body;
                     if (scope) {
-                        const text = scope.innerText || scope.textContent || '';
+                        const text = scope.textContent || '';
                         const liveEndMatch = text.match(/LIVE will end in[:\s]*(\d{1,2}:\d{2})/i);
                         if (liveEndMatch && liveEndMatch[1]) {
                             countdownText = liveEndMatch[1];
                         } else if (inactModalContent) {
-                            const anyCd = (inactModalContent.innerText || inactModalContent.textContent || '').match(/\b(\d{1,2}:\d{2})\b/);
+                            const anyCd = (inactModalContent.textContent || '').match(/\b(\d{1,2}:\d{2})\b/);
                             if (anyCd && anyCd[1]) {
                                 countdownText = anyCd[1];
                             }
@@ -263,9 +320,13 @@ public partial class CdpAutomationService
                 // Challenge / Session ID extraction (e.g. 20260912200836236424C80169BFCB4CF...)
                 function extractSessionId(doc) {
                     if (!doc) return '';
-                    const text = (doc.body ? (doc.body.innerText || doc.body.textContent) : '') || '';
+                    const scope = inactModalContent || doc.querySelector('#captcha-verify-container-main-page, .captcha-verify-container, #captcha-mount-point') || doc.body;
+                    const text = (scope ? scope.textContent : '') || '';
                     const m = text.match(/\b(20\d{12}[A-Za-z0-9]{12,})\b/);
-                    return m ? m[1] : '';
+                    if (m) return m[1];
+                    const bodyText = (doc.body ? doc.body.textContent : '') || '';
+                    const m2 = bodyText.match(/\b(20\d{12}[A-Za-z0-9]{12,})\b/);
+                    return m2 ? m2[1] : '';
                 }
 
                 let sessionId = extractSessionId(document);
@@ -274,11 +335,11 @@ public partial class CdpAutomationService
                 function scanForActiveWidget(doc) {
                     if (!doc) return null;
 
-                    const docText = (doc.body ? (doc.body.innerText || doc.body.textContent) : '') || '';
                     const captchaScope = doc.querySelector('#captcha-verify-container-main-page, .captcha-verify-container, #captcha-mount-point, .captcha-modal-content-UBaIok, [class*=""captcha-modal-content""], .tt-live-modalv2-wrapper:not(.tt-live-modalv2-wrapper-exited)') || doc;
+                    const docText = ((captchaScope && captchaScope !== doc ? captchaScope.textContent : '') || (doc.body ? doc.body.textContent : '') || '');
 
                     // 1. Jigsaw (Slide puzzle)
-                    const hasJigsawInstruction = /drag the puzzle piece into place/i.test(docText) || /drag.*puzzle/i.test(docText) || /ลาก.*จิ๊กซอว์/i.test(docText);
+                    const hasJigsawInstruction = /drag the puzzle piece into place/i.test(docText) || /drag[^.\n]{0,40}puzzle/i.test(docText) || /ลาก[^.\n]{0,40}จิ๊กซอว์/i.test(docText);
                     let slideImg = captchaScope.querySelector('#captcha-verify-image, img.captcha_verify_img_slide, canvas.captcha_verify_img_slide, img[src*=""captcha""][class*=""slide""], img[alt=""Captcha""], img[aria-label=""Captcha""], [class*=""captcha-verify-image""]')
                         || doc.querySelector('#captcha-verify-image, img.captcha_verify_img_slide, canvas.captcha_verify_img_slide, img[src*=""captcha""][class*=""slide""], img[alt=""Captcha""], img[aria-label=""Captcha""], [class*=""captcha-verify-image""]');
                     let dragKnob = captchaScope.querySelector('.secsdk-captcha-drag-icon, .captcha_verify_slide--drag-icon, div[role=""slider""], button[role=""slider""], .sec-captcha-drag-icon, [class*=""drag-icon""], [class*=""drag_icon""], [class*=""slider-btn""], [aria-label*=""slider"" i]')
@@ -305,7 +366,7 @@ public partial class CdpAutomationService
                         return {
                             type: 'Jigsaw',
                             typeDescription: 'จิ๊กซอว์เลื่อนต่อภาพ (Slide Captcha)',
-                            imageSrc: (slideImg && (slideImg.src || slideImg.getAttribute('src'))) || '',
+                            imageSrc: extractElementDataUrl(slideImg),
                             promptText: hasJigsawInstruction ? 'Drag the puzzle piece into place' : 'ลากสไลเดอร์เพื่อต่อชิ้นส่วนจิ๊กซอว์ให้พอดี',
                             hasWidgetLoaded: !!(slideImg && isElementVisible(slideImg))
                         };
@@ -320,10 +381,10 @@ public partial class CdpAutomationService
                         /the\s*same\s*shape/i,
                         /same\s*shape/i,
                         /choose\s*2\s*objects/i,
-                        /เลือก\s*.*วัตถุ.*(?:2|สอง).*เหมือนกัน/i,
-                        /เลือก\s*(?:2|สอง)\s*วัตถุ.*เหมือนกัน/i,
+                        /เลือก[^.\n]{0,40}วัตถุ[^.\n]{0,40}(?:2|สอง)[^.\n]{0,40}เหมือนกัน/i,
+                        /เลือก\s*(?:2|สอง)\s*วัตถุ[^.\n]{0,40}เหมือนกัน/i,
                         /รูปทรงเดียวกัน/i,
-                        /สัญลักษณ์.*เหมือนกัน/i
+                        /สัญลักษณ์[^.\n]{0,40}เหมือนกัน/i
                     ];
 
                     let hasSymbolInstruction = false;
@@ -337,12 +398,13 @@ public partial class CdpAutomationService
                         }
                     }
 
-                    // Also search in all child elements for symbol prompt text
+                    // Also search in child elements for symbol prompt text
                     if (!hasSymbolInstruction) {
-                        const textNodes = Array.from(doc.querySelectorAll('div, p, span, h1, h2, h3, h4, section, [role=""dialog""]'));
+                        const textNodes = Array.from(captchaScope.querySelectorAll('div, p, span, h1, h2, h3, h4, section, [role=""dialog""]'));
                         for (const node of textNodes) {
+                            if (node.children && node.children.length > 4) continue;
                             if (!isElementVisible(node)) continue;
-                            const nt = (node.innerText || node.textContent || '').trim();
+                            const nt = (node.textContent || '').trim();
                             if (nt.length > 0 && nt.length < 250) {
                                 for (const pat of symbolPatterns) {
                                     if (pat.test(nt)) {
@@ -363,7 +425,7 @@ public partial class CdpAutomationService
                     if (!submitBtn) {
                         const allBtns = Array.from(captchaScope.querySelectorAll('button, div[role=""button""], a[role=""button""]'));
                         submitBtn = allBtns.find(b => {
-                            const bt = (b.innerText || b.textContent || '').trim().toLowerCase();
+                            const bt = (b.textContent || '').trim().toLowerCase();
                             return bt === 'confirm' || bt === 'ยืนยัน' || bt.includes('confirm');
                         }) || null;
                     }
@@ -396,14 +458,14 @@ public partial class CdpAutomationService
                         return {
                             type: 'Symbol',
                             typeDescription: 'เลือกสัญลักษณ์ 2 รูปที่เหมือนกัน (Symbol Captcha)',
-                            imageSrc: (symbolImg && (symbolImg.src || symbolImg.getAttribute('src'))) || '',
+                            imageSrc: extractElementDataUrl(symbolImg),
                             promptText: prompt || 'Select 2 objects that are the same shape',
                             hasWidgetLoaded: !!(hasValidSymbolImg || hasValidSubmitBtn)
                         };
                     }
 
                     // 3. Rotate / Whirl
-                    const hasRotateInstruction = /rotate.*upright/i.test(docText) || /หมุนภาพ/i.test(docText);
+                    const hasRotateInstruction = /rotate[^.\n]{0,40}upright/i.test(docText) || /หมุนภาพ/i.test(docText);
                     const rotateEl = doc.querySelector('[class*=""rotate""], [class*=""whirl""]:not([class*=""title""])');
                     if (!hasJigsawInstruction && (hasRotateInstruction || (rotateEl && isElementVisible(rotateEl))) && dragKnob && isElementVisible(dragKnob)) {
                         return {
@@ -441,6 +503,11 @@ public partial class CdpAutomationService
                     promptText = 'ตรวจพบ Inactivity Modal กำลังนับเวลาถอยหลัง';
                 }
 
+                let mainFullHtml = '';
+                if (forceFullHtml && (items.length > 0 || isActive)) {
+                    mainFullHtml = document.documentElement ? document.documentElement.outerHTML : (document.body ? document.body.outerHTML : '');
+                }
+
                 return JSON.stringify({
                     items: items,
                     isActive: isActive,
@@ -463,14 +530,15 @@ public partial class CdpAutomationService
 
             // CDP evaluates each document independently, including cross-origin frames.
             foreach (var (page, frame) in pages
-                .Where(p => p.Url == null || !p.Url.StartsWith("devtools://", StringComparison.OrdinalIgnoreCase))
+                .Where(p => p.Url == null || (!p.Url.StartsWith("devtools://", StringComparison.OrdinalIgnoreCase) && !p.Url.StartsWith("chrome-extension://", StringComparison.OrdinalIgnoreCase)))
                 .SelectMany(p => p.Frames.Select(f => (Page: p, Frame: f))))
             {
                 try
                 {
                     if (!await IsCaptchaFrameVisibleAsync(frame)) continue;
-                    string json = await frame.EvaluateExpressionAsync<string>(detectScript);
-                    if (string.IsNullOrWhiteSpace(json) || json == "[]" || json == "{}")
+
+                    var (evalOk, json) = await TryWaitWithTimeoutAsync(frame.EvaluateExpressionAsync<string>(detectScript), 3000);
+                    if (!evalOk || string.IsNullOrWhiteSpace(json) || json == "[]" || json == "{}")
                         continue;
 
                     using var doc = JsonDocument.Parse(json);
@@ -568,16 +636,16 @@ public partial class CdpAutomationService
                         newItemsCount++;
                     }
 
-                    if (newItemsCount > 0)
+                    if (newItemsCount > 0 && forceFullHtml)
                     {
-                        // Fallback to Puppeteer GetContentAsync if mainFullHtml was empty
+                        // Fallback to Puppeteer GetContentAsync only when full HTML was explicitly requested
                         if (string.IsNullOrWhiteSpace(pageFullHtml))
                         {
-                            try
+                            var (contentOk, contentHtml) = await TryWaitWithTimeoutAsync(frame.GetContentAsync(), 2500);
+                            if (contentOk && !string.IsNullOrWhiteSpace(contentHtml))
                             {
-                                pageFullHtml = await frame.GetContentAsync();
+                                pageFullHtml = contentHtml;
                             }
-                            catch { }
                         }
 
                         if (!string.IsNullOrWhiteSpace(pageFullHtml))
@@ -590,10 +658,9 @@ public partial class CdpAutomationService
                                 pageFullHtml = $"<!-- [CAPTCHA IFRAME FULL HTML] Frame URL: {frame.Url} -->\n" + pageFullHtml;
                             fullHtmlSections.Add(pageFullHtml);
                         }
-
                     }
 
-                    // Priority 1: Direct extract from ImageSrc (data URI) to preserve original WebP resolution without scaling blur
+                    // Priority 1: Direct extract from ImageSrc (data URI) to preserve original WebP/PNG resolution without scaling blur or compositor screenshot hang
                     if (result.DirectImageBytes == null && !string.IsNullOrWhiteSpace(result.ImageSrc) && result.ImageSrc.StartsWith("data:image/", StringComparison.OrdinalIgnoreCase))
                     {
                         try
@@ -604,13 +671,15 @@ public partial class CdpAutomationService
                                 byte[] bytes = Convert.FromBase64String(result.ImageSrc.Substring(commaIdx + 1));
                                 result.DirectImageBytes = bytes;
                                 result.DirectImageDimensions = GetImageDimensions(bytes);
+                                result.CroppedImageBytes ??= bytes;
+                                result.CroppedImageDimensions ??= result.DirectImageDimensions;
                             }
                         }
                         catch { }
                     }
 
-                    // Priority 2: Capture PNG screenshot of active Captcha element for CroppedImageBytes (and DirectImageBytes fallback)
-                    if (result.IsActive && result.Type != CaptchaType.None && (result.DirectImageBytes == null || result.CroppedImageBytes == null))
+                    // Priority 2: Only attempt element screenshot if DirectImageBytes could not be extracted via JS/data-URI, and bound with a strict 1.5s timeout so hidden/minimized windows NEVER hang for 180s!
+                    if (result.IsActive && result.HasWidgetLoaded && result.Type != CaptchaType.None && result.DirectImageBytes == null)
                     {
                         try
                         {
@@ -618,32 +687,37 @@ public partial class CdpAutomationService
                                 ? JigsawImageSelector
                                 : SymbolImageSelector;
 
-                            IElementHandle? imgHandle = await frame.QuerySelectorAsync(imgSel);
-                            if (imgHandle == null)
+                            var (qOk, imgHandle) = await TryWaitWithTimeoutAsync(frame.QuerySelectorAsync(imgSel), 1000);
+                            if (!qOk || imgHandle == null)
                             {
                                 foreach (var f in page.Frames)
                                 {
-                                    imgHandle = await f.QuerySelectorAsync(imgSel);
-                                    if (imgHandle != null) break;
+                                    (qOk, imgHandle) = await TryWaitWithTimeoutAsync(f.QuerySelectorAsync(imgSel), 1000);
+                                    if (qOk && imgHandle != null) break;
                                 }
                             }
 
                             if (imgHandle != null)
                             {
-                                byte[]? freshBytes = await imgHandle.ScreenshotDataAsync(new ElementScreenshotOptions { Type = ScreenshotType.Png });
-                                if (freshBytes != null && freshBytes.Length > 0)
+                                var (shotOk, freshBytes) = await TryWaitWithTimeoutAsync(
+                                    imgHandle.ScreenshotDataAsync(new ElementScreenshotOptions { Type = ScreenshotType.Png }),
+                                    1500);
+                                if (shotOk && freshBytes != null && freshBytes.Length > 0)
                                 {
                                     result.CroppedImageBytes = freshBytes;
                                     result.CroppedImageDimensions = GetImageDimensions(freshBytes);
-                                    if (result.DirectImageBytes == null)
-                                    {
-                                        result.DirectImageBytes = freshBytes;
-                                        result.DirectImageDimensions = result.CroppedImageDimensions;
-                                    }
+                                    result.DirectImageBytes ??= freshBytes;
+                                    result.DirectImageDimensions ??= result.CroppedImageDimensions;
                                 }
                             }
                         }
                         catch { }
+                    }
+
+                    // Fast exit on auto-scan once active captcha widget and image are found
+                    if (!forceFullHtml && result.IsActive && result.HasWidgetLoaded && result.DirectImageBytes != null)
+                    {
+                        break;
                     }
                 }
                 catch { }
@@ -901,7 +975,7 @@ public partial class CdpAutomationService
 
             foreach (var page in pages)
             {
-                var hasModal = await page.EvaluateExpressionAsync<bool>(activeModalProbeScript);
+                var (_, hasModal) = await TryWaitWithTimeoutAsync(page.EvaluateExpressionAsync<bool>(activeModalProbeScript), 2000);
                 if (hasModal)
                 {
                     targetPage = page;
@@ -909,7 +983,7 @@ public partial class CdpAutomationService
                 }
                 foreach (var frame in page.Frames)
                 {
-                    var frameHasModal = await frame.EvaluateExpressionAsync<bool>(activeModalProbeScript);
+                    var (_, frameHasModal) = await TryWaitWithTimeoutAsync(frame.EvaluateExpressionAsync<bool>(activeModalProbeScript), 1500);
                     if (frameHasModal)
                     {
                         targetPage = page;
@@ -940,12 +1014,14 @@ public partial class CdpAutomationService
             string imgSel = detection.Type == CaptchaType.Jigsaw
                 ? JigsawImageSelector
                 : SymbolImageSelector;
-            var imgHandle = targetFrame != null ? await targetFrame.QuerySelectorAsync(imgSel) : await targetPage.QuerySelectorAsync(imgSel);
+            var (_, imgHandle) = targetFrame != null
+                ? await TryWaitWithTimeoutAsync(targetFrame.QuerySelectorAsync(imgSel), 2000)
+                : await TryWaitWithTimeoutAsync(targetPage.QuerySelectorAsync(imgSel), 2000);
             if (imgHandle == null && targetFrame == null)
             {
                 foreach (var frame in targetPage.Frames)
                 {
-                    imgHandle = await frame.QuerySelectorAsync(imgSel);
+                    (_, imgHandle) = await TryWaitWithTimeoutAsync(frame.QuerySelectorAsync(imgSel), 1500);
                     if (imgHandle != null)
                     {
                         targetFrame = frame;
@@ -957,11 +1033,7 @@ public partial class CdpAutomationService
             BoundingBox? imgBox = null;
             if (imgHandle != null)
             {
-                try
-                {
-                    imgBox = await imgHandle.BoundingBoxAsync();
-                }
-                catch { }
+                (_, imgBox) = await TryWaitWithTimeoutAsync(imgHandle.BoundingBoxAsync(), 1500);
             }
 
             double? displayWidth = imgBox != null && imgBox.Width > 0 ? (double)imgBox.Width : null;
@@ -995,17 +1067,15 @@ public partial class CdpAutomationService
                 else if (imgHandle != null)
                 {
                     Log($"[{DateTime.Now:HH:mm:ss}] 📷 [CAPTCHA SOLVE] ดึงภาพแคปต์ชาสดจาก Element Screenshot บนหน้าจอ...");
-                    try
+                    var (_, freshBytes) = await TryWaitWithTimeoutAsync(
+                        imgHandle.ScreenshotDataAsync(new ElementScreenshotOptions { Type = ScreenshotType.Png }),
+                        1500);
+                    if (freshBytes != null && freshBytes.Length > 0)
                     {
-                        byte[]? freshBytes = await imgHandle.ScreenshotDataAsync(new ElementScreenshotOptions { Type = ScreenshotType.Png });
-                        if (freshBytes != null && freshBytes.Length > 0)
-                        {
-                            detection.DirectImageBytes = freshBytes;
-                            detection.DirectImageDimensions = GetImageDimensions(freshBytes);
-                            base64Image = Convert.ToBase64String(freshBytes);
-                        }
+                        detection.DirectImageBytes = freshBytes;
+                        detection.DirectImageDimensions = GetImageDimensions(freshBytes);
+                        base64Image = Convert.ToBase64String(freshBytes);
                     }
-                    catch { }
                 }
 
                 if (string.IsNullOrEmpty(base64Image) && !string.IsNullOrWhiteSpace(detection.ImageSrc))
