@@ -670,7 +670,8 @@ public partial class InstanceCardViewModel : ObservableObject
                 customMockJsonPath: null,
                 progressLogger: msg => AppendConsole(msg),
                 delaySeconds: _settings.AutoSolveDelaySeconds,
-                instanceLeaseId: ActiveLeaseId
+                instanceLeaseId: ActiveLeaseId,
+                profileFolderName: ProfileFolderName
             );
 
             // If token expired or unauthorized (401), automatically refresh the JWT token and retry solve once
@@ -709,7 +710,8 @@ public partial class InstanceCardViewModel : ObservableObject
                         customMockJsonPath: null,
                         progressLogger: msg => AppendConsole(msg),
                         delaySeconds: 0,
-                        instanceLeaseId: ActiveLeaseId
+                        instanceLeaseId: ActiveLeaseId,
+                        profileFolderName: ProfileFolderName
                     );
                 }
                 else

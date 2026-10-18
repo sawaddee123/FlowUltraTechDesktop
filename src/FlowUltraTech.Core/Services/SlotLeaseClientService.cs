@@ -217,10 +217,12 @@ public class SlotLeaseClientService : ISlotLeaseClientService
         var url = $"{endpoint}/api/v1/slots/heartbeat";
         var sw = Stopwatch.StartNew();
 
+        _activeLeases.TryGetValue(leaseId.Trim(), out var trackedLease);
         var payload = new
         {
             leaseId,
-            hwid
+            hwid,
+            profileFolderName = trackedLease?.ProfileFolderName
         };
 
         try

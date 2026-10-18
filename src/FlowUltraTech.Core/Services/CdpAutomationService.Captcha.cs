@@ -881,7 +881,8 @@ public partial class CdpAutomationService
         string? customMockJsonPath = null,
         Action<string>? progressLogger = null,
         int delaySeconds = 0,
-        string? instanceLeaseId = null)
+        string? instanceLeaseId = null,
+        string? profileFolderName = null)
     {
         return SolveCaptchaAsync(
             cdpPort,
@@ -892,7 +893,8 @@ public partial class CdpAutomationService
             customMockJsonPath: null,
             progressLogger: progressLogger,
             delaySeconds: delaySeconds,
-            instanceLeaseId: instanceLeaseId);
+            instanceLeaseId: instanceLeaseId,
+            profileFolderName: profileFolderName);
     }
 
     public async Task<CaptchaSolveResult> SolveCaptchaAsync(
@@ -904,7 +906,8 @@ public partial class CdpAutomationService
         string? customMockJsonPath = null,
         Action<string>? progressLogger = null,
         int delaySeconds = 0,
-        string? instanceLeaseId = null)
+        string? instanceLeaseId = null,
+        string? profileFolderName = null)
     {
         var solveResult = new CaptchaSolveResult();
         var stopwatch = Stopwatch.StartNew();
@@ -1009,6 +1012,7 @@ public partial class CdpAutomationService
             string? currentCaptchaId = null;
             string? usedEndpoint = null;
             SolverParsedResult? parsedApiResult = null;
+            string deviceHwid = FlowUltraTech.Core.Security.DeepHwidGenerator.GenerateDeepHwid();
 
             // Locate image element and DOM bounding box first
             string imgSel = detection.Type == CaptchaType.Jigsaw
@@ -1094,7 +1098,8 @@ public partial class CdpAutomationService
                             image = base64Image,
                             displayWidth = displayWidth,
                             displayHeight = displayHeight,
-                            appVersion = AppConstants.CurrentVersion
+                            appVersion = AppConstants.CurrentVersion,
+                            profileFolder = profileFolderName
                         };
                         string jsonBody = JsonSerializer.Serialize(payload);
 
@@ -1103,6 +1108,14 @@ public partial class CdpAutomationService
                             Content = new StringContent(jsonBody, Encoding.UTF8, "application/json")
                         };
                         req.Headers.TryAddWithoutValidation("X-App-Version", AppConstants.CurrentVersion);
+                        if (!string.IsNullOrWhiteSpace(deviceHwid))
+                        {
+                            req.Headers.TryAddWithoutValidation("X-Device-Hwid", deviceHwid);
+                        }
+                        if (!string.IsNullOrWhiteSpace(profileFolderName))
+                        {
+                            req.Headers.TryAddWithoutValidation("X-Profile-Folder", profileFolderName.Trim());
+                        }
 
                         if (!string.IsNullOrWhiteSpace(solverJwtToken))
                         {
@@ -1127,6 +1140,14 @@ public partial class CdpAutomationService
                                 Content = new StringContent(jsonBody, Encoding.UTF8, "application/json")
                             };
                             altReq.Headers.TryAddWithoutValidation("X-App-Version", AppConstants.CurrentVersion);
+                            if (!string.IsNullOrWhiteSpace(deviceHwid))
+                            {
+                                altReq.Headers.TryAddWithoutValidation("X-Device-Hwid", deviceHwid);
+                            }
+                            if (!string.IsNullOrWhiteSpace(profileFolderName))
+                            {
+                                altReq.Headers.TryAddWithoutValidation("X-Profile-Folder", profileFolderName.Trim());
+                            }
                             if (!string.IsNullOrWhiteSpace(solverJwtToken))
                             {
                                 altReq.Headers.Authorization = new AuthenticationHeaderValue("Bearer", solverJwtToken.Trim());
@@ -1752,7 +1773,7 @@ public partial class CdpAutomationService
                 solveResult.Success = true;
                 solveResult.Message = "แก้ Captcha สำเร็จเรียบร้อย! (ผ่านการตรวจสอบและ Modal ปิดแล้ว)";
                 Log($"[{DateTime.Now:HH:mm:ss}] ✅ [CAPTCHA SOLVE] {solveResult.Message} (ใช้เวลารวม {solveResult.ElapsedSeconds:F2}s)");
-                _ = ReportCaptchaVerificationAsync(usedEndpoint, solverJwtToken, instanceLeaseId, currentCaptchaId, true, "TikTok Modal closed and verified", solveResult.ElapsedSeconds);
+                _ = ReportCaptchaVerificationAsync(usedEndpoint, solverJwtToken, instanceLeaseId, currentCaptchaId, true, "TikTok Modal closed and verified", solveResult.ElapsedSeconds, deviceHwid, profileFolderName);
             }
             else
             {
@@ -1761,7 +1782,7 @@ public partial class CdpAutomationService
                     ? "TikTok ปฏิเสธคำตอบหรือไม่ผ่านการตรวจสอบ (Modal ยังคงแสดงผล)"
                     : $"TikTok ตอบกลับ: {feedbackMsg}";
                 Log($"[{DateTime.Now:HH:mm:ss}] ⚠️ [CAPTCHA SOLVE] {solveResult.Message} (ใช้เวลารวม {solveResult.ElapsedSeconds:F2}s)");
-                _ = ReportCaptchaVerificationAsync(usedEndpoint, solverJwtToken, instanceLeaseId, currentCaptchaId, false, solveResult.Message, solveResult.ElapsedSeconds);
+                _ = ReportCaptchaVerificationAsync(usedEndpoint, solverJwtToken, instanceLeaseId, currentCaptchaId, false, solveResult.Message, solveResult.ElapsedSeconds, deviceHwid, profileFolderName);
             }
 
             return solveResult;
@@ -1784,7 +1805,9 @@ public partial class CdpAutomationService
         string? captchaId,
         bool isSuccess,
         string feedback,
-        double durationTotalSec)
+        double durationTotalSec,
+        string? deviceHwid = null,
+        string? profileFolderName = null)
     {
         if (string.IsNullOrWhiteSpace(endpoint) || string.IsNullOrWhiteSpace(captchaId))
             return;
@@ -1811,6 +1834,10 @@ public partial class CdpAutomationService
                 req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token.Trim());
             if (!string.IsNullOrWhiteSpace(leaseId))
                 req.Headers.TryAddWithoutValidation("X-Instance-Lease", leaseId.Trim());
+            if (!string.IsNullOrWhiteSpace(deviceHwid))
+                req.Headers.TryAddWithoutValidation("X-Device-Hwid", deviceHwid.Trim());
+            if (!string.IsNullOrWhiteSpace(profileFolderName))
+                req.Headers.TryAddWithoutValidation("X-Profile-Folder", profileFolderName.Trim());
 
             using var resp = await _solverHttpClient.SendAsync(req);
             Debug.WriteLine($"[{DateTime.Now:HH:mm:ss}] 📡 [CAPTCHA VERIFY] ส่งผลยืนยันไปยัง Server: {(isSuccess ? "VERIFIED_SUCCESS" : "REJECTED_BY_TIKTOK")} (Status {resp.StatusCode})");

@@ -176,7 +176,12 @@ if ($installerFiles.Count -gt 0) {
     Write-Host "==========================================================" -ForegroundColor Green
 
     # Auto-sync to backend storage/releases directory if present
+    $serverReleaseDir = "D:\Projects\FlowUltraTech\FlowUltraTechServer\storage\releases"
+    if (-not (Test-Path $serverReleaseDir)) {
+        New-Item -ItemType Directory -Path $serverReleaseDir -Force | Out-Null
+    }
     $backendDirs = @(
+        $serverReleaseDir,
         "D:\Script\java-script\FlowUltraTech\storage\releases",
         "D:\Script\java-script\SimpleSolveCaptchaProject\storage\releases"
     )

@@ -1,5 +1,8 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
+using System.Runtime.InteropServices;
+using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
 using FlowUltraTech.Core.Interfaces;
@@ -9,12 +12,188 @@ namespace FlowUltraTech.Core.Services;
 
 public class ConfigStorageService : IConfigStorageService
 {
+    private const string DpapiPrefix = "enc:dpapi:";
     private readonly string _configFilePath;
     private readonly JsonSerializerOptions _jsonOptions = new()
     {
         WriteIndented = true,
         PropertyNameCaseInsensitive = true
     };
+
+    [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
+    private struct DATA_BLOB
+    {
+        public int cbData;
+        public IntPtr pbData;
+    }
+
+    [DllImport("crypt32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
+    private static extern bool CryptProtectData(
+        ref DATA_BLOB pDataIn,
+        string? szDataDescr,
+        IntPtr pOptionalEntropy,
+        IntPtr pvReserved,
+        IntPtr pPromptStruct,
+        int dwFlags,
+        out DATA_BLOB pDataOut);
+
+    [DllImport("crypt32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
+    private static extern bool CryptUnprotectData(
+        ref DATA_BLOB pDataIn,
+        IntPtr ppszDataDescr,
+        IntPtr pOptionalEntropy,
+        IntPtr pvReserved,
+        IntPtr pPromptStruct,
+        int dwFlags,
+        out DATA_BLOB pDataOut);
+
+    [DllImport("kernel32.dll", SetLastError = true)]
+    private static extern IntPtr LocalFree(IntPtr hMem);
+
+    public static string ProtectString(string? plainText)
+    {
+        if (string.IsNullOrEmpty(plainText)) return string.Empty;
+        if (plainText.StartsWith(DpapiPrefix, StringComparison.Ordinal)) return plainText;
+        if (!OperatingSystem.IsWindows()) return plainText;
+
+        byte[] plainBytes = Encoding.UTF8.GetBytes(plainText);
+        IntPtr inPtr = Marshal.AllocHGlobal(plainBytes.Length);
+        try
+        {
+            Marshal.Copy(plainBytes, 0, inPtr, plainBytes.Length);
+            var dataIn = new DATA_BLOB { cbData = plainBytes.Length, pbData = inPtr };
+            if (CryptProtectData(ref dataIn, "FlowUltraTechSecret", IntPtr.Zero, IntPtr.Zero, IntPtr.Zero, 0x1, out var dataOut))
+            {
+                try
+                {
+                    byte[] encBytes = new byte[dataOut.cbData];
+                    Marshal.Copy(dataOut.pbData, encBytes, 0, dataOut.cbData);
+                    return DpapiPrefix + Convert.ToBase64String(encBytes);
+                }
+                finally
+                {
+                    if (dataOut.pbData != IntPtr.Zero) LocalFree(dataOut.pbData);
+                }
+            }
+        }
+        catch { }
+        finally
+        {
+            Marshal.FreeHGlobal(inPtr);
+        }
+
+        return plainText;
+    }
+
+    public static string UnprotectString(string? storedValue, out bool wasPlaintext)
+    {
+        wasPlaintext = false;
+        if (string.IsNullOrEmpty(storedValue)) return string.Empty;
+        if (!storedValue.StartsWith(DpapiPrefix, StringComparison.Ordinal))
+        {
+            wasPlaintext = true;
+            return storedValue;
+        }
+        if (!OperatingSystem.IsWindows()) return storedValue.Substring(DpapiPrefix.Length);
+
+        try
+        {
+            byte[] encBytes = Convert.FromBase64String(storedValue.Substring(DpapiPrefix.Length));
+            IntPtr inPtr = Marshal.AllocHGlobal(encBytes.Length);
+            try
+            {
+                Marshal.Copy(encBytes, 0, inPtr, encBytes.Length);
+                var dataIn = new DATA_BLOB { cbData = encBytes.Length, pbData = inPtr };
+                if (CryptUnprotectData(ref dataIn, IntPtr.Zero, IntPtr.Zero, IntPtr.Zero, IntPtr.Zero, 0x1, out var dataOut))
+                {
+                    try
+                    {
+                        byte[] plainBytes = new byte[dataOut.cbData];
+                        Marshal.Copy(dataOut.pbData, plainBytes, 0, dataOut.cbData);
+                        return Encoding.UTF8.GetString(plainBytes);
+                    }
+                    finally
+                    {
+                        if (dataOut.pbData != IntPtr.Zero) LocalFree(dataOut.pbData);
+                    }
+                }
+            }
+            finally
+            {
+                Marshal.FreeHGlobal(inPtr);
+            }
+        }
+        catch { }
+
+        return string.Empty;
+    }
+
+    private static bool DecryptSettingsInPlace(AppSettings settings)
+    {
+        bool needsMigrationSave = false;
+
+        settings.AuthToken = UnprotectString(settings.AuthToken, out bool p1);
+        needsMigrationSave |= p1;
+
+        settings.RefreshToken = UnprotectString(settings.RefreshToken, out bool p2);
+        needsMigrationSave |= p2;
+
+        settings.CaptchaSolverJwtToken = UnprotectString(settings.CaptchaSolverJwtToken, out bool p3);
+        needsMigrationSave |= p3;
+
+        settings.TelegramBotToken = UnprotectString(settings.TelegramBotToken, out bool p4);
+        needsMigrationSave |= p4;
+
+        if (settings.Proxies != null)
+        {
+            foreach (var proxy in settings.Proxies)
+            {
+                proxy.Password = UnprotectString(proxy.Password, out bool pp);
+                needsMigrationSave |= pp;
+            }
+        }
+
+        return needsMigrationSave;
+    }
+
+    private string SerializeWithDpapi(AppSettings settings)
+    {
+        string origAuth = settings.AuthToken;
+        string origRefresh = settings.RefreshToken;
+        string origSolverJwt = settings.CaptchaSolverJwtToken;
+        string origTelegram = settings.TelegramBotToken;
+        var origProxyPasswords = new List<(ProxyItem Proxy, string Password)>();
+
+        try
+        {
+            settings.AuthToken = ProtectString(origAuth);
+            settings.RefreshToken = ProtectString(origRefresh);
+            settings.CaptchaSolverJwtToken = ProtectString(origSolverJwt);
+            settings.TelegramBotToken = ProtectString(origTelegram);
+
+            if (settings.Proxies != null)
+            {
+                foreach (var proxy in settings.Proxies)
+                {
+                    origProxyPasswords.Add((proxy, proxy.Password));
+                    proxy.Password = ProtectString(proxy.Password);
+                }
+            }
+
+            return JsonSerializer.Serialize(settings, _jsonOptions);
+        }
+        finally
+        {
+            settings.AuthToken = origAuth;
+            settings.RefreshToken = origRefresh;
+            settings.CaptchaSolverJwtToken = origSolverJwt;
+            settings.TelegramBotToken = origTelegram;
+            foreach (var (proxy, pwd) in origProxyPasswords)
+            {
+                proxy.Password = pwd;
+            }
+        }
+    }
 
     public ConfigStorageService(string? customPath = null)
     {
@@ -56,11 +235,13 @@ public class ConfigStorageService : IConfigStorageService
                 var settings = JsonSerializer.Deserialize<AppSettings>(json, _jsonOptions);
                 if (settings != null)
                 {
+                    bool needsMigrationSave = DecryptSettingsInPlace(settings);
+
                     if (!string.IsNullOrEmpty(settings.DefaultChromiumFlags) && 
                         settings.DefaultChromiumFlags.Contains("--disable-background-timer-throttling=false"))
                     {
                         settings.DefaultChromiumFlags = string.Empty;
-                        SaveSettings(settings);
+                        needsMigrationSave = true;
                     }
 
                     // Sanitize runtime states: Starting state should NEVER survive app restart
@@ -72,6 +253,11 @@ public class ConfigStorageService : IConfigStorageService
                             inst.StatusMessage = "Stopped";
                             inst.ProcessId = null;
                         }
+                    }
+
+                    if (needsMigrationSave)
+                    {
+                        SaveSettings(settings);
                     }
 
                     return settings;
@@ -107,7 +293,7 @@ public class ConfigStorageService : IConfigStorageService
             }
         }
 
-        string json = JsonSerializer.Serialize(settings, _jsonOptions);
+        string json = SerializeWithDpapi(settings);
         await File.WriteAllTextAsync(_configFilePath, json);
     }
 
@@ -130,7 +316,7 @@ public class ConfigStorageService : IConfigStorageService
             }
         }
 
-        string json = JsonSerializer.Serialize(settings, _jsonOptions);
+        string json = SerializeWithDpapi(settings);
         File.WriteAllText(_configFilePath, json);
     }
 

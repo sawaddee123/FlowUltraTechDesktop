@@ -25,7 +25,8 @@ public interface ICdpAutomationService : IDisposable
         string? customMockJsonPath = null,
         Action<string>? progressLogger = null,
         int delaySeconds = 0,
-        string? instanceLeaseId = null);
+        string? instanceLeaseId = null,
+        string? profileFolderName = null);
     Task<CaptchaSolveResult> SolveCaptchaAsync(
         int cdpPort,
         CaptchaDetectionResult? detection = null,
@@ -35,6 +36,7 @@ public interface ICdpAutomationService : IDisposable
         string? customMockJsonPath = null,
         Action<string>? progressLogger = null,
         int delaySeconds = 0,
-        string? instanceLeaseId = null);
+        string? instanceLeaseId = null,
+        string? profileFolderName = null);
     Task<(bool Success, string Message)> TestSolverApiConnectionAsync(string? endpoint = null, string? jwtToken = null);
 }
