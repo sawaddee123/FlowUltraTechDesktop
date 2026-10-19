@@ -39,4 +39,7 @@ public interface ICdpAutomationService : IDisposable
         string? instanceLeaseId = null,
         string? profileFolderName = null);
     Task<(bool Success, string Message)> TestSolverApiConnectionAsync(string? endpoint = null, string? jwtToken = null);
+
+    // Realtime Clock & Live Proof Overlay Auto-Inject
+    Task<OverlayInjectResult> InjectOverlaySourceAsync(int cdpPort, string overlayUrl, Action<string>? logCallback = null);
 }

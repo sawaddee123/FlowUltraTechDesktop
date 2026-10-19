@@ -31,9 +31,11 @@ public partial class MainViewModel : ObservableObject
     private readonly ISlotLeaseClientService _slotLeaseService;
     private readonly IAuthClientService _authService;
     private readonly IRealtimeClientService _realtimeService;
+    private readonly IOverlayServerService _overlayService;
     private System.Windows.Threading.DispatcherTimer? _telemetryReportTimer;
     private System.Windows.Threading.DispatcherTimer? _telemetryDebounceTimer;
 
+    public IOverlayServerService OverlayService => _overlayService;
     public AppSettings Settings { get; }
 
     [ObservableProperty]
@@ -234,7 +236,8 @@ public partial class MainViewModel : ObservableObject
         ITikTokLiveListenerService? liveListenerService = null,
         ISlotLeaseClientService? slotLeaseService = null,
         IAuthClientService? authClientService = null,
-        IRealtimeClientService? realtimeService = null)
+        IRealtimeClientService? realtimeService = null,
+        IOverlayServerService? overlayService = null)
     {
         _storageService = storageService;
         _orchestrator = orchestrator;
@@ -246,6 +249,33 @@ public partial class MainViewModel : ObservableObject
         _debug = new DebugViewModel(cdpService);
 
         Settings = _storageService.LoadSettings();
+        _overlayService = overlayService ?? new OverlayServerService();
+        if (!_overlayService.IsRunning)
+        {
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    int activePort = await _overlayService.StartAsync(Settings.OverlayServerPort > 0 ? Settings.OverlayServerPort : 19450);
+                    if (activePort > 0)
+                    {
+                        Settings.OverlayServerPort = activePort;
+                        if (Application.Current?.Dispatcher != null)
+                        {
+                            await Application.Current.Dispatcher.InvokeAsync(() =>
+                            {
+                                foreach (var inst in Instances)
+                                {
+                                    inst.NotifyOverlayEndpointChanged();
+                                }
+                            });
+                        }
+                    }
+                }
+                catch { }
+            });
+        }
+
         _realtimeService = realtimeService ?? new RealtimeClientService();
         _slotLeaseService = slotLeaseService ?? new SlotLeaseClientService(defaultBaseEndpoint: AppConstants.DefaultServerEndpoint, realtimeService: _realtimeService);
         if (_slotLeaseService.RealtimeService == null)
@@ -319,7 +349,18 @@ public partial class MainViewModel : ObservableObject
 
         foreach (var inst in Settings.Instances)
         {
-            var card = new InstanceCardViewModel(inst, Settings, _orchestrator, _cdpService, _profileManager, telegramService: _telegramService, liveListenerService: _liveListenerService, slotLeaseService: _slotLeaseService, authClientService: _authService);
+            var card = new InstanceCardViewModel(
+                inst,
+                Settings,
+                _orchestrator,
+                _cdpService,
+                _profileManager,
+                telegramService: _telegramService,
+                liveListenerService: _liveListenerService,
+                slotLeaseService: _slotLeaseService,
+                authClientService: _authService,
+                overlayService: _overlayService,
+                onStateChanged: () => _storageService.SaveSettings(Settings));
             AttachCardEvents(card);
             Instances.Add(card);
         }
@@ -708,7 +749,18 @@ public partial class MainViewModel : ObservableObject
         };
 
         Settings.Instances.Add(newProfile);
-        var card = new InstanceCardViewModel(newProfile, Settings, _orchestrator, _cdpService, _profileManager, telegramService: _telegramService, liveListenerService: _liveListenerService, slotLeaseService: _slotLeaseService, authClientService: _authService);
+        var card = new InstanceCardViewModel(
+            newProfile,
+            Settings,
+            _orchestrator,
+            _cdpService,
+            _profileManager,
+            telegramService: _telegramService,
+            liveListenerService: _liveListenerService,
+            slotLeaseService: _slotLeaseService,
+            authClientService: _authService,
+            overlayService: _overlayService,
+            onStateChanged: () => _storageService.SaveSettings(Settings));
         AttachCardEvents(card);
         Instances.Add(card);
         _storageService.SaveSettings(Settings);
@@ -1856,5 +1908,14 @@ public partial class MainViewModel : ObservableObject
         {
             StatusNotification = $"เปิดโฟลเดอร์ Log ไม่สำเร็จ: {ex.Message}";
         }
+    }
+
+    public void Cleanup()
+    {
+        try
+        {
+            _overlayService?.Dispose();
+        }
+        catch { }
     }
 }

@@ -18,4 +18,8 @@ public interface ITikTokLiveListenerService : IDisposable
     bool IsConnected(string uniqueId);
 
     string? GetCurrentRoomId(string uniqueId);
+
+    event Action<string, LiveChatMessageItem>? OnLiveEventReceived;
+
+    void PublishSimulatedEvent(string uniqueId, LiveChatMessageItem item);
 }

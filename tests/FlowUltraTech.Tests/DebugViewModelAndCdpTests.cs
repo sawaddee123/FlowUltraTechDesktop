@@ -1102,11 +1102,11 @@ public class DebugViewModelAndCdpTests
         public Task<StorageDumpResult> GetCookiesAndStorageAsync(int cdpPort) => Task.FromResult(new StorageDumpResult());
         public Task<PageHtmlResult?> GetFullHtmlAsync(int cdpPort) => Task.FromResult(ResultToReturn);
         public Task<CaptchaDetectionResult> DetectCaptchaElementsAsync(int cdpPort, bool forceFullHtml = false) => Task.FromResult(CaptchaResultToReturn ?? new CaptchaDetectionResult());
-        public Task<CaptchaSolveResult> SolveCaptchaWithMockAsync(int cdpPort, CaptchaDetectionResult? currentDetection = null, string? mockFilePath = null, Action<string>? logCallback = null, int delaySeconds = 0, string? instanceLeaseId = null)
+        public Task<CaptchaSolveResult> SolveCaptchaWithMockAsync(int cdpPort, CaptchaDetectionResult? currentDetection = null, string? mockFilePath = null, Action<string>? logCallback = null, int delaySeconds = 0, string? instanceLeaseId = null, string? profileFolderName = null)
         {
             return Task.FromResult(new CaptchaSolveResult { Success = true, Message = "Mock solved", CaptchaType = "Jigsaw" });
         }
-        public Task<CaptchaSolveResult> SolveCaptchaAsync(int cdpPort, CaptchaDetectionResult? currentDetection = null, CaptchaSolverType solverMode = CaptchaSolverType.LocalApiServer, string? solverApiEndpoint = null, string? solverJwtToken = null, string? mockFilePath = null, Action<string>? logCallback = null, int delaySeconds = 0, string? instanceLeaseId = null)
+        public Task<CaptchaSolveResult> SolveCaptchaAsync(int cdpPort, CaptchaDetectionResult? currentDetection = null, CaptchaSolverType solverMode = CaptchaSolverType.LocalApiServer, string? solverApiEndpoint = null, string? solverJwtToken = null, string? mockFilePath = null, Action<string>? logCallback = null, int delaySeconds = 0, string? instanceLeaseId = null, string? profileFolderName = null)
         {
             return Task.FromResult(new CaptchaSolveResult { Success = true, Message = "API solved", CaptchaType = "Jigsaw" });
         }
@@ -1120,6 +1120,16 @@ public class DebugViewModelAndCdpTests
         {
             OnFetchLiveChat?.Invoke(targetChannel);
             return Task.FromResult(LiveChatMessagesToReturn);
+        }
+        public Task<OverlayInjectResult> InjectOverlaySourceAsync(int cdpPort, string overlayUrl, Action<string>? logCallback = null)
+        {
+            logCallback?.Invoke($"Fake injected: {overlayUrl}");
+            return Task.FromResult(new OverlayInjectResult
+            {
+                Success = true,
+                Message = "ส่งนาฬิกาเข้าฉากไลฟ์สำเร็จ",
+                InjectedUrl = overlayUrl
+            });
         }
         public void Dispose() { }
     }

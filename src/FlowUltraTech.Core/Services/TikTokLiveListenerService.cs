@@ -15,6 +15,8 @@ public class TikTokLiveListenerService : ITikTokLiveListenerService
 {
     private readonly ConcurrentDictionary<string, (TikTokLiveClient Client, CancellationTokenSource Cts, string RoomId)> _activeClients = new(StringComparer.OrdinalIgnoreCase);
 
+    public event Action<string, LiveChatMessageItem>? OnLiveEventReceived;
+
     public async Task<bool> StartAsync(
         string uniqueId,
         Action<LiveChatMessageItem> onEventReceived,
@@ -61,7 +63,7 @@ public class TikTokLiveListenerService : ITikTokLiveListenerService
                         timestamp = chat.TimeStamp
                     }, JsonFormatter.IndentedOptions)
                 };
-                onEventReceived(item);
+                EmitEvent(normalized, onEventReceived, item);
             }
             catch { }
         };
@@ -98,7 +100,7 @@ public class TikTokLiveListenerService : ITikTokLiveListenerService
                         streakFinished = gift.StreakFinished
                     }, JsonFormatter.IndentedOptions)
                 };
-                onEventReceived(item);
+                EmitEvent(normalized, onEventReceived, item);
             }
             catch { }
         };
@@ -126,7 +128,7 @@ public class TikTokLiveListenerService : ITikTokLiveListenerService
                         total = like.Total
                     }, JsonFormatter.IndentedOptions)
                 };
-                onEventReceived(item);
+                EmitEvent(normalized, onEventReceived, item);
             }
             catch { }
         };
@@ -153,7 +155,7 @@ public class TikTokLiveListenerService : ITikTokLiveListenerService
                         followCount = follow.FollowCount
                     }, JsonFormatter.IndentedOptions)
                 };
-                onEventReceived(item);
+                EmitEvent(normalized, onEventReceived, item);
             }
             catch { }
         };
@@ -180,7 +182,7 @@ public class TikTokLiveListenerService : ITikTokLiveListenerService
                         amount = share.Amount
                     }, JsonFormatter.IndentedOptions)
                 };
-                onEventReceived(item);
+                EmitEvent(normalized, onEventReceived, item);
             }
             catch { }
         };
@@ -206,7 +208,7 @@ public class TikTokLiveListenerService : ITikTokLiveListenerService
                         userId = join.User?.Id
                     }, JsonFormatter.IndentedOptions)
                 };
-                onEventReceived(item);
+                EmitEvent(normalized, onEventReceived, item);
             }
             catch { }
         };
@@ -249,6 +251,32 @@ public class TikTokLiveListenerService : ITikTokLiveListenerService
         }
     }
 
+    public void PublishSimulatedEvent(string uniqueId, LiveChatMessageItem item)
+    {
+        if (item == null)
+        {
+            return;
+        }
+
+        string normalized = NormalizeUsername(uniqueId ?? string.Empty);
+        EmitEvent(normalized, null, item);
+    }
+
+    private void EmitEvent(string uniqueId, Action<LiveChatMessageItem>? callback, LiveChatMessageItem item)
+    {
+        try
+        {
+            callback?.Invoke(item);
+        }
+        catch { }
+
+        try
+        {
+            OnLiveEventReceived?.Invoke(uniqueId, item);
+        }
+        catch { }
+    }
+
     public async Task StopAsync(string uniqueId)
     {
         string normalized = NormalizeUsername(uniqueId);
@@ -289,6 +317,6 @@ public class TikTokLiveListenerService : ITikTokLiveListenerService
 
     private static string NormalizeUsername(string username)
     {
-        return username.Trim().TrimStart('@');
+        return (username ?? string.Empty).Trim().TrimStart('@');
     }
 }

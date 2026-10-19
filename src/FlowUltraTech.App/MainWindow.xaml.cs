@@ -1,7 +1,12 @@
+using System.Diagnostics;
+using System.IO;
 using System.Windows;
 using FlowUltraTech.App.ViewModels;
+using FlowUltraTech.Core;
 using FlowUltraTech.Core.Interfaces;
 using FlowUltraTech.Core.Services;
+using Microsoft.Web.WebView2.Core;
+using Microsoft.Web.WebView2.Wpf;
 using Wpf.Ui.Controls;
 
 namespace FlowUltraTech.App;
@@ -9,6 +14,8 @@ namespace FlowUltraTech.App;
 public partial class MainWindow : Window
 {
     public MainViewModel ViewModel { get; }
+    private readonly Dictionary<Guid, WebView2> _overlayPreviewWebViews = new();
+    private static Task<CoreWebView2Environment>? _webViewEnvTask;
 
     public MainWindow()
     {
@@ -28,8 +35,9 @@ public partial class MainWindow : Window
             var profileManager = new ProfileManagerService();
             var telegramService = new TelegramNotificationService();
             var tikTokLive = new TikTokLiveListenerService();
+            var overlayServer = new OverlayServerService();
 
-            ViewModel = new MainViewModel(storage, orchestrator, proxifier, cdp, profileManager, telegramService, tikTokLive);
+            ViewModel = new MainViewModel(storage, orchestrator, proxifier, cdp, profileManager, telegramService, tikTokLive, overlayService: overlayServer);
             DataContext = ViewModel;
             App.Log("[MainWindow] ViewModel bound complete");
 
@@ -69,9 +77,21 @@ public partial class MainWindow : Window
             Closing += (s, e) =>
             {
                 App.Log($"[MainWindow] Closing event fired! Cancel={e.Cancel}, IsLoggingOut={_isLoggingOut}");
+                foreach (var wv in _overlayPreviewWebViews.Values)
+                {
+                    try { wv.Dispose(); } catch { }
+                }
+                _overlayPreviewWebViews.Clear();
+
                 try
                 {
                     ProcessLauncher.KillAllStudioProcesses();
+                }
+                catch { }
+
+                try
+                {
+                    ViewModel?.Cleanup();
                 }
                 catch { }
 
@@ -91,6 +111,169 @@ public partial class MainWindow : Window
         {
             App.Log($"[MainWindow] Exception in constructor: {ex}");
             throw;
+        }
+    }
+
+    private static Task<CoreWebView2Environment> GetOrCreateWebViewEnvironmentAsync()
+    {
+        if (_webViewEnvTask == null || _webViewEnvTask.IsFaulted || _webViewEnvTask.IsCanceled)
+        {
+            string userDataFolder = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                "FlowUltraTech",
+                "WebView2_OverlayPreview");
+            Directory.CreateDirectory(userDataFolder);
+            _webViewEnvTask = CoreWebView2Environment.CreateAsync(null, userDataFolder);
+        }
+        return _webViewEnvTask;
+    }
+
+    private async void OverlayPreviewHost_Loaded(object sender, RoutedEventArgs e)
+    {
+        if (sender is not System.Windows.Controls.Border hostBorder ||
+            hostBorder.DataContext is not InstanceCardViewModel vm)
+        {
+            return;
+        }
+
+        try
+        {
+            if (vm.OverlayService != null && !vm.OverlayService.IsRunning)
+            {
+                int preferredPort = ViewModel?.Settings.OverlayServerPort > 0 ? ViewModel.Settings.OverlayServerPort : 19450;
+                await vm.OverlayService.StartAsync(preferredPort);
+                vm.NotifyOverlayEndpointChanged();
+            }
+
+            string targetUrl = $"{vm.OverlayEndpointUrl}?preview=1";
+
+            if (hostBorder.Child is WebView2 existingWebView)
+            {
+                if (existingWebView.CoreWebView2 != null)
+                {
+                    existingWebView.CoreWebView2.Navigate(targetUrl);
+                }
+                return;
+            }
+
+            var webView = new WebView2
+            {
+                DefaultBackgroundColor = System.Drawing.Color.FromArgb(255, 13, 17, 26),
+                HorizontalAlignment = HorizontalAlignment.Stretch,
+                VerticalAlignment = VerticalAlignment.Stretch
+            };
+
+            hostBorder.Child = webView;
+            _overlayPreviewWebViews[vm.Profile.Id] = webView;
+
+            var env = await GetOrCreateWebViewEnvironmentAsync();
+            if (!hostBorder.IsLoaded || !ReferenceEquals(hostBorder.Child, webView))
+            {
+                return;
+            }
+
+            await webView.EnsureCoreWebView2Async(env);
+            if (webView.CoreWebView2 != null)
+            {
+                webView.CoreWebView2.Settings.AreDefaultContextMenusEnabled = false;
+                webView.CoreWebView2.Settings.AreDevToolsEnabled = false;
+                webView.CoreWebView2.Settings.IsStatusBarEnabled = false;
+                webView.CoreWebView2.Settings.IsZoomControlEnabled = false;
+                webView.CoreWebView2.Navigate($"{vm.OverlayEndpointUrl}?preview=1");
+            }
+        }
+        catch (Exception ex)
+        {
+            App.Log($"[MainWindow] WebView2 OverlayPreview init error: {ex.Message}");
+            hostBorder.Child = new System.Windows.Controls.TextBlock
+            {
+                Text = "พรีวิวพร้อมใช้งานผ่านเบราว์เซอร์ (คลิก 'เปิดเว็บ')",
+                Foreground = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(148, 163, 184)),
+                FontSize = 11,
+                TextWrapping = TextWrapping.Wrap,
+                TextAlignment = TextAlignment.Center,
+                VerticalAlignment = VerticalAlignment.Center,
+                HorizontalAlignment = HorizontalAlignment.Center,
+                Margin = new Thickness(12)
+            };
+        }
+    }
+
+    private void OverlayPreviewHost_Unloaded(object sender, RoutedEventArgs e)
+    {
+        if (sender is not System.Windows.Controls.Border hostBorder)
+        {
+            return;
+        }
+
+        if (hostBorder.DataContext is InstanceCardViewModel vm)
+        {
+            _overlayPreviewWebViews.Remove(vm.Profile.Id);
+        }
+
+        if (hostBorder.Child is WebView2 webView)
+        {
+            hostBorder.Child = null;
+            try
+            {
+                webView.Dispose();
+            }
+            catch { }
+        }
+    }
+
+    private async void ReloadOverlayPreview_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is not FrameworkElement fe || fe.DataContext is not InstanceCardViewModel vm)
+        {
+            return;
+        }
+
+        try
+        {
+            if (vm.OverlayService != null)
+            {
+                if (!vm.OverlayService.IsRunning)
+                {
+                    int preferredPort = ViewModel?.Settings.OverlayServerPort > 0 ? ViewModel.Settings.OverlayServerPort : 19450;
+                    await vm.OverlayService.StartAsync(preferredPort);
+                    vm.NotifyOverlayEndpointChanged();
+                }
+                await vm.OverlayService.UpdateConfigAsync(vm.Profile.Id, vm.Profile.Overlay);
+            }
+
+            if (_overlayPreviewWebViews.TryGetValue(vm.Profile.Id, out var webView) && webView.CoreWebView2 != null)
+            {
+                webView.CoreWebView2.Navigate($"{vm.OverlayEndpointUrl}?preview=1");
+            }
+
+            vm.OverlayStatusText = $"รีเฟรชพรีวิวสดแล้ว ({DateTime.Now:HH:mm:ss})";
+        }
+        catch (Exception ex)
+        {
+            App.Log($"[MainWindow] ReloadOverlayPreview error: {ex.Message}");
+        }
+    }
+
+    private void OpenOverlayInBrowser_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is not FrameworkElement fe || fe.DataContext is not InstanceCardViewModel vm)
+        {
+            return;
+        }
+
+        try
+        {
+            Process.Start(new ProcessStartInfo
+            {
+                FileName = vm.OverlayEndpointUrl,
+                UseShellExecute = true
+            });
+            vm.OverlayStatusText = "เปิดหน้า Overlay ในเบราว์เซอร์แล้ว";
+        }
+        catch (Exception ex)
+        {
+            App.Log($"[MainWindow] OpenOverlayInBrowser error: {ex.Message}");
         }
     }
 

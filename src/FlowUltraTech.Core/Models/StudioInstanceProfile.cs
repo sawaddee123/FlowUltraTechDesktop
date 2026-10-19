@@ -36,4 +36,7 @@ public class StudioInstanceProfile
     public string? LoggedInAvatarUrl { get; set; }
     public bool IsLoggedIn { get; set; } = false;
     public DateTime? LastProfileSync { get; set; }
+
+    // Live Proof & Realtime Clock Overlay Configuration
+    public OverlayConfig Overlay { get; set; } = new();
 }

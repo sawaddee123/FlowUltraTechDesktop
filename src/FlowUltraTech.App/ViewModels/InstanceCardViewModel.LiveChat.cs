@@ -299,6 +299,8 @@ public partial class InstanceCardViewModel : ObservableObject
                     LiveChatStatus = $"อัปเดตแชทสด @{targetChannel} ({DateTime.Now:HH:mm:ss})";
                 });
 
+                ForwardLiveEventToOverlay(item);
+
                 Logger.Info("Chat", $"[{item.TypeDisplay}] {item.SenderDisplay}: {item.Message}", item.RawJson);
 
                 // Auto-reply rule evaluation (only when TikTok Studio is running, via UI element controller)
@@ -540,6 +542,8 @@ public partial class InstanceCardViewModel : ObservableObject
 
                     if (item.IsAutoReplied || item.Type == LiveChatMessageType.AutoReply)
                         TotalAutoRepliesCount++;
+
+                    ForwardLiveEventToOverlay(item);
                 }
 
                 NotifyLiveChatCounts();
@@ -863,6 +867,8 @@ public partial class InstanceCardViewModel : ObservableObject
             NotifyLiveChatCounts();
             LiveChatStatus = $"เพิ่มแชทจำลอง ({mockItem.TypeDisplay}) จาก {mockItem.SenderDisplay}";
         });
+
+        ForwardLiveEventToOverlay(mockItem);
     }
 
     [RelayCommand]
@@ -937,7 +943,7 @@ public partial class InstanceCardViewModel : ObservableObject
             @"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe",
             @"C:\Program Files\Microsoft\Edge\Application\msedge.exe",
             @"C:\Program Files\Google\Chrome\Application\chrome.exe",
-            @"C:\Program Files\Google\Chrome\Application\chrome.exe"
+            @"C:\Program Files (x86)\Google\Chrome\Application\chrome.exe"
         ];
         string? browserExe = possibleBrowserPaths.FirstOrDefault(File.Exists);
         if (!string.IsNullOrEmpty(browserExe))
@@ -981,4 +987,445 @@ public partial class InstanceCardViewModel : ObservableObject
         }
     }
 
+    // ==========================================
+    // Real-time Clock & Anti-Rebroadcast Live Proof Overlay Studio
+    // ==========================================
+    public string[] OverlayClockModeOptions =>
+    [
+        "นาฬิกาแขวนผนังโมเดิร์น (Realistic Wall)",
+        "นาฬิกาแขวนคลาสสิก (Seiko Custom)",
+        "นาฬิกาตั้งโต๊ะสตูดิโอ 3D (Desk 3D)",
+        "นาฬิกาปลุกสองกระดิ่งวินเทจ (Twin Bell)",
+        "นาฬิกาดิจิทัลบล็อกไม้ LED (Wood Block)",
+        "นาฬิกาดิจิทัลโปร่งใส (Broadcast Clean)"
+    ];
+
+    public string[] OverlayBackgroundStyleOptions =>
+    [
+        "โปร่งใส (Transparent)",
+        "กระจกดำเข้ม (Glass Dark)",
+        "กระจกสว่าง (Glass Light)"
+    ];
+
+    public int OverlayClockModeIndex
+    {
+        get => (int)Profile.Overlay.ClockMode;
+        set
+        {
+            int clamped = Math.Clamp(value, 0, 5);
+            var mode = (OverlayClockMode)clamped;
+            if (Profile.Overlay.ClockMode != mode)
+            {
+                Profile.Overlay.ClockMode = mode;
+                OnPropertyChanged();
+                SyncOverlayConfig();
+            }
+        }
+    }
+
+    public int OverlayBackgroundStyleIndex
+    {
+        get => (int)Profile.Overlay.BackgroundStyle;
+        set
+        {
+            int clamped = Math.Clamp(value, 0, 2);
+            var style = (OverlayBackgroundStyle)clamped;
+            if (Profile.Overlay.BackgroundStyle != style)
+            {
+                Profile.Overlay.BackgroundStyle = style;
+                OnPropertyChanged();
+                SyncOverlayConfig();
+            }
+        }
+    }
+
+    public string OverlayBrandText
+    {
+        get => Profile.Overlay.BrandText;
+        set
+        {
+            string clean = value ?? string.Empty;
+            if (Profile.Overlay.BrandText != clean)
+            {
+                Profile.Overlay.BrandText = clean;
+                OnPropertyChanged();
+                SyncOverlayConfig();
+            }
+        }
+    }
+
+    public string OverlaySubtitleText
+    {
+        get => Profile.Overlay.SubtitleText;
+        set
+        {
+            string clean = value ?? string.Empty;
+            if (Profile.Overlay.SubtitleText != clean)
+            {
+                Profile.Overlay.SubtitleText = clean;
+                OnPropertyChanged();
+                SyncOverlayConfig();
+            }
+        }
+    }
+
+    public string OverlayPrimaryColorHex
+    {
+        get => Profile.Overlay.PrimaryColorHex;
+        set
+        {
+            string clean = string.IsNullOrWhiteSpace(value) ? "#F8FAFC" : value.Trim();
+            if (Profile.Overlay.PrimaryColorHex != clean)
+            {
+                Profile.Overlay.PrimaryColorHex = clean;
+                OnPropertyChanged();
+                SyncOverlayConfig();
+            }
+        }
+    }
+
+    public string OverlayAccentColorHex
+    {
+        get => Profile.Overlay.AccentColorHex;
+        set
+        {
+            string clean = string.IsNullOrWhiteSpace(value) ? "#EF4444" : value.Trim();
+            if (Profile.Overlay.AccentColorHex != clean)
+            {
+                Profile.Overlay.AccentColorHex = clean;
+                OnPropertyChanged();
+                SyncOverlayConfig();
+            }
+        }
+    }
+
+    public bool OverlayShowSeconds
+    {
+        get => Profile.Overlay.ShowSeconds;
+        set
+        {
+            if (Profile.Overlay.ShowSeconds != value)
+            {
+                Profile.Overlay.ShowSeconds = value;
+                OnPropertyChanged();
+                SyncOverlayConfig();
+            }
+        }
+    }
+
+    public bool OverlayShowThaiDate
+    {
+        get => Profile.Overlay.ShowThaiDate;
+        set
+        {
+            if (Profile.Overlay.ShowThaiDate != value)
+            {
+                Profile.Overlay.ShowThaiDate = value;
+                OnPropertyChanged();
+                SyncOverlayConfig();
+            }
+        }
+    }
+
+    public bool OverlayUse24HourFormat
+    {
+        get => Profile.Overlay.Use24HourFormat;
+        set
+        {
+            if (Profile.Overlay.Use24HourFormat != value)
+            {
+                Profile.Overlay.Use24HourFormat = value;
+                OnPropertyChanged();
+                SyncOverlayConfig();
+            }
+        }
+    }
+
+    public bool OverlayEnableGlare
+    {
+        get => Profile.Overlay.EnableGlareEffect;
+        set
+        {
+            if (Profile.Overlay.EnableGlareEffect != value)
+            {
+                Profile.Overlay.EnableGlareEffect = value;
+                OnPropertyChanged();
+                SyncOverlayConfig();
+            }
+        }
+    }
+
+    public bool OverlayEnableShadow
+    {
+        get => Profile.Overlay.EnableDynamicShadow;
+        set
+        {
+            if (Profile.Overlay.EnableDynamicShadow != value)
+            {
+                Profile.Overlay.EnableDynamicShadow = value;
+                OnPropertyChanged();
+                SyncOverlayConfig();
+            }
+        }
+    }
+
+    public bool OverlayEnableJitter
+    {
+        get => Profile.Overlay.EnableMicroJitter;
+        set
+        {
+            if (Profile.Overlay.EnableMicroJitter != value)
+            {
+                Profile.Overlay.EnableMicroJitter = value;
+                OnPropertyChanged();
+                SyncOverlayConfig();
+            }
+        }
+    }
+
+    public bool OverlayEnableLiveTicker
+    {
+        get => Profile.Overlay.EnableLiveEventTicker;
+        set
+        {
+            if (Profile.Overlay.EnableLiveEventTicker != value)
+            {
+                Profile.Overlay.EnableLiveEventTicker = value;
+                OnPropertyChanged();
+                SyncOverlayConfig();
+            }
+        }
+    }
+
+    public bool OverlayEnableFlashDeal
+    {
+        get => Profile.Overlay.EnableFlashDealCountdown;
+        set
+        {
+            if (Profile.Overlay.EnableFlashDealCountdown != value)
+            {
+                Profile.Overlay.EnableFlashDealCountdown = value;
+                OnPropertyChanged();
+                SyncOverlayConfig();
+            }
+        }
+    }
+
+    public string OverlayFlashDealTitle
+    {
+        get => Profile.Overlay.FlashDealTitle;
+        set
+        {
+            string clean = value ?? string.Empty;
+            if (Profile.Overlay.FlashDealTitle != clean)
+            {
+                Profile.Overlay.FlashDealTitle = clean;
+                OnPropertyChanged();
+                SyncOverlayConfig();
+            }
+        }
+    }
+
+    public int OverlayFlashDealDurationSeconds
+    {
+        get => Profile.Overlay.FlashDealDurationSeconds;
+        set
+        {
+            int clamped = Math.Clamp(value <= 0 ? 300 : value, 5, 86400);
+            if (Profile.Overlay.FlashDealDurationSeconds != clamped)
+            {
+                Profile.Overlay.FlashDealDurationSeconds = clamped;
+                OnPropertyChanged();
+                SyncOverlayConfig();
+            }
+        }
+    }
+
+    public string OverlayEndpointUrl =>
+        _overlayService != null && _overlayService.ActivePort > 0
+            ? _overlayService.GetOverlayUrl(Profile.Id)
+            : $"http://127.0.0.1:{(_settings.OverlayServerPort > 0 ? _settings.OverlayServerPort : 19450)}/overlay/{Profile.Id:D}";
+
+    public void NotifyOverlayEndpointChanged() => OnPropertyChanged(nameof(OverlayEndpointUrl));
+
+    [ObservableProperty]
+    private string _overlayStatusText = "พร้อมซิงก์เวลาจริง";
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(CanInjectOverlay))]
+    [NotifyPropertyChangedFor(nameof(InjectOverlayButtonText))]
+    private bool _isInjectingOverlay;
+
+    public bool CanInjectOverlay => !IsInjectingOverlay;
+    public string InjectOverlayButtonText => IsInjectingOverlay ? "กำลังส่งเข้าฉาก..." : "ส่งเข้า TikTok Studio";
+
+    private void SyncOverlayConfig()
+    {
+        if (_overlayService != null)
+        {
+            _ = _overlayService.UpdateConfigAsync(Profile.Id, Profile.Overlay);
+        }
+
+        _onStateChanged?.Invoke();
+        OverlayStatusText = $"อัปเดต Overlay เรียลไทม์ ({DateTime.Now:HH:mm:ss})";
+    }
+
+    private void OnExternalLiveEventReceived(string channel, LiveChatMessageItem item)
+    {
+        if (item == null) return;
+
+        string targetChannel = !string.IsNullOrWhiteSpace(StreamerUsername)
+            ? NormalizeUsername(StreamerUsername)
+            : NormalizeUsername(LoggedInDisplayId);
+
+        if (!string.IsNullOrWhiteSpace(targetChannel) &&
+            !string.IsNullOrWhiteSpace(channel) &&
+            !string.Equals(targetChannel, NormalizeUsername(channel), StringComparison.OrdinalIgnoreCase))
+        {
+            return;
+        }
+
+        ForwardLiveEventToOverlay(item);
+    }
+
+    internal void ForwardLiveEventToOverlay(LiveChatMessageItem? item)
+    {
+        if (item == null || _overlayService == null || !Profile.Overlay.EnableLiveEventTicker)
+        {
+            return;
+        }
+
+        string eventType = item.Type switch
+        {
+            LiveChatMessageType.Gift => "gift",
+            LiveChatMessageType.Like => "like",
+            LiveChatMessageType.Follow => "follow",
+            LiveChatMessageType.Share => "follow",
+            LiveChatMessageType.Other => "join",
+            _ => "chat"
+        };
+
+        var payload = new OverlayLiveEventPayload
+        {
+            EventType = eventType,
+            Nickname = !string.IsNullOrWhiteSpace(item.Nickname) ? item.Nickname : (item.Username ?? "ผู้ชม"),
+            Username = item.Username ?? string.Empty,
+            Message = !string.IsNullOrWhiteSpace(item.Message) ? item.Message : (item.GiftName ?? string.Empty),
+            BadgeText = item.TypeDisplay,
+            Timestamp = item.Timestamp == default ? DateTime.Now : item.Timestamp
+        };
+
+        _ = _overlayService.BroadcastLiveEventAsync(Profile.Id, payload);
+    }
+
+    [RelayCommand]
+    public void OpenOverlayTab()
+    {
+        IsDetailOpen = true;
+        SelectedDetailTabIndex = 7;
+        OnPropertyChanged(nameof(IsDetailExpanded));
+        OnPropertyChanged(nameof(DetailButtonText));
+        OnPropertyChanged(nameof(DetailVisibility));
+        OnPropertyChanged(nameof(OverlayEndpointUrl));
+    }
+
+    [RelayCommand]
+    public void CopyOverlayUrl()
+    {
+        try
+        {
+            Clipboard.SetText(OverlayEndpointUrl);
+        }
+        catch { }
+
+        OverlayStatusText = "คัดลอกลิงก์ Overlay แล้ว";
+    }
+
+    [RelayCommand]
+    public async Task InjectOverlayAsync()
+    {
+        if (IsInjectingOverlay)
+        {
+            return;
+        }
+
+        IsInjectingOverlay = true;
+        OverlayStatusText = "กำลังส่งเข้าฉาก...";
+        try
+        {
+            var result = await _cdpService.InjectOverlaySourceAsync(
+                CdpPort,
+                OverlayEndpointUrl,
+                msg => RunOnUi(() => OverlayStatusText = msg));
+
+            OverlayStatusText = result.Message;
+            if (!result.Success)
+            {
+                try
+                {
+                    Clipboard.SetText(OverlayEndpointUrl);
+                }
+                catch { }
+            }
+        }
+        finally
+        {
+            IsInjectingOverlay = false;
+        }
+    }
+
+    [RelayCommand]
+    public async Task TriggerFlashDealAsync()
+    {
+        int duration = OverlayFlashDealDurationSeconds > 0 ? OverlayFlashDealDurationSeconds : 300;
+        Profile.Overlay.EnableFlashDealCountdown = true;
+        Profile.Overlay.FlashDealDurationSeconds = duration;
+        Profile.Overlay.FlashDealEndsAtUtc = DateTime.UtcNow.AddSeconds(duration);
+        OnPropertyChanged(nameof(OverlayEnableFlashDeal));
+
+        if (_overlayService != null)
+        {
+            await _overlayService.TriggerFlashDealAsync(Profile.Id, OverlayFlashDealTitle, duration);
+        }
+
+        _onStateChanged?.Invoke();
+        OverlayStatusText = $"เริ่มนาทีทอง ({duration} วินาที)";
+    }
+
+    [RelayCommand]
+    public async Task StopFlashDealAsync()
+    {
+        Profile.Overlay.EnableFlashDealCountdown = false;
+        Profile.Overlay.FlashDealEndsAtUtc = null;
+        OnPropertyChanged(nameof(OverlayEnableFlashDeal));
+
+        if (_overlayService != null)
+        {
+            await _overlayService.StopFlashDealAsync(Profile.Id);
+        }
+
+        _onStateChanged?.Invoke();
+        OverlayStatusText = "หยุดนาทีทองแล้ว";
+    }
+
+    [RelayCommand]
+    public async Task SendTestOverlayEventAsync()
+    {
+        var payload = new OverlayLiveEventPayload
+        {
+            EventType = "gift",
+            Nickname = !string.IsNullOrWhiteSpace(LoggedInNickname) ? LoggedInNickname : "คุณลูกค้า VIP",
+            Username = !string.IsNullOrWhiteSpace(LoggedInDisplayId) ? LoggedInDisplayId : "vip_viewer",
+            Message = "ส่งของขวัญ กุหลาบ x9 • ยืนยันเวลาจริง",
+            BadgeText = "ของขวัญ",
+            Timestamp = DateTime.Now
+        };
+
+        if (_overlayService != null)
+        {
+            await _overlayService.BroadcastLiveEventAsync(Profile.Id, payload);
+        }
+
+        OverlayStatusText = "ส่งอีเวนต์ทดสอบเข้าป้ายสดแล้ว";
+    }
 }

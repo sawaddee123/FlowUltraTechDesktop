@@ -49,6 +49,8 @@ public class AppSettings
     public bool TelegramAlertOnFailed { get; set; } = true;
     public bool TelegramSendPhoto { get; set; } = true;
 
+    public int OverlayServerPort { get; set; } = 19450;
+
     public List<StudioInstanceProfile> Instances { get; set; } = new();
     public List<ProxyItem> Proxies { get; set; } = new();
     public List<AutomationRule> Rules { get; set; } = new();

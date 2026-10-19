@@ -290,6 +290,25 @@ public partial class InstanceCardViewModel : ObservableObject
         _ => "📁 โหมด: Direct Profile (แยกโฟลเดอร์)"
     };
 
+    private readonly IOverlayServerService? _overlayService;
+    private readonly Action? _onStateChanged;
+
+    public IOverlayServerService? OverlayService => _overlayService;
+
+    public bool IsDetailExpanded
+    {
+        get => IsDetailOpen;
+        set
+        {
+            if (IsDetailOpen != value)
+            {
+                IsDetailOpen = value;
+                OnPropertyChanged();
+                OnPropertyChanged(nameof(DetailButtonText));
+                OnPropertyChanged(nameof(DetailVisibility));
+            }
+        }
+    }
 
     public InstanceCardViewModel(
         StudioInstanceProfile profile, 
@@ -303,9 +322,12 @@ public partial class InstanceCardViewModel : ObservableObject
         ITikTokLiveListenerService? liveListenerService = null,
         ISlotLeaseClientService? slotLeaseService = null,
         IWindowController? windowController = null,
-        IAuthClientService? authClientService = null)
+        IAuthClientService? authClientService = null,
+        IOverlayServerService? overlayService = null,
+        Action? onStateChanged = null)
     {
         Profile = profile;
+        Profile.Overlay ??= new OverlayConfig();
         _settings = settings;
         _orchestrator = orchestrator;
         _windowController = windowController ?? new WindowController();
@@ -316,6 +338,16 @@ public partial class InstanceCardViewModel : ObservableObject
         _liveListenerService = liveListenerService ?? new TikTokLiveListenerService();
         _slotLeaseService = slotLeaseService ?? new SlotLeaseClientService(defaultBaseEndpoint: _settings.AuthApiEndpoint);
         _authService = authClientService;
+        _overlayService = overlayService;
+        _onStateChanged = onStateChanged;
+
+        if (_overlayService != null)
+        {
+            _ = _overlayService.UpdateConfigAsync(Profile.Id, Profile.Overlay);
+        }
+
+        _liveListenerService.OnLiveEventReceived += OnExternalLiveEventReceived;
+
         var logMgr = logManager ?? InstanceLogManager.Shared;
         Logger = logMgr.GetLogger(profile);
 
