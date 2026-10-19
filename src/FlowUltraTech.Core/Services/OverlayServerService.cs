@@ -793,7 +793,7 @@ public class OverlayServerService : IOverlayServerService
     }
 
     body.is-preview-mode .overlay-stage {
-      zoom: 0.62;
+      zoom: 0.72;
     }
 
     .overlay-stage {
@@ -801,11 +801,11 @@ public class OverlayServerService : IOverlayServerService
       display: inline-flex;
       flex-direction: column;
       align-items: center;
-      gap: 10px;
-      padding: 18px 20px;
-      border-radius: 24px;
+      gap: 8px;
+      padding: 14px 16px;
+      border-radius: 22px;
       transition: background-color 280ms var(--ease-out-quart), opacity 240ms var(--ease-out-quart), transform 280ms var(--ease-out-expo);
-      max-width: 360px;
+      max-width: 340px;
     }
 
     .overlay-stage.is-hidden {
@@ -817,6 +817,7 @@ public class OverlayServerService : IOverlayServerService
     /* Background Surface Modes (ui-craft-clarity Tonal Surfaces) */
     .overlay-stage[data-bg="Transparent"] {
       background: transparent;
+      padding: 4px 6px;
     }
 
     .overlay-stage[data-bg="GlassDark"] {
@@ -835,8 +836,18 @@ public class OverlayServerService : IOverlayServerService
     }
 
     /* Realistic Camera Physics: Dynamic Shadow, Micro-Jitter, Specular Glare */
-    .overlay-stage.fx-shadow .clock-viewport {
-      filter: drop-shadow(0 16px 28px rgba(2, 6, 23, 0.52)) drop-shadow(0 4px 10px rgba(2, 6, 23, 0.32));
+    .overlay-stage.fx-shadow .face-analog .analog-svg {
+      filter: drop-shadow(0 14px 24px rgba(2, 6, 23, 0.50)) drop-shadow(0 4px 8px rgba(2, 6, 23, 0.30));
+    }
+
+    .overlay-stage:not(.fx-shadow) .wood-block-chassis {
+      box-shadow:
+        inset 0 2px 1px rgba(255, 232, 204, 0.22),
+        inset 0 -6px 12px rgba(10, 5, 2, 0.65);
+    }
+
+    .overlay-stage:not(.fx-shadow) .digital-clean-card {
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.10);
     }
 
     @keyframes cameraBreathingJitter {
@@ -856,25 +867,23 @@ public class OverlayServerService : IOverlayServerService
       display: flex;
       flex-direction: column;
       align-items: center;
-      gap: 10px;
+      gap: 8px;
       width: 100%;
     }
 
     .clock-viewport {
       position: relative;
-      width: 248px;
-      height: 248px;
+      width: auto;
+      height: auto;
       display: flex;
       align-items: center;
       justify-content: center;
       transition: transform 320ms var(--ease-out-expo);
     }
 
-    /* Specular Glass Glare Sweep */
+    /* Specular Glass Glare Sweep (Strictly Clipped to Clock Geometry) */
     .glare-layer {
       position: absolute;
-      inset: 10px;
-      border-radius: 50%;
       pointer-events: none;
       overflow: hidden;
       opacity: 0;
@@ -882,10 +891,22 @@ public class OverlayServerService : IOverlayServerService
       z-index: 15;
     }
 
-    .clock-viewport[data-mode="WoodBlockLed"] .glare-layer,
-    .clock-viewport[data-mode="DigitalClean"] .glare-layer {
-      inset: 28px 8px;
-      border-radius: 18px;
+    .glare-analog {
+      width: 170px;
+      height: 170px;
+      left: 50%;
+      top: 124px;
+      transform: translate(-50%, -50%);
+      border-radius: 50%;
+    }
+
+    .clock-viewport[data-mode="Desk3D"] .glare-analog {
+      transform: translate(-50%, -50%) perspective(640px) rotateX(11deg) translateY(-4px);
+    }
+
+    .glare-card {
+      inset: 0;
+      border-radius: inherit;
     }
 
     .overlay-stage.fx-glare .glare-layer {
@@ -898,26 +919,24 @@ public class OverlayServerService : IOverlayServerService
       inset: -40%;
       background: linear-gradient(
         118deg,
-        rgba(255, 255, 255, 0) 34%,
-        rgba(255, 255, 255, 0.18) 47%,
+        rgba(255, 255, 255, 0) 36%,
+        rgba(255, 255, 255, 0.16) 48%,
         rgba(255, 255, 255, 0.04) 53%,
-        rgba(255, 255, 255, 0) 64%
+        rgba(255, 255, 255, 0) 62%
       );
       transform: translate3d(-28%, -12%, 0) rotate(-8deg);
       animation: specularSweep 7.5s var(--ease-out-expo) infinite;
     }
 
     @keyframes specularSweep {
-      0%, 15% { transform: translate3d(-38%, -18%, 0) rotate(-8deg); }
-      55%     { transform: translate3d(26%, 16%, 0) rotate(-8deg); }
-      100%    { transform: translate3d(-38%, -18%, 0) rotate(-8deg); }
+      0%, 15% { transform: translate3d(-42%, -20%, 0) rotate(-8deg); }
+      55%     { transform: translate3d(32%, 18%, 0) rotate(-8deg); }
+      100%    { transform: translate3d(-42%, -20%, 0) rotate(-8deg); }
     }
 
     /* Mode Visibility Architecture */
     .clock-face {
       display: none;
-      width: 100%;
-      height: 100%;
       position: relative;
       align-items: center;
       justify-content: center;
@@ -928,6 +947,8 @@ public class OverlayServerService : IOverlayServerService
     .clock-viewport[data-mode="Desk3D"] .face-analog,
     .clock-viewport[data-mode="TwinBell"] .face-analog {
       display: flex;
+      width: 240px;
+      height: 240px;
     }
 
     .clock-viewport[data-mode="WoodBlockLed"] .face-wood {
@@ -990,10 +1011,11 @@ public class OverlayServerService : IOverlayServerService
     /* Mode 4: WoodBlockLed (Tactile 3D Timber Block + Warm Phosphor LED) */
     .wood-block-chassis {
       position: relative;
-      width: 244px;
-      min-height: 138px;
+      overflow: hidden;
+      width: 264px;
+      min-height: 132px;
       border-radius: 18px;
-      padding: 18px 18px 14px;
+      padding: 16px 18px 14px;
       background:
         repeating-linear-gradient(
           92deg,
@@ -1006,7 +1028,7 @@ public class OverlayServerService : IOverlayServerService
       box-shadow:
         inset 0 2px 1px rgba(255, 232, 204, 0.22),
         inset 0 -6px 12px rgba(10, 5, 2, 0.65),
-        0 14px 26px rgba(2, 6, 23, 0.48);
+        0 12px 24px rgba(2, 6, 23, 0.45);
       display: flex;
       flex-direction: column;
       justify-content: space-between;
@@ -1057,10 +1079,12 @@ public class OverlayServerService : IOverlayServerService
 
     /* Mode 5: DigitalClean (Broadcast Swiss Typography HUD) */
     .digital-clean-card {
-      width: 244px;
-      padding: 16px 18px;
-      border-radius: 20px;
-      background: linear-gradient(155deg, rgba(15, 23, 42, 0.88) 0%, rgba(11, 15, 25, 0.94) 100%);
+      position: relative;
+      overflow: hidden;
+      width: 264px;
+      padding: 15px 18px;
+      border-radius: 18px;
+      background: linear-gradient(155deg, rgba(15, 23, 42, 0.90) 0%, rgba(11, 15, 25, 0.96) 100%);
       box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.10), 0 12px 24px rgba(2, 6, 23, 0.42);
       display: flex;
       flex-direction: column;
@@ -1323,11 +1347,11 @@ public class OverlayServerService : IOverlayServerService
     <div class="camera-rig">
       <!-- Clock Viewport supporting all 6 Horological Modes -->
       <section id="clockViewport" class="clock-viewport" data-mode="{{initialConfig.ClockMode}}">
-        <div class="glare-layer" aria-hidden="true"></div>
         <div class="desk-pedestal" aria-hidden="true"></div>
 
         <!-- Modes 0..3: High-Precision SVG Horological Dial -->
         <div class="clock-face face-analog">
+          <div class="glare-layer glare-analog" aria-hidden="true"></div>
           <svg class="analog-svg" viewBox="0 0 240 240" aria-label="Broadcast Analog Clock">
             <defs>
               <linearGradient id="metalBezel" x1="0%" y1="0%" x2="100%" y2="100%">
@@ -1414,6 +1438,7 @@ public class OverlayServerService : IOverlayServerService
         <!-- Mode 4: WoodBlockLed -->
         <div class="clock-face face-wood">
           <div class="wood-block-chassis">
+            <div class="glare-layer glare-card" aria-hidden="true"></div>
             <div class="wood-top-row">
               <span id="woodBrandText" class="truncate-text" style="max-width: 120px;">LIVE STUDIO</span>
               <span id="woodSubtitleText" class="truncate-text" style="max-width: 90px;">VERIFIED</span>
@@ -1431,6 +1456,7 @@ public class OverlayServerService : IOverlayServerService
         <!-- Mode 5: DigitalClean -->
         <div class="clock-face face-digital-clean">
           <div class="digital-clean-card">
+            <div class="glare-layer glare-card" aria-hidden="true"></div>
             <div class="digital-header-row">
               <span class="digital-brand-pill">
                 <span class="status-dot" aria-hidden="true"></span>

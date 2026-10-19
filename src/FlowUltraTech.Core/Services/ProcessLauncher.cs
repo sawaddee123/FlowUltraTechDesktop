@@ -107,7 +107,20 @@ public class ProcessLauncher : IProcessLauncher
             ? $"--disable-gpu --disable-gpu-compositing --disable-software-rasterizer --disable-d3d11 --disable-accelerated-2d-canvas --disable-gpu-rasterization --no-sandbox {antiThrottlingFlags}"
             : $"{antiThrottlingFlags} {settings.DefaultChromiumFlags}".Trim();
 
-        string chromiumArgs = $"--remote-debugging-port={instance.CdpPort} {baseFlags} {instance.CustomChromiumFlags}".Trim();
+        string proxyFlags = string.Empty;
+        var effectiveProxy = LocalProxyBridgeService.ResolveEffectiveProxy(instance, settings);
+        if (effectiveProxy != null)
+        {
+            int localBridgePort = LocalProxyBridgeService.Shared.EnsureBridgeForInstance(instance.Id, effectiveProxy);
+            proxyFlags = $"--proxy-server=\"http://127.0.0.1:{localBridgePort}\" --proxy-bypass-list=\"<-loopback>\"";
+            logger.Info("Proxy", $"Native Proxy Bridge active on 127.0.0.1:{localBridgePort} -> {effectiveProxy.Protocol}://{effectiveProxy.Host}:{effectiveProxy.Port} (Auth: {(!string.IsNullOrEmpty(effectiveProxy.Username) ? "Yes" : "No")})");
+        }
+        else
+        {
+            LocalProxyBridgeService.Shared.StopBridgeForInstance(instance.Id);
+        }
+
+        string chromiumArgs = $"--remote-debugging-port={instance.CdpPort} {proxyFlags} {baseFlags} {instance.CustomChromiumFlags}".Trim();
 
         ProcessStartInfo startInfo;
 
@@ -269,6 +282,7 @@ public class ProcessLauncher : IProcessLauncher
     {
         var logger = _logManager.GetLogger(instance);
         logger.Info("Process", $"Terminating instance '{instance.Name}' (Port: {instance.CdpPort}, PID: {instance.ProcessId})...");
+        LocalProxyBridgeService.Shared.StopBridgeForInstance(instance.Id);
         bool killed = false;
         var pidsToKill = new HashSet<int>();
         var rootPids = new HashSet<int>();

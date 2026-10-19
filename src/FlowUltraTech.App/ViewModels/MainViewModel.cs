@@ -486,6 +486,10 @@ public partial class MainViewModel : ObservableObject
             inst.Profile.ProcessId,
             inst.Profile.StartedAt,
             inst.Profile.ProxyId,
+            inst.Profile.UseCustomProxy,
+            inst.Profile.ProxyProtocol,
+            inst.Profile.ProxyHost,
+            inst.Profile.ProxyPort,
             inst.IsLoggedIn,
             inst.LoggedInNickname,
             inst.LoggedInDisplayId,
@@ -551,7 +555,11 @@ public partial class MainViewModel : ObservableObject
                     }
 
                     string proxyStr = "Direct";
-                    if (inst.ProxyId.HasValue)
+                    if (inst.UseCustomProxy && !string.IsNullOrWhiteSpace(inst.ProxyHost))
+                    {
+                        proxyStr = $"{inst.ProxyProtocol}://{inst.ProxyHost}:{inst.ProxyPort}";
+                    }
+                    else if (inst.ProxyId.HasValue)
                     {
                         var p = Proxies.FirstOrDefault(x => x.Id == inst.ProxyId.Value);
                         if (p != null)
@@ -901,6 +909,36 @@ public partial class MainViewModel : ObservableObject
                 catch { }
             });
         }
+    }
+
+    [RelayCommand]
+    public async Task TestProxyItemAsync(ProxyItem? proxy)
+    {
+        if (proxy == null) return;
+        StatusNotification = $"กำลังทดสอบ {proxy.Name} ({proxy.Protocol}://{proxy.Host}:{proxy.Port})...";
+        var res = await LocalProxyBridgeService.Shared.TestProxyAsync(proxy);
+        StatusNotification = $"[{proxy.Name}] {res.Message}";
+    }
+
+    [RelayCommand]
+    public void ApplyNativeProxies()
+    {
+        _storageService.SaveSettings(Settings);
+        int activeCount = 0;
+        foreach (var card in Instances)
+        {
+            var effective = LocalProxyBridgeService.ResolveEffectiveProxy(card.Profile, Settings);
+            if (effective != null)
+            {
+                LocalProxyBridgeService.Shared.EnsureBridgeForInstance(card.Profile.Id, effective);
+                activeCount++;
+            }
+            else
+            {
+                LocalProxyBridgeService.Shared.StopBridgeForInstance(card.Profile.Id);
+            }
+        }
+        StatusNotification = $"บันทึกและเปิดใช้งาน Native Proxy Bridge เรียบร้อย ({activeCount} บัญชีใช้งาน Proxy โดยไม่ต้องพึ่ง Proxifier)";
     }
 
     [RelayCommand]

@@ -292,7 +292,7 @@ public partial class InstanceCardViewModel : ObservableObject
                         TotalOtherCount++;
                     }
 
-                    if (item.IsAutoReplied || item.Type == LiveChatMessageType.AutoReply)
+                    if (item.Type == LiveChatMessageType.AutoReply)
                         TotalAutoRepliesCount++;
 
                     NotifyLiveChatCounts();
@@ -303,65 +303,10 @@ public partial class InstanceCardViewModel : ObservableObject
 
                 Logger.Info("Chat", $"[{item.TypeDisplay}] {item.SenderDisplay}: {item.Message}", item.RawJson);
 
-                // Auto-reply rule evaluation (only when TikTok Studio is running, via UI element controller)
-                if (IsAutoReplyEnabled && Status == InstanceStatus.Running && _settings.Rules != null && _settings.Rules.Count > 0)
+                // Auto-reply evaluation (5-mode AutoReply Studio + Global Rules)
+                if (IsAutoReplyEnabled && Status == InstanceStatus.Running)
                 {
-                    if (item.Type == LiveChatMessageType.Chat && !string.IsNullOrWhiteSpace(item.Message))
-                    {
-                        var chatMsg = new LiveChatMessage(item.Username, item.Nickname, item.Message);
-                        string? replyText = _ruleEngine.EvaluateChatRule(_settings.Rules, chatMsg);
-                        if (!string.IsNullOrWhiteSpace(replyText))
-                        {
-                            item.IsAutoReplied = true;
-                            item.AutoReplyContent = replyText;
-                            _ = Task.Run(async () =>
-                            {
-                                await _orchestrator.SendChatAsync(Profile, replyText);
-                            });
-                        }
-                    }
-                    else if (item.Type == LiveChatMessageType.Gift)
-                    {
-                        var giftMsg = new LiveGiftMessage(item.Username, item.Nickname, item.GiftName ?? "Gift", item.DiamondCount, item.RepeatCount);
-                        string? replyText = _ruleEngine.EvaluateGiftRule(_settings.Rules, giftMsg);
-                        if (!string.IsNullOrWhiteSpace(replyText))
-                        {
-                            item.IsAutoReplied = true;
-                            item.AutoReplyContent = replyText;
-                            _ = Task.Run(async () =>
-                            {
-                                await _orchestrator.SendChatAsync(Profile, replyText);
-                            });
-                        }
-                    }
-                    else if (item.Type == LiveChatMessageType.Follow)
-                    {
-                        var joinMsg = new LiveJoinMessage(item.Username, item.Nickname);
-                        string? replyText = _ruleEngine.EvaluateJoinRule(_settings.Rules, joinMsg);
-                        if (!string.IsNullOrWhiteSpace(replyText))
-                        {
-                            item.IsAutoReplied = true;
-                            item.AutoReplyContent = replyText;
-                            _ = Task.Run(async () =>
-                            {
-                                await _orchestrator.SendChatAsync(Profile, replyText);
-                            });
-                        }
-                    }
-                    else if (item.Type == LiveChatMessageType.Like)
-                    {
-                        var likeMsg = new LiveLikeMessage(item.Username, item.Nickname, item.RepeatCount, TotalLikeFollowCount);
-                        string? replyText = _ruleEngine.EvaluateLikeRule(_settings.Rules, likeMsg);
-                        if (!string.IsNullOrWhiteSpace(replyText))
-                        {
-                            item.IsAutoReplied = true;
-                            item.AutoReplyContent = replyText;
-                            _ = Task.Run(async () =>
-                            {
-                                await _orchestrator.SendChatAsync(Profile, replyText);
-                            });
-                        }
-                    }
+                    _ = EvaluateAndDispatchAutoReplyAsync(item, sendToRoom: true);
                 }
             },
             onStatusChanged: (status) =>
@@ -451,69 +396,9 @@ public partial class InstanceCardViewModel : ObservableObject
 
             foreach (var item in newItems)
             {
-                // Evaluate rules if AutoReply is enabled
-                if (IsAutoReplyEnabled && _settings.Rules != null && _settings.Rules.Count > 0)
+                if (IsAutoReplyEnabled)
                 {
-                    if (item.Type == LiveChatMessageType.Chat && !string.IsNullOrWhiteSpace(item.Message))
-                    {
-                        var chatMsg = new LiveChatMessage(item.Username, item.Nickname, item.Message);
-                        string? replyText = _ruleEngine.EvaluateChatRule(_settings.Rules, chatMsg);
-                        if (!string.IsNullOrWhiteSpace(replyText))
-                        {
-                            item.IsAutoReplied = true;
-                            item.AutoReplyContent = replyText;
-
-                            _ = Task.Run(async () =>
-                            {
-                                await _orchestrator.SendChatAsync(Profile, replyText);
-                            });
-                        }
-                    }
-                    else if (item.Type == LiveChatMessageType.Gift)
-                    {
-                        var giftMsg = new LiveGiftMessage(item.Username, item.Nickname, item.GiftName ?? "Gift", item.DiamondCount, item.RepeatCount);
-                        string? replyText = _ruleEngine.EvaluateGiftRule(_settings.Rules, giftMsg);
-                        if (!string.IsNullOrWhiteSpace(replyText))
-                        {
-                            item.IsAutoReplied = true;
-                            item.AutoReplyContent = replyText;
-
-                            _ = Task.Run(async () =>
-                            {
-                                await _orchestrator.SendChatAsync(Profile, replyText);
-                            });
-                        }
-                    }
-                    else if (item.Type == LiveChatMessageType.Follow)
-                    {
-                        var joinMsg = new LiveJoinMessage(item.Username, item.Nickname);
-                        string? replyText = _ruleEngine.EvaluateJoinRule(_settings.Rules, joinMsg);
-                        if (!string.IsNullOrWhiteSpace(replyText))
-                        {
-                            item.IsAutoReplied = true;
-                            item.AutoReplyContent = replyText;
-
-                            _ = Task.Run(async () =>
-                            {
-                                await _orchestrator.SendChatAsync(Profile, replyText);
-                            });
-                        }
-                    }
-                    else if (item.Type == LiveChatMessageType.Like)
-                    {
-                        var likeMsg = new LiveLikeMessage(item.Username, item.Nickname, item.RepeatCount, TotalLikeFollowCount);
-                        string? replyText = _ruleEngine.EvaluateLikeRule(_settings.Rules, likeMsg);
-                        if (!string.IsNullOrWhiteSpace(replyText))
-                        {
-                            item.IsAutoReplied = true;
-                            item.AutoReplyContent = replyText;
-
-                            _ = Task.Run(async () =>
-                            {
-                                await _orchestrator.SendChatAsync(Profile, replyText);
-                            });
-                        }
-                    }
+                    await EvaluateAndDispatchAutoReplyAsync(item, sendToRoom: Status == InstanceStatus.Running);
                 }
             }
 
@@ -540,7 +425,7 @@ public partial class InstanceCardViewModel : ObservableObject
                         TotalOtherCount++;
                     }
 
-                    if (item.IsAutoReplied || item.Type == LiveChatMessageType.AutoReply)
+                    if (item.Type == LiveChatMessageType.AutoReply)
                         TotalAutoRepliesCount++;
 
                     ForwardLiveEventToOverlay(item);
@@ -734,12 +619,12 @@ public partial class InstanceCardViewModel : ObservableObject
         string[] sampleUsers = ["somchai_live", "kaew_streamer", "tiktok_fan99", "gamer_pro_th", "lisa_blackpink_fan", "john_doe_999"];
         string[] sampleNicks = ["สมชาย สายเปย์", "น้องแก้ว", "แฟนคลับ TikTok", "เซียนเกมเมอร์", "ลิซ่า FC", "John Thailand"];
         string[] sampleChats = [
-            "สวัสดีครับแอดมิน!",
-            "ไลฟ์สนุกมากครับ วันนี้มีแจกอะไรไหม",
-            "แวะมาทักทายจ้า สู้ๆ นะคะ",
-            "วันนี้ภาพคมชัดมากครับ",
-            "กดติดตามแล้วนะคะ อย่าลืมฟอลกลับนะ",
-            "ขอบคุณสำหรับสาระดีๆ ครับ"
+            "ตัวนี้ราคาเท่าไหร่ กี่บาท",
+            "มีส่งฟรีไหม ค่าส่งเท่าไหร่",
+            "มีของไหม พร้อมส่งเลยหรือเปล่า",
+            "ไลฟ์สนุกมาก วันนี้มีโปรอะไรไหม",
+            "สนใจสินค้าในตะกร้า สั่งยังไง",
+            "แวะมาทักทาย สู้ๆ นะ"
         ];
         string[] sampleGifts = ["Rose (กุหลาบ)", "TikTok (หัวใจ)", "Finger Heart (มินิฮาร์ท)", "Galaxy (กาแล็กซี่)", "Dragon (มังกร)"];
         int[] sampleDiamonds = [1, 5, 10, 1000, 5000];
@@ -748,7 +633,7 @@ public partial class InstanceCardViewModel : ObservableObject
         int userIdx = random.Next(0, sampleUsers.Length);
 
         LiveChatMessageItem mockItem;
-        if (roll < 5) // Normal Chat
+        if (roll < 6) // Normal Chat
         {
             mockItem = new LiveChatMessageItem
             {
@@ -785,61 +670,16 @@ public partial class InstanceCardViewModel : ObservableObject
                 Timestamp = DateTime.Now
             };
         }
-        else // Follow
+        else // Follow / Join
         {
             mockItem = new LiveChatMessageItem
             {
                 Type = LiveChatMessageType.Follow,
                 Username = sampleUsers[userIdx],
                 Nickname = sampleNicks[userIdx],
-                Message = "เริ่มติดตามผู้จัด",
+                Message = "เข้าชมและติดตามผู้จัด",
                 Timestamp = DateTime.Now
             };
-        }
-
-        // Auto reply check
-        if (IsAutoReplyEnabled && _settings.Rules != null && _settings.Rules.Count > 0)
-        {
-            if (mockItem.Type == LiveChatMessageType.Chat)
-            {
-                var chatMsg = new LiveChatMessage(mockItem.Username, mockItem.Nickname, mockItem.Message);
-                string? replyText = _ruleEngine.EvaluateChatRule(_settings.Rules, chatMsg);
-                if (!string.IsNullOrWhiteSpace(replyText))
-                {
-                    mockItem.IsAutoReplied = true;
-                    mockItem.AutoReplyContent = replyText;
-                }
-            }
-            else if (mockItem.Type == LiveChatMessageType.Gift)
-            {
-                var giftMsg = new LiveGiftMessage(mockItem.Username, mockItem.Nickname, mockItem.GiftName ?? "Gift", mockItem.DiamondCount, mockItem.RepeatCount);
-                string? replyText = _ruleEngine.EvaluateGiftRule(_settings.Rules, giftMsg);
-                if (!string.IsNullOrWhiteSpace(replyText))
-                {
-                    mockItem.IsAutoReplied = true;
-                    mockItem.AutoReplyContent = replyText;
-                }
-            }
-            else if (mockItem.Type == LiveChatMessageType.Follow)
-            {
-                var joinMsg = new LiveJoinMessage(mockItem.Username, mockItem.Nickname);
-                string? replyText = _ruleEngine.EvaluateJoinRule(_settings.Rules, joinMsg);
-                if (!string.IsNullOrWhiteSpace(replyText))
-                {
-                    mockItem.IsAutoReplied = true;
-                    mockItem.AutoReplyContent = replyText;
-                }
-            }
-            else if (mockItem.Type == LiveChatMessageType.Like)
-            {
-                var likeMsg = new LiveLikeMessage(mockItem.Username, mockItem.Nickname, mockItem.RepeatCount, TotalLikeFollowCount);
-                string? replyText = _ruleEngine.EvaluateLikeRule(_settings.Rules, likeMsg);
-                if (!string.IsNullOrWhiteSpace(replyText))
-                {
-                    mockItem.IsAutoReplied = true;
-                    mockItem.AutoReplyContent = replyText;
-                }
-            }
         }
 
         RunOnUi(() =>
@@ -861,12 +701,14 @@ public partial class InstanceCardViewModel : ObservableObject
                 TotalOtherCount++;
             }
 
-            if (mockItem.IsAutoReplied)
-                TotalAutoRepliesCount++;
-
             NotifyLiveChatCounts();
             LiveChatStatus = $"เพิ่มแชทจำลอง ({mockItem.TypeDisplay}) จาก {mockItem.SenderDisplay}";
         });
+
+        if (IsAutoReplyEnabled)
+        {
+            _ = EvaluateAndDispatchAutoReplyAsync(mockItem, sendToRoom: Status == InstanceStatus.Running);
+        }
 
         ForwardLiveEventToOverlay(mockItem);
     }
@@ -1427,5 +1269,816 @@ public partial class InstanceCardViewModel : ObservableObject
         }
 
         OverlayStatusText = "ส่งอีเวนต์ทดสอบเข้าป้ายสดแล้ว";
+    }
+
+    // ==========================================
+    // Per-Instance Native Proxy System (No Proxifier Required)
+    // ==========================================
+    public string[] ProxyProtocolOptions => ["SOCKS5", "HTTPS", "HTTP"];
+
+    public bool InstanceUseCustomProxy
+    {
+        get => Profile.UseCustomProxy;
+        set
+        {
+            if (Profile.UseCustomProxy != value)
+            {
+                Profile.UseCustomProxy = value;
+                OnPropertyChanged();
+                OnPropertyChanged(nameof(ProxySummaryBadgeText));
+                ApplyAndSaveInstanceProxy();
+            }
+        }
+    }
+
+    public int InstanceProxyProtocolIndex
+    {
+        get => (int)Profile.ProxyProtocol;
+        set
+        {
+            int clamped = Math.Clamp(value, 0, 2);
+            var proto = (ProxyProtocol)clamped;
+            if (Profile.ProxyProtocol != proto)
+            {
+                Profile.ProxyProtocol = proto;
+                OnPropertyChanged();
+                OnPropertyChanged(nameof(ProxySummaryBadgeText));
+            }
+        }
+    }
+
+    public string InstanceProxyHost
+    {
+        get => Profile.ProxyHost;
+        set
+        {
+            string clean = value?.Trim() ?? string.Empty;
+            if (Profile.ProxyHost != clean)
+            {
+                Profile.ProxyHost = clean;
+                OnPropertyChanged();
+                OnPropertyChanged(nameof(ProxySummaryBadgeText));
+            }
+        }
+    }
+
+    public int InstanceProxyPort
+    {
+        get => Profile.ProxyPort;
+        set
+        {
+            int clamped = Math.Clamp(value <= 0 ? 8080 : value, 1, 65535);
+            if (Profile.ProxyPort != clamped)
+            {
+                Profile.ProxyPort = clamped;
+                OnPropertyChanged();
+                OnPropertyChanged(nameof(ProxySummaryBadgeText));
+            }
+        }
+    }
+
+    public string InstanceProxyUsername
+    {
+        get => Profile.ProxyUsername;
+        set
+        {
+            string clean = value?.Trim() ?? string.Empty;
+            if (Profile.ProxyUsername != clean)
+            {
+                Profile.ProxyUsername = clean;
+                OnPropertyChanged();
+            }
+        }
+    }
+
+    public string InstanceProxyPassword
+    {
+        get => Profile.ProxyPassword;
+        set
+        {
+            string clean = value ?? string.Empty;
+            if (Profile.ProxyPassword != clean)
+            {
+                Profile.ProxyPassword = clean;
+                OnPropertyChanged();
+            }
+        }
+    }
+
+    public string ProxySummaryBadgeText =>
+        Profile.UseCustomProxy && !string.IsNullOrWhiteSpace(Profile.ProxyHost)
+            ? $"Proxy: {Profile.ProxyProtocol.ToString().ToUpperInvariant()} {Profile.ProxyHost}:{Profile.ProxyPort}"
+            : "Proxy: เชื่อมต่อตรง (Direct)";
+
+    [ObservableProperty]
+    private string _instanceProxyStatusText = "โหมด Native Proxy พร้อมทำงาน (ไม่ต้องใช้ Proxifier)";
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(TestInstanceProxyButtonText))]
+    private bool _isTestingInstanceProxy;
+
+    public string TestInstanceProxyButtonText => IsTestingInstanceProxy ? "กำลังเช็ก IP..." : "ทดสอบ Proxy";
+
+    private void ApplyAndSaveInstanceProxy()
+    {
+        var effective = LocalProxyBridgeService.ResolveEffectiveProxy(Profile, _settings);
+        if (effective != null)
+        {
+            int localPort = LocalProxyBridgeService.Shared.EnsureBridgeForInstance(Profile.Id, effective);
+            InstanceProxyStatusText = $"เปิดใช้งาน {effective.Protocol}://{effective.Host}:{effective.Port} (Bridge 127.0.0.1:{localPort})";
+        }
+        else
+        {
+            LocalProxyBridgeService.Shared.StopBridgeForInstance(Profile.Id);
+            InstanceProxyStatusText = "ปิด Proxy สำหรับบอทนี้แล้ว (เชื่อมต่อตรง)";
+        }
+
+        _onStateChanged?.Invoke();
+    }
+
+    [RelayCommand]
+    public void SaveInstanceProxyConfig()
+    {
+        ApplyAndSaveInstanceProxy();
+        OnPropertyChanged(nameof(ProxySummaryBadgeText));
+    }
+
+    [RelayCommand]
+    public async Task TestInstanceProxyAsync()
+    {
+        if (IsTestingInstanceProxy) return;
+        if (string.IsNullOrWhiteSpace(Profile.ProxyHost) || Profile.ProxyPort <= 0)
+        {
+            InstanceProxyStatusText = "กรุณาระบุ Host / IP และ Port ก่อนกดทดสอบ";
+            return;
+        }
+
+        IsTestingInstanceProxy = true;
+        InstanceProxyStatusText = $"กำลังทดสอบ {Profile.ProxyProtocol}://{Profile.ProxyHost}:{Profile.ProxyPort}...";
+        try
+        {
+            var item = new ProxyItem
+            {
+                Id = Profile.Id,
+                Name = Profile.Name,
+                Protocol = Profile.ProxyProtocol,
+                Host = Profile.ProxyHost.Trim(),
+                Port = Profile.ProxyPort,
+                Username = Profile.ProxyUsername?.Trim() ?? string.Empty,
+                Password = Profile.ProxyPassword ?? string.Empty,
+                IsActive = true
+            };
+
+            var res = await LocalProxyBridgeService.Shared.TestProxyAsync(item);
+            InstanceProxyStatusText = res.Message;
+            Logger.Info("Proxy", $"ผลการทดสอบ Proxy ({item.Protocol}://{item.Host}:{item.Port}): {res.Message}");
+        }
+        finally
+        {
+            IsTestingInstanceProxy = false;
+        }
+    }
+
+    // ==========================================
+    // 5-Mode Auto-Reply & Live Comment Studio
+    // ==========================================
+    private System.Windows.Threading.DispatcherTimer? _autoPostLoopTimer;
+    private int _loopCountdownRemaining;
+    private int _aiPeriodicCountdownRemaining;
+
+    [ObservableProperty]
+    private int _selectedAutoReplySubTabIndex = 0;
+
+    partial void OnTestChatMessageChanged(string value)
+    {
+        OnPropertyChanged(nameof(TestChatMessageLength));
+        OnPropertyChanged(nameof(TestChatMessageCounter));
+    }
+
+    public int TestChatMessageLength => TestChatMessage?.Length ?? 0;
+    public string TestChatMessageCounter => $"{TestChatMessageLength}/200";
+
+    // Mode 2: วนส่ง (Periodic Auto-Post Loop)
+    public bool AutoReplyEnableLoopPost
+    {
+        get => Profile.AutoReply.EnableLoopPost;
+        set
+        {
+            if (Profile.AutoReply.EnableLoopPost != value)
+            {
+                Profile.AutoReply.EnableLoopPost = value;
+                OnPropertyChanged();
+                EnsureAutoPostLoopTimer();
+                _onStateChanged?.Invoke();
+            }
+        }
+    }
+
+    public string AutoReplyLoopMessagesText
+    {
+        get => Profile.AutoReply.LoopMessagesText;
+        set
+        {
+            string clean = value ?? string.Empty;
+            if (Profile.AutoReply.LoopMessagesText != clean)
+            {
+                Profile.AutoReply.LoopMessagesText = clean;
+                OnPropertyChanged();
+                OnPropertyChanged(nameof(AutoReplyLoopMessagesCountText));
+            }
+        }
+    }
+
+    public int AutoReplyLoopIntervalSeconds
+    {
+        get => Profile.AutoReply.LoopIntervalSeconds;
+        set
+        {
+            int clamped = Math.Clamp(value <= 0 ? 60 : value, 5, 3600);
+            if (Profile.AutoReply.LoopIntervalSeconds != clamped)
+            {
+                Profile.AutoReply.LoopIntervalSeconds = clamped;
+                _loopCountdownRemaining = clamped;
+                OnPropertyChanged();
+            }
+        }
+    }
+
+    public bool AutoReplyLoopRandomOrder
+    {
+        get => Profile.AutoReply.LoopRandomOrder;
+        set
+        {
+            if (Profile.AutoReply.LoopRandomOrder != value)
+            {
+                Profile.AutoReply.LoopRandomOrder = value;
+                OnPropertyChanged();
+            }
+        }
+    }
+
+    public string AutoReplyLoopMessagesCountText =>
+        $"มี {AutoReplyEngineService.ParseLines(Profile.AutoReply.LoopMessagesText).Count} ข้อความในรายการวนส่ง";
+
+    [ObservableProperty]
+    private string _autoReplyLoopStatusText = "ปิดการวนส่งอัตโนมัติ";
+
+    // Mode 3: กฎคำ (Shorthand Keyword Rules + Anti-Spam / Anti-Ban)
+    public bool AutoReplyEnableKeywordRules
+    {
+        get => Profile.AutoReply.EnableKeywordRules;
+        set
+        {
+            if (Profile.AutoReply.EnableKeywordRules != value)
+            {
+                Profile.AutoReply.EnableKeywordRules = value;
+                OnPropertyChanged();
+                _onStateChanged?.Invoke();
+            }
+        }
+    }
+
+    public string AutoReplyKeywordRulesText
+    {
+        get => Profile.AutoReply.KeywordRulesText;
+        set
+        {
+            string clean = value ?? string.Empty;
+            if (Profile.AutoReply.KeywordRulesText != clean)
+            {
+                Profile.AutoReply.KeywordRulesText = clean;
+                OnPropertyChanged();
+                OnPropertyChanged(nameof(ParsedKeywordRulesSummary));
+            }
+        }
+    }
+
+    public int AutoReplyRuleMinIntervalSeconds
+    {
+        get => Profile.AutoReply.RuleMinIntervalSeconds;
+        set
+        {
+            int clamped = Math.Clamp(value, 1, 300);
+            if (Profile.AutoReply.RuleMinIntervalSeconds != clamped)
+            {
+                Profile.AutoReply.RuleMinIntervalSeconds = clamped;
+                OnPropertyChanged();
+            }
+        }
+    }
+
+    public int AutoReplyRuleUserCooldownSeconds
+    {
+        get => Profile.AutoReply.RuleUserCooldownSeconds;
+        set
+        {
+            int clamped = Math.Clamp(value, 0, 3600);
+            if (Profile.AutoReply.RuleUserCooldownSeconds != clamped)
+            {
+                Profile.AutoReply.RuleUserCooldownSeconds = clamped;
+                OnPropertyChanged();
+            }
+        }
+    }
+
+    public int AutoReplyRuleMaxRepliesPerMinute
+    {
+        get => Profile.AutoReply.RuleMaxRepliesPerMinute;
+        set
+        {
+            int clamped = Math.Clamp(value, 1, 120);
+            if (Profile.AutoReply.RuleMaxRepliesPerMinute != clamped)
+            {
+                Profile.AutoReply.RuleMaxRepliesPerMinute = clamped;
+                OnPropertyChanged();
+            }
+        }
+    }
+
+    public bool AutoReplyRulePrefixWithMention
+    {
+        get => Profile.AutoReply.RulePrefixWithMention;
+        set
+        {
+            if (Profile.AutoReply.RulePrefixWithMention != value)
+            {
+                Profile.AutoReply.RulePrefixWithMention = value;
+                OnPropertyChanged();
+            }
+        }
+    }
+
+    public string ParsedKeywordRulesSummary =>
+        $"พร้อมใช้งาน {AutoReplyEngineService.ParseKeywordRules(Profile.AutoReply.KeywordRulesText).Count} กฎคำตอบ";
+
+    // Mode 4: ทักทาย (Viewer Join Greeting)
+    public string[] GreetingModeOptions => ["สุ่มข้อความจากรายการ", "ให้ AI สร้างคำทักทาย"];
+    public string[] GreetingFrequencyOptions => ["ทักครั้งเดียว/คน ตลอดไลฟ์", "ทักทุกครั้งที่เข้าห้อง"];
+
+    public bool AutoReplyEnableJoinGreeting
+    {
+        get => Profile.AutoReply.EnableJoinGreeting;
+        set
+        {
+            if (Profile.AutoReply.EnableJoinGreeting != value)
+            {
+                Profile.AutoReply.EnableJoinGreeting = value;
+                OnPropertyChanged();
+                _onStateChanged?.Invoke();
+            }
+        }
+    }
+
+    public string AutoReplyJoinGreetingMessagesText
+    {
+        get => Profile.AutoReply.JoinGreetingMessagesText;
+        set
+        {
+            string clean = value ?? string.Empty;
+            if (Profile.AutoReply.JoinGreetingMessagesText != clean)
+            {
+                Profile.AutoReply.JoinGreetingMessagesText = clean;
+                OnPropertyChanged();
+            }
+        }
+    }
+
+    public int AutoReplyGreetingModeIndex
+    {
+        get => (int)Profile.AutoReply.GreetingMode;
+        set
+        {
+            var mode = (JoinGreetingMode)Math.Clamp(value, 0, 1);
+            if (Profile.AutoReply.GreetingMode != mode)
+            {
+                Profile.AutoReply.GreetingMode = mode;
+                OnPropertyChanged();
+            }
+        }
+    }
+
+    public int AutoReplyGreetingFrequencyIndex
+    {
+        get => (int)Profile.AutoReply.GreetingFrequency;
+        set
+        {
+            var freq = (JoinGreetingFrequency)Math.Clamp(value, 0, 1);
+            if (Profile.AutoReply.GreetingFrequency != freq)
+            {
+                Profile.AutoReply.GreetingFrequency = freq;
+                OnPropertyChanged();
+            }
+        }
+    }
+
+    public int AutoReplyGreetingMinIntervalSeconds
+    {
+        get => Profile.AutoReply.GreetingMinIntervalSeconds;
+        set
+        {
+            int clamped = Math.Clamp(value, 2, 300);
+            if (Profile.AutoReply.GreetingMinIntervalSeconds != clamped)
+            {
+                Profile.AutoReply.GreetingMinIntervalSeconds = clamped;
+                OnPropertyChanged();
+            }
+        }
+    }
+
+    // Mode 5: AI ตอบ (OpenRouter / OpenAI Integration)
+    public string[] AiOperatingModeOptions => ["ตอบคอมเมนต์ผู้ชม", "โพสต์เองเป็นระยะ"];
+    public string[] AiFilterModeOptions => ["ทุกคอมเมนต์", "เฉพาะคำถาม / สนใจสินค้า"];
+
+    public bool AutoReplyEnableAi
+    {
+        get => Profile.AutoReply.EnableAiReply;
+        set
+        {
+            if (Profile.AutoReply.EnableAiReply != value)
+            {
+                Profile.AutoReply.EnableAiReply = value;
+                OnPropertyChanged();
+                EnsureAutoPostLoopTimer();
+                _onStateChanged?.Invoke();
+            }
+        }
+    }
+
+    public string AutoReplyAiApiKey
+    {
+        get => Profile.AutoReply.AiApiKey;
+        set
+        {
+            string clean = value?.Trim() ?? string.Empty;
+            if (Profile.AutoReply.AiApiKey != clean)
+            {
+                Profile.AutoReply.AiApiKey = clean;
+                OnPropertyChanged();
+            }
+        }
+    }
+
+    public string AutoReplyAiModel
+    {
+        get => Profile.AutoReply.AiModel;
+        set
+        {
+            string clean = string.IsNullOrWhiteSpace(value) ? "openai/gpt-4o-mini" : value.Trim();
+            if (Profile.AutoReply.AiModel != clean)
+            {
+                Profile.AutoReply.AiModel = clean;
+                OnPropertyChanged();
+            }
+        }
+    }
+
+    public string AutoReplyAiSystemPrompt
+    {
+        get => Profile.AutoReply.AiSystemPrompt;
+        set
+        {
+            string clean = value ?? string.Empty;
+            if (Profile.AutoReply.AiSystemPrompt != clean)
+            {
+                Profile.AutoReply.AiSystemPrompt = clean;
+                OnPropertyChanged();
+            }
+        }
+    }
+
+    public int AutoReplyAiModeIndex
+    {
+        get => (int)Profile.AutoReply.AiMode;
+        set
+        {
+            var mode = (AiOperatingMode)Math.Clamp(value, 0, 1);
+            if (Profile.AutoReply.AiMode != mode)
+            {
+                Profile.AutoReply.AiMode = mode;
+                OnPropertyChanged();
+                EnsureAutoPostLoopTimer();
+            }
+        }
+    }
+
+    public int AutoReplyAiFilterModeIndex
+    {
+        get => (int)Profile.AutoReply.AiFilterMode;
+        set
+        {
+            var filter = (AiReplyFilterMode)Math.Clamp(value, 0, 1);
+            if (Profile.AutoReply.AiFilterMode != filter)
+            {
+                Profile.AutoReply.AiFilterMode = filter;
+                OnPropertyChanged();
+            }
+        }
+    }
+
+    public int AutoReplyAiMinWords
+    {
+        get => Profile.AutoReply.AiMinWords;
+        set
+        {
+            int clamped = Math.Clamp(value, 0, 100);
+            if (Profile.AutoReply.AiMinWords != clamped)
+            {
+                Profile.AutoReply.AiMinWords = clamped;
+                OnPropertyChanged();
+            }
+        }
+    }
+
+    public int AutoReplyAiMaxWords
+    {
+        get => Profile.AutoReply.AiMaxWords;
+        set
+        {
+            int clamped = Math.Clamp(value <= 0 ? 30 : value, 5, 150);
+            if (Profile.AutoReply.AiMaxWords != clamped)
+            {
+                Profile.AutoReply.AiMaxWords = clamped;
+                OnPropertyChanged();
+            }
+        }
+    }
+
+    public int AutoReplyAiUserCooldownSeconds
+    {
+        get => Profile.AutoReply.AiUserCooldownSeconds;
+        set
+        {
+            int clamped = Math.Clamp(value, 0, 3600);
+            if (Profile.AutoReply.AiUserCooldownSeconds != clamped)
+            {
+                Profile.AutoReply.AiUserCooldownSeconds = clamped;
+                OnPropertyChanged();
+            }
+        }
+    }
+
+    public string AutoReplyAiForbiddenWords
+    {
+        get => Profile.AutoReply.AiForbiddenWords;
+        set
+        {
+            string clean = value ?? string.Empty;
+            if (Profile.AutoReply.AiForbiddenWords != clean)
+            {
+                Profile.AutoReply.AiForbiddenWords = clean;
+                OnPropertyChanged();
+            }
+        }
+    }
+
+    [ObservableProperty]
+    private string _autoReplyStudioStatusText = "พร้อมทำงาน (ตั้งค่าและกดบันทึกได้ทันที)";
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(TestAiReplyButtonText))]
+    private bool _isTestingAiReply;
+
+    public string TestAiReplyButtonText => IsTestingAiReply ? "กำลังทดสอบ AI..." : "ทดสอบ AI ตอบ";
+
+    [RelayCommand]
+    public void SaveAutoReplyStudioConfig()
+    {
+        _onStateChanged?.Invoke();
+        OnPropertyChanged(nameof(ParsedKeywordRulesSummary));
+        OnPropertyChanged(nameof(AutoReplyLoopMessagesCountText));
+        EnsureAutoPostLoopTimer();
+        AutoReplyStudioStatusText = $"บันทึกการตั้งค่าระบบตอบกลับอัตโนมัติแล้ว ({DateTime.Now:HH:mm:ss})";
+    }
+
+    [RelayCommand]
+    public async Task TriggerLoopPostNowAsync()
+    {
+        string? nextMsg = AutoReplyEngineService.Shared.GetNextLoopMessage(Profile.Id, Profile.AutoReply);
+        if (string.IsNullOrWhiteSpace(nextMsg))
+        {
+            var lines = AutoReplyEngineService.ParseLines(Profile.AutoReply.LoopMessagesText);
+            nextMsg = lines.FirstOrDefault();
+        }
+
+        if (string.IsNullOrWhiteSpace(nextMsg))
+        {
+            AutoReplyLoopStatusText = "ไม่มีข้อความในรายการวนส่ง";
+            return;
+        }
+
+        await DispatchBotMessageToLiveRoomAsync(nextMsg, "วนส่ง");
+        AutoReplyLoopStatusText = $"ส่งข้อความวนส่งแล้ว ({DateTime.Now:HH:mm:ss})";
+    }
+
+    [RelayCommand]
+    public async Task TestAiReplyAsync()
+    {
+        if (IsTestingAiReply) return;
+        IsTestingAiReply = true;
+        AutoReplyStudioStatusText = "กำลังส่งคำถามทดสอบไปยัง OpenRouter / AI...";
+        try
+        {
+            var (ok, msg, _) = await AutoReplyEngineService.Shared.TestAiReplyAsync(Profile.AutoReply);
+            AutoReplyStudioStatusText = msg;
+        }
+        finally
+        {
+            IsTestingAiReply = false;
+        }
+    }
+
+    private void EnsureAutoPostLoopTimer()
+    {
+        bool needTimer = Profile.AutoReply.EnableLoopPost ||
+                         (Profile.AutoReply.EnableAiReply && Profile.AutoReply.AiMode == AiOperatingMode.PeriodicPost);
+
+        if (!needTimer)
+        {
+            _autoPostLoopTimer?.Stop();
+            AutoReplyLoopStatusText = "ปิดการวนส่งอัตโนมัติ";
+            return;
+        }
+
+        if (_autoPostLoopTimer == null)
+        {
+            try
+            {
+                _autoPostLoopTimer = new System.Windows.Threading.DispatcherTimer
+                {
+                    Interval = TimeSpan.FromSeconds(1)
+                };
+                _autoPostLoopTimer.Tick += async (_, _) => await OnAutoPostLoopTickAsync();
+            }
+            catch { }
+        }
+
+        if (_loopCountdownRemaining <= 0)
+            _loopCountdownRemaining = Math.Max(5, Profile.AutoReply.LoopIntervalSeconds);
+        if (_aiPeriodicCountdownRemaining <= 0)
+            _aiPeriodicCountdownRemaining = Math.Max(15, Profile.AutoReply.AiPeriodicIntervalSeconds);
+
+        _autoPostLoopTimer?.Start();
+        AutoReplyLoopStatusText = $"ทำงานอยู่ • ส่งรอบถัดไปใน {_loopCountdownRemaining} วินาที";
+    }
+
+    private async Task OnAutoPostLoopTickAsync()
+    {
+        if (Profile.AutoReply.EnableLoopPost)
+        {
+            _loopCountdownRemaining--;
+            if (_loopCountdownRemaining <= 0)
+            {
+                _loopCountdownRemaining = Math.Max(5, Profile.AutoReply.LoopIntervalSeconds);
+                if (IsAutoReplyEnabled && Status == InstanceStatus.Running)
+                {
+                    string? msg = AutoReplyEngineService.Shared.GetNextLoopMessage(Profile.Id, Profile.AutoReply);
+                    if (!string.IsNullOrWhiteSpace(msg))
+                    {
+                        await DispatchBotMessageToLiveRoomAsync(msg, "วนส่ง");
+                    }
+                }
+            }
+            AutoReplyLoopStatusText = Status == InstanceStatus.Running
+                ? $"กำลังวนส่ง • รอบถัดไปใน {_loopCountdownRemaining} วินาที"
+                : $"เปิดรอไว้ • จะเริ่มส่งเมื่อเปิดแอป ({_loopCountdownRemaining}s)";
+        }
+
+        if (Profile.AutoReply.EnableAiReply && Profile.AutoReply.AiMode == AiOperatingMode.PeriodicPost)
+        {
+            _aiPeriodicCountdownRemaining--;
+            if (_aiPeriodicCountdownRemaining <= 0)
+            {
+                _aiPeriodicCountdownRemaining = Math.Max(15, Profile.AutoReply.AiPeriodicIntervalSeconds);
+                if (IsAutoReplyEnabled && Status == InstanceStatus.Running)
+                {
+                    string? aiPost = await AutoReplyEngineService.Shared.GeneratePeriodicAiPostAsync(Profile.AutoReply);
+                    if (!string.IsNullOrWhiteSpace(aiPost))
+                    {
+                        await DispatchBotMessageToLiveRoomAsync(aiPost, "AI โพสต์");
+                    }
+                }
+            }
+        }
+    }
+
+    private async Task DispatchBotMessageToLiveRoomAsync(string messageText, string sourceTag)
+    {
+        if (string.IsNullOrWhiteSpace(messageText)) return;
+
+        bool sent = false;
+        if (Status == InstanceStatus.Running)
+        {
+            sent = await _orchestrator.SendChatAsync(Profile, messageText);
+        }
+
+        RunOnUi(() =>
+        {
+            var botItem = new LiveChatMessageItem
+            {
+                Type = LiveChatMessageType.AutoReply,
+                Username = LoggedInDisplayId ?? "Bot",
+                Nickname = $"บอท ({sourceTag})",
+                Message = messageText,
+                IsAutoReplied = true,
+                AutoReplyContent = messageText,
+                Timestamp = DateTime.Now
+            };
+            if (LiveChatMessages.Count > 1500) LiveChatMessages.RemoveAt(0);
+            LiveChatMessages.Add(botItem);
+            TotalAutoRepliesCount++;
+            NotifyLiveChatCounts();
+            LiveChatStatus = sent
+                ? $"[{sourceTag}] ส่งข้อความสำเร็จ ({DateTime.Now:HH:mm:ss})"
+                : $"[{sourceTag}] จำลองข้อความแล้ว ({DateTime.Now:HH:mm:ss})";
+        });
+    }
+
+    private async Task EvaluateAndDispatchAutoReplyAsync(LiveChatMessageItem item, bool sendToRoom)
+    {
+        if (item == null || !IsAutoReplyEnabled) return;
+
+        try
+        {
+            string? replyText = null;
+            string sourceTag = "บอทตอบ";
+
+            if (item.Type == LiveChatMessageType.Chat && !string.IsNullOrWhiteSpace(item.Message))
+            {
+                if (_settings.Rules != null && _settings.Rules.Count > 0)
+                {
+                    var chatMsg = new LiveChatMessage(item.Username ?? string.Empty, item.Nickname ?? string.Empty, item.Message);
+                    replyText = _ruleEngine.EvaluateChatRule(_settings.Rules, chatMsg);
+                    sourceTag = "กฎหลัก";
+                }
+
+                if (string.IsNullOrWhiteSpace(replyText))
+                {
+                    var evalResult = await AutoReplyEngineService.Shared.EvaluateIncomingCommentAsync(
+                        Profile.Id,
+                        Profile.AutoReply,
+                        item.Username ?? string.Empty,
+                        item.Nickname ?? string.Empty,
+                        item.Message);
+
+                    if (evalResult.HasValue && !string.IsNullOrWhiteSpace(evalResult.Value.ReplyText))
+                    {
+                        replyText = evalResult.Value.ReplyText;
+                        sourceTag = evalResult.Value.SourceTag;
+                    }
+                }
+            }
+            else if (item.Type == LiveChatMessageType.Follow || item.Type == LiveChatMessageType.Other)
+            {
+                if (_settings.Rules != null && _settings.Rules.Count > 0)
+                {
+                    var joinMsg = new LiveJoinMessage(item.Username ?? string.Empty, item.Nickname ?? string.Empty);
+                    replyText = _ruleEngine.EvaluateJoinRule(_settings.Rules, joinMsg);
+                    sourceTag = "ทักทาย";
+                }
+
+                if (string.IsNullOrWhiteSpace(replyText))
+                {
+                    replyText = await AutoReplyEngineService.Shared.EvaluateViewerJoinAsync(
+                        Profile.Id,
+                        Profile.AutoReply,
+                        item.Username ?? string.Empty,
+                        item.Nickname ?? string.Empty);
+                    sourceTag = "ทักทาย";
+                }
+            }
+            else if (item.Type == LiveChatMessageType.Gift && _settings.Rules != null && _settings.Rules.Count > 0)
+            {
+                var giftMsg = new LiveGiftMessage(item.Username, item.Nickname, item.GiftName ?? "Gift", item.DiamondCount, item.RepeatCount);
+                replyText = _ruleEngine.EvaluateGiftRule(_settings.Rules, giftMsg);
+                sourceTag = "ขอบคุณของขวัญ";
+            }
+            else if (item.Type == LiveChatMessageType.Like && _settings.Rules != null && _settings.Rules.Count > 0)
+            {
+                var likeMsg = new LiveLikeMessage(item.Username, item.Nickname, item.RepeatCount, TotalLikeFollowCount);
+                replyText = _ruleEngine.EvaluateLikeRule(_settings.Rules, likeMsg);
+                sourceTag = "ขอบคุณไลก์";
+            }
+
+            if (!string.IsNullOrWhiteSpace(replyText))
+            {
+                RunOnUi(() =>
+                {
+                    item.IsAutoReplied = true;
+                    item.AutoReplyContent = replyText;
+                    TotalAutoRepliesCount++;
+                    NotifyLiveChatCounts();
+                    FilteredLiveChatMessages?.Refresh();
+                });
+
+                if (sendToRoom)
+                {
+                    await _orchestrator.SendChatAsync(Profile, replyText);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.Warn("AutoReply", $"ประมวลผลตอบกลับอัตโนมัติขัดข้อง: {ex.Message}");
+        }
     }
 }

@@ -18,6 +18,15 @@ public class StudioInstanceProfile
     public InstanceLaunchMode LaunchMode { get; set; } = InstanceLaunchMode.DirectProfile;
     
     public Guid? ProxyId { get; set; }
+
+    // Per-Instance Native Proxy Configuration (No Proxifier Required)
+    public bool UseCustomProxy { get; set; } = false;
+    public ProxyProtocol ProxyProtocol { get; set; } = ProxyProtocol.Http;
+    public string ProxyHost { get; set; } = string.Empty;
+    public int ProxyPort { get; set; } = 8080;
+    public string ProxyUsername { get; set; } = string.Empty;
+    public string ProxyPassword { get; set; } = string.Empty;
+
     public string StreamerUsername { get; set; } = string.Empty;
     public string CustomChromiumFlags { get; set; } = string.Empty;
 
@@ -39,4 +48,7 @@ public class StudioInstanceProfile
 
     // Live Proof & Realtime Clock Overlay Configuration
     public OverlayConfig Overlay { get; set; } = new();
+
+    // 5-Mode Auto-Reply & Live Comment Studio Configuration
+    public InstanceAutoReplyConfig AutoReply { get; set; } = new();
 }
