@@ -247,11 +247,14 @@ public class ConfigStorageService : IConfigStorageService
                     // Sanitize runtime states: Starting state should NEVER survive app restart
                     foreach (var inst in settings.Instances)
                     {
-                        if (inst.Status is InstanceStatus.Starting)
+                        // Running/Hidden are runtime-only: Studio is killed on exit, so a stale
+                        // "Running + hidden" profile would show a ghost that Show can never restore.
+                        if (inst.Status is InstanceStatus.Starting or InstanceStatus.Running || inst.IsWindowHidden)
                         {
                             inst.Status = InstanceStatus.Stopped;
                             inst.StatusMessage = "Stopped";
                             inst.ProcessId = null;
+                            inst.IsWindowHidden = false;
                         }
                     }
 

@@ -241,8 +241,8 @@ public class InstanceOrchestrator : IInstanceOrchestrator
         var logger = _logManager.GetLogger(profile);
         logger.Info("Window", $"HideWindow requested for '{profile.Name}' (Port: {profile.CdpPort}, PID: {profile.ProcessId})...");
         bool success = _windowController.SetWindowVisibilityForInstance(profile.ProcessId, profile.CdpPort, false);
-        profile.IsWindowHidden = true;
-        logger.Info("Window", $"HideWindow for '{profile.Name}': Result={success}. IsWindowHidden=True.");
+        if (success) profile.IsWindowHidden = true;
+        logger.Info("Window", $"HideWindow for '{profile.Name}': Result={success}. IsWindowHidden={profile.IsWindowHidden}.");
         return success;
     }
 

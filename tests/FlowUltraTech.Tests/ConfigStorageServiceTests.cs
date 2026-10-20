@@ -9,6 +9,32 @@ namespace FlowUltraTech.Tests;
 public class ConfigStorageServiceTests
 {
     [Fact]
+    public void LoadSettings_ResetsStaleRunningAndHiddenRuntimeState()
+    {
+        string tempFile = Path.Combine(Path.GetTempPath(), $"config_test_{Guid.NewGuid():N}.json");
+        try
+        {
+            var service = new ConfigStorageService(tempFile);
+            var settings = service.LoadSettings();
+            var inst = settings.Instances[0];
+            inst.Status = InstanceStatus.Running;
+            inst.ProcessId = 4242;
+            inst.IsWindowHidden = true;
+            service.SaveSettings(settings);
+
+            var reloaded = new ConfigStorageService(tempFile).LoadSettings().Instances[0];
+
+            Assert.Equal(InstanceStatus.Stopped, reloaded.Status);
+            Assert.Null(reloaded.ProcessId);
+            Assert.False(reloaded.IsWindowHidden);
+        }
+        finally
+        {
+            if (File.Exists(tempFile)) File.Delete(tempFile);
+        }
+    }
+
+    [Fact]
     public void LoadSettings_WhenFileMissing_CreatesAndReturnsDefaultSettings()
     {
         // Arrange
