@@ -35,3 +35,4 @@ ehthumbs.db
 # Decompiled / extracted sources
 extract_sourcemap.py
 extracted_sources/
+.preview-bin/

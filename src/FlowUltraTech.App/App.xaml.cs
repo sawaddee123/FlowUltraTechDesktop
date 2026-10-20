@@ -57,8 +57,13 @@ public partial class App : Application
         Log("[App] OnStartup begin");
 
         const string mutexName = @"Global\FlowUltraTech_SingleInstance_Mutex_2026";
+        bool skipMutex = false;
+#if DEBUG
+        skipMutex = e.Args.Contains("--preview-main"); // พรีวิวสำหรับนักพัฒนาเท่านั้น
+#endif
         try
         {
+            if (skipMutex) throw new OperationCanceledException();
             _singleInstanceMutex = new System.Threading.Mutex(true, mutexName, out bool createdNew);
             _ownsMutex = createdNew;
 
@@ -79,6 +84,10 @@ public partial class App : Application
                 Current.Shutdown();
                 return;
             }
+        }
+        catch (OperationCanceledException)
+        {
+            Log("[App] Preview mode: single-instance mutex skipped");
         }
         catch (Exception ex)
         {

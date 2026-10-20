@@ -7,6 +7,9 @@
             <ResourceDictionary.MergedDictionaries>
                 <ui:ThemesDictionary Theme="Dark" />
                 <ui:ControlsDictionary />
+                <!-- ลำดับที่ 2 = โทเคนสี สลับ Dark/Light ผ่าน ThemeService -->
+                <ResourceDictionary Source="Theme/Tokens.Dark.xaml" />
+                <ResourceDictionary Source="Theme/Controls.xaml" />
             </ResourceDictionary.MergedDictionaries>
         </ResourceDictionary>
     </Application.Resources>

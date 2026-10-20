@@ -24,6 +24,23 @@ public static class Program
 
             var app = new App();
             app.InitializeComponent();
+            try
+            {
+                var savedSettings = new FlowUltraTech.Core.Services.ConfigStorageService().LoadSettings();
+                Theme.ThemeService.Apply(!string.Equals(savedSettings.ThemeMode, "light", StringComparison.OrdinalIgnoreCase));
+            }
+            catch (Exception themeEx)
+            {
+                App.Log($"[Program] Theme init failed: {themeEx.Message}");
+            }
+#if DEBUG
+            // โหมดพรีวิวสำหรับนักพัฒนา (ไม่รวมใน Release): เปิดหน้าหลักตรงๆ โดยไม่ต้องล็อกอิน
+            if (Array.IndexOf(args, "--preview-main") >= 0)
+            {
+                Helpers.PreviewRunner.Run(app, args);
+                return;
+            }
+#endif
             var loginWindow = new Views.LoginWindow();
             app.Run(loginWindow);
         }

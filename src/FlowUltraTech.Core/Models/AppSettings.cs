@@ -11,6 +11,9 @@ public class AppSettings
     public string DefaultChromiumFlags { get; set; } = string.Empty;
 
     public bool AutoHideOnLaunch { get; set; } = false;
+
+    /// <summary>ธีมของแอป: "dark" หรือ "light"</summary>
+    public string ThemeMode { get; set; } = "dark";
     public bool AutoConnectCdp { get; set; } = true;
 
     // Captcha & Sound Notification Settings

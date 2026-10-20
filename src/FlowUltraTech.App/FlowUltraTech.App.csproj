@@ -30,6 +30,8 @@
     <Resource Include="Assets\app.ico" />
     <Resource Include="Assets\logo_mark_256.png" />
     <Resource Include="Assets\logo_full_512.png" />
+    <Resource Include="Assets\Fonts\*.ttf" />
+    <Resource Include="Assets\Logo\*.png" />
   </ItemGroup>
 
   <ItemGroup>

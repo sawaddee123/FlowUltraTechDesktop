@@ -17,7 +17,11 @@ public partial class MainWindow : Window
     private readonly Dictionary<Guid, WebView2> _overlayPreviewWebViews = new();
     private static Task<CoreWebView2Environment>? _webViewEnvTask;
 
-    public MainWindow()
+    public MainWindow() : this(new ConfigStorageService())
+    {
+    }
+
+    public MainWindow(ConfigStorageService storage)
     {
         App.Log("[MainWindow] Constructor start");
 
@@ -26,7 +30,6 @@ public partial class MainWindow : Window
             InitializeComponent();
             App.Log("[MainWindow] InitializeComponent complete");
 
-            var storage = new ConfigStorageService();
             var windowCtrl = new WindowController();
             var launcher = new ProcessLauncher(windowCtrl);
             var cdp = new CdpAutomationService();
@@ -58,8 +61,7 @@ public partial class MainWindow : Window
             Loaded += (s, e) =>
             {
                 var hwnd = new System.Windows.Interop.WindowInteropHelper(this).Handle;
-                int darkMode = 1;
-                DwmSetWindowAttribute(hwnd, DWMWA_USE_IMMERSIVE_DARK_MODE, ref darkMode, sizeof(int));
+                ApplyThemeChrome(hwnd);
 
                 ShowWindow(hwnd, 1); // SW_SHOWNORMAL
                 SetForegroundWindow(hwnd);
@@ -111,6 +113,29 @@ public partial class MainWindow : Window
         {
             App.Log($"[MainWindow] Exception in constructor: {ex}");
             throw;
+        }
+    }
+
+    private void ApplyThemeChrome(IntPtr hwnd)
+    {
+        int darkMode = Theme.ThemeService.IsDark ? 1 : 0;
+        DwmSetWindowAttribute(hwnd, DWMWA_USE_IMMERSIVE_DARK_MODE, ref darkMode, sizeof(int));
+        ThemeToggleIcon.Symbol = Theme.ThemeService.IsDark ? Wpf.Ui.Controls.SymbolRegular.WeatherSunny16 : Wpf.Ui.Controls.SymbolRegular.WeatherMoon16;
+    }
+
+    private void ThemeToggle_Click(object sender, RoutedEventArgs e)
+    {
+        bool toDark = !Theme.ThemeService.IsDark;
+        Theme.ThemeService.Apply(toDark);
+        ApplyThemeChrome(new System.Windows.Interop.WindowInteropHelper(this).Handle);
+        try
+        {
+            ViewModel.Settings.ThemeMode = toDark ? "dark" : "light";
+            ViewModel.SaveSettingsQuiet();
+        }
+        catch (Exception ex)
+        {
+            App.Log($"[MainWindow] Save theme failed: {ex.Message}");
         }
     }
 

@@ -39,9 +39,7 @@ public partial class LoginWindow : Window
             HwidText.Text = _hwid;
         }
 
-        ServerEndpointBox.Text = !string.IsNullOrWhiteSpace(_settings.AuthApiEndpoint)
-            ? _settings.AuthApiEndpoint
-            : AppConstants.DefaultServerEndpoint;
+        VersionText.Text = $"v{AppConstants.CurrentVersion}";
 
         if (!string.IsNullOrWhiteSpace(_settings.LoggedInUsername))
         {
@@ -168,11 +166,8 @@ public partial class LoginWindow : Window
         }
     }
 
-    private string GetEffectiveEndpoint()
-    {
-        string ep = ServerEndpointBox.Text?.Trim() ?? string.Empty;
-        return string.IsNullOrWhiteSpace(ep) ? AppConstants.DefaultServerEndpoint : ep;
-    }
+    // มีเซิร์ฟเวอร์กลางเพียงตัวเดียว ไม่ให้ผู้ใช้กรอกหรือแก้ URL อีกต่อไป
+    private static string GetEffectiveEndpoint() => AppConstants.DefaultServerEndpoint;
 
     private async void LoginButton_Click(object sender, RoutedEventArgs e)
     {
@@ -311,11 +306,6 @@ public partial class LoginWindow : Window
     private void HideError()
     {
         ErrorBanner.Visibility = Visibility.Collapsed;
-    }
-
-    private void ResetEndpoint_Click(object sender, RoutedEventArgs e)
-    {
-        ServerEndpointBox.Text = AppConstants.DefaultServerEndpoint;
     }
 
     private void HeaderBar_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)

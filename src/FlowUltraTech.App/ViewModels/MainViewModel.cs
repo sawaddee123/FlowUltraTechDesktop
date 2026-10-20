@@ -60,7 +60,7 @@ public partial class MainViewModel : ObservableObject
     public int TotalCaptchaAlertCount => Instances.Count(i => i.IsCaptchaAlertVisible);
     public bool HasAnyCaptchaAlert => Instances.Any(i => i.IsCaptchaAlertVisible);
     public string RunningStatusSummary => $"{RunningInstancesCount}/{Instances.Count} บัญชีทำงานอยู่";
-    public string AppVersionText => $"Sandbox v{AppConstants.CurrentVersion}";
+    public string AppVersionText => $"v{AppConstants.CurrentVersion}";
     public string CdpCoreVersionText => $"CDP Core v{AppConstants.CurrentVersion}";
     public string WindowTitle => $"FlowUltraTech v{AppConstants.CurrentVersion}";
 
@@ -742,6 +742,9 @@ public partial class MainViewModel : ObservableObject
         }
         StatusNotification = $"แสดงหน้าต่างทั้งหมดเรียบร้อย ({count} หน้าต่าง)";
     }
+
+    /// <summary>บันทึก Settings ที่ถือไว้ในหน่วยความจำลงดิสก์ทันที (ใช้กับการตั้งค่าเล็กๆ เช่น ธีม)</summary>
+    public void SaveSettingsQuiet() => _storageService.SaveSettings(Settings);
 
     [RelayCommand]
     public void AddInstance()

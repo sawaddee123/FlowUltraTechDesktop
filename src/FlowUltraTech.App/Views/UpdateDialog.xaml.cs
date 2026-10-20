@@ -60,7 +60,7 @@ public partial class UpdateDialog : Window
         {
             MandatoryBanner.Visibility = Visibility.Visible;
             CancelButton.Visibility = Visibility.Collapsed;
-            FooterHelperText.Text = "จำเป็นต้องอัปเดตเพื่อเข้าใช้งานระบบ Sandbox ต่อไป";
+            FooterHelperText.Text = "จำเป็นต้องอัปเดตก่อนใช้งานต่อ";
         }
         else
         {
