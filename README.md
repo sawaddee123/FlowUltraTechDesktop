@@ -1,77 +1,57 @@
-# TikTok LIVE Studio Multi-Instance & Automation Sandbox
+# FlowUltraTech
 
-ระบบและสถาปัตยกรรมสำหรับรัน **TikTok LIVE Studio แบบหลายบัญชี (Multi-Instance)**, **แยก Proxy 100% รายโปรแกรม**, **ควบคุมการทำงานผ่าน CDP (Chrome DevTools Protocol)**, **สั่งส่งข้อความสด (Send Live Message)** และ **ลดการใช้ทรัพยากรเครื่องให้ต่ำที่สุด (Pseudo-Headless Mode)** เพื่อรองรับข้อกำหนดของ TikTok ยุคใหม่ที่ต้องสตรีมผ่านตัวโปรแกรมทางการเท่านั้น
+แอป Windows (WPF, .NET 8) สำหรับรัน **TikTok LIVE Studio หลายบัญชีพร้อมกัน** แยก profile และ proxy รายอินสแตนซ์ ควบคุมผ่าน CDP รองรับตอบแชทอัตโนมัติ, Overlay, การแก้ Captcha ด้วย backend กลาง และระบบ Login/โควต้าจอ
 
----
+เวอร์ชันปัจจุบัน: **1.7.0** · อัปเดตเอกสารล่าสุด: 2026-10-20
 
-## สารบัญเอกสารและสถาปัตยกรรม (Architecture Modules)
+## ส่วนประกอบของระบบ
 
-เอกสารใน Sandbox นี้ถูกแบ่งออกเป็น 6 ส่วนหลักเพื่อให้เข้าใจหลักการและนำไปพัฒนาต่อได้ทันที:
-
-| เอกสาร | หัวข้อหลัก | รายละเอียดสังเขป |
+| ส่วน | ตำแหน่ง | เทคโนโลยี |
 | :--- | :--- | :--- |
-| [01. Multi-Instance Architecture](file:///D:/Script/Test/FlowUltraTech/docs/01_multi_instance_architecture.md) | การเปิดหลายโปรแกรมพร้อมกัน | กลไก Mutex และการแยก User Data Directory (Direct Profile Isolation) |
-| [02. Network & Proxy Isolation](file:///D:/Script/Test/FlowUltraTech/docs/02_network_and_proxy_isolation.md) | การแยกเครือข่ายและ Proxy รายจอ | การ Route ทราฟฟิก (Web + RTMP/UDP) ผ่าน Proxifier ป้องกันการโดนแบนกลุ่ม |
-| [03. CDP & WebView Automation](file:///D:/Script/Test/FlowUltraTech/docs/03_cdp_webview_automation.md) | การควบคุมและส่งข้อความเข้า WebView | การเปิด Remote Debugging Port, ส่งแชท (Send Message), ดักจับ WebSocket/API |
-| [04. Resource Optimization & Headless](file:///D:/Script/Test/FlowUltraTech/docs/04_resource_optimization_headless.md) | การรีดประสิทธิภาพและทำกึ่ง Headless | การซ่อนหน้าต่าง (`SW_HIDE`), ลดภาระ GPU Compositor, และข้อจำกัด NVENC |
-| [05. Related Tools & Ecosystem](file:///D:/Script/Test/FlowUltraTech/docs/05_related_tools_and_ecosystem.md) | เครื่องมือที่เกี่ยวข้องและ Git Repos | รายชื่อ Library, Open-Source Tools, GitHub Repositories ที่เกี่ยวข้อง |
-| [06. TikTok-Live-Connector Guide](file:///D:/Script/Test/FlowUltraTech/docs/06_tiktok_live_connector_guide.md) | การเชื่อมต่อ Webcast ดักจับแชต/ของขวัญ | Reverse-engineered Webcast, Event Listener, การต่อ Proxy/SessionId, สถาปัตยกรรมไฮบริดร่วมกับ CDP |
-| [07. Captcha Mock Testing Guide](file:///D:/Script/Test/FlowUltraTech/docs/07_captcha_mock_testing_guide.md) | คู่มือทดสอบระบบแก้ CAPTCHA ด้วย Mock | การตรวจจับ DOM, Jigsaw Slider, Symbol Click, และการจำลองด้วย Mock Server |
-| [08. Full Features & Architecture Roadmap](file:///D:/Script/Test/FlowUltraTech/docs/08_full_features_and_architecture_roadmap.md) | แผนผังและเทคนิคการพัฒนาระบบครบ 9 ฟีเจอร์ | สถาปัตยกรรม Hybrid, AI Solver, Telegram Alert, Auto Welcome, OpenRouter AI, และ Stream Quality |
-| [09. MongoDB Schema & Central Auth Architecture](file:///D:/Script/Test/FlowUltraTech/docs/09_mongodb_schema_and_auth_architecture.md) | สถาปัตยกรรม MongoDB และระบบ Login กลาง | การออกแบบ Schema ผู้ใช้, Device Limit (HWID), เซสชัน TTL, โปรไฟล์ และ Captcha Quota |
-| [10. Anti-Circumvention & Account Enforcement](file:///D:/Script/Test/FlowUltraTech/docs/10_anti_circumvention_and_account_enforcement.md) | ระบบป้องกันการเปิดเกินโควต้าและโกงบัญชี | ป้องกัน Multi-Process, Deep HWID, Dynamic Lease & Heartbeat, Captcha Guard, VM Detection |
-
----
-
-## แผนภาพภาพรวมระบบ (Overall System Flow)
+| Client (repo นี้) | `src/FlowUltraTech.Core` (ตรรกะ), `src/FlowUltraTech.App` (UI) | C#, WPF, PuppeteerSharp, TikTokLive_Sharp |
+| Backend กลาง | `d:\Script\java-script\FlowUltraTech` | Node.js, TypeScript, Express, MongoDB, Socket.io, Python (captcha solver) |
+| Backoffice | build อยู่ใน `backoffice/dist` ของ backend | เว็บแอดมิน |
+| Tests | `tests/FlowUltraTech.Tests`, `tests/FlowUltraTech.Captcha.E2E` | xUnit |
 
 ```mermaid
-graph TD
-    subgraph Central Control
-        Bot["Central Bot / WPF Controller & Automation"]
-    end
-
-    subgraph Network Isolation Layer (Proxifier)
-        P1["Proxy SOCKS5 - IP #1"]
-        P2["Proxy SOCKS5 - IP #2"]
-    end
-
-    subgraph Instance Isolation (Direct Profile Mode)
-        subgraph Instance 1 [Acc01 - Profile Data]
-            S1["TikTok LIVE Studio (Hidden/No UI)"]
-            CDP1["CDP Port :9221"]
-            WV1["Chromium WebView (Chat & Controls)"]
-            OBS1["OBS Engine Core (Media Stream)"]
-        end
-
-        subgraph Instance 2 [Acc02 - Profile Data]
-            S2["TikTok LIVE Studio (Hidden/No UI)"]
-            CDP2["CDP Port :9222"]
-            WV2["Chromium WebView (Chat & Controls)"]
-            OBS2["OBS Engine Core (Media Stream)"]
-        end
-    end
-
-    Bot -->|Control & Send Message via CDP| CDP1
-    Bot -->|Control & Send Message via CDP| CDP2
-
-    CDP1 --> WV1
-    CDP2 --> WV2
-
-    S1 --> P1
-    S2 --> P2
-
-    P1 -->|Encrypted Stream & Auth| TikTokServers["TikTok Servers"]
-    P2 -->|Encrypted Stream & Auth| TikTokServers
+graph LR
+    App["Client WPF"] -->|CDP| Studio["TikTok LIVE Studio x N"]
+    App -->|Native Proxy Bridge| Proxy["Proxy รายอินสแตนซ์"]
+    App -->|REST + Socket.io| BE["Backend กลาง"]
+    BE --> DB[("MongoDB")]
+    BE -->|captcha| Solver["ONNX / Python daemon"]
+    App -->|Webcast| Live["TikTok LIVE events"]
+    App -->|HTTP/WS| Overlay["Overlay server (loopback)"]
 ```
 
----
+## สารบัญเอกสาร
 
-## ฟังก์ชันการทำงานหลัก (Core Features)
+เอกสารทั้งหมดอยู่ใน [docs/](docs/) เขียนจากโค้ดจริงของเวอร์ชัน 1.7.0 ฉบับเก่าที่ล้าสมัยเก็บไว้ที่ [docs/archive/](docs/archive/)
 
-1. **Direct Profile Launcher:** เปิด TikTok LIVE Studio หลายบัญชีพร้อมกันโดยแยกโฟลเดอร์ `--user-data-dir` อิสระ ไม่ต้องลงโปรแกรมเสริมภายนอก
-2. **Profile Fetcher & Visual Badges:** ตรวจสอบและดึงข้อมูลโปรไฟล์ผู้ใช้ (Avatar, TikTok Handle `@displayId`, Nickname, UID) จาก `services.json` มาแสดงบนการ์ดอินสแตนซ์อัตโนมัติ
-3. **Ultra-Light Background Login:** โหมดล็อกอินประหยัดพลังงานระดับสูง (0% GPU, ซ่อนหน้าต่างเบื้องหลัง) รองรับ Callback จากบราวเซอร์ และปิดโปรเซสอัตโนมัติเมื่อยืนยันตัวตนสำเร็จ
-4. **CDP Client & WebView Automation:** ควบคุมและส่งข้อความเข้าห้องไลฟ์อัตโนมัติผ่าน Chrome DevTools Protocol
-5. **Window Optimization:** ซ่อน/แสดงหน้าต่าง UI ผ่าน Win32 API (`SW_HIDE`) เพื่อลดภาระ GPU Compositor
-6. **Proxifier Routing:** กำหนดเส้นทางเครือข่ายและเชื่อมต่อ Proxy ราย Instance เพื่อความปลอดภัยสูงสุด
+| เอกสาร | เนื้อหา |
+| :--- | :--- |
+| [01 Architecture Overview](docs/01_architecture_overview.md) | โครงสร้างโซลูชัน, service map, flow สตาร์ท/วงจรชีวิตอินสแตนซ์, ที่เก็บ config/log |
+| [02 Instance Launch & Window Control](docs/02_instance_launch_and_window_control.md) | เปิดหลายอินสแตนซ์, profile isolation, ซ่อน/แสดงหน้าต่าง |
+| [03 Network & Proxy](docs/03_network_and_proxy.md) | Native Proxy Bridge และ Proxifier |
+| [04 UI & User Guide](docs/04_ui_and_user_guide.md) | หน้าจอและวิธีใช้งาน |
+| [05 CDP Automation](docs/05_cdp_automation.md) | การควบคุม Studio ผ่าน CDP, ส่งแชท, network/storage |
+| [06 Captcha System](docs/06_captcha_system.md) | Jigsaw/Symbol solver ตั้งแต่ตรวจจับถึงคลิก |
+| [07 Captcha Testing & Debugging](docs/07_captcha_testing_and_debugging.md) | mock server, test, debug log |
+| [08 Live Events & Auto-Reply](docs/08_live_events_and_auto_reply.md) | Live listener, Rule Engine, Auto-Reply Studio 5 โหมด |
+| [09 Overlay System](docs/09_overlay_system.md) | Clock & Anti-Rebroadcast overlay |
+| [10 Notifications & Alerts](docs/10_notifications_and_alerts.md) | Telegram, เสียงเตือน |
+| [11 Auth, License & Security](docs/11_auth_license_and_security.md) | Login, slot lease, realtime, update, กลไกป้องกัน |
+| [12 Build, Release & Testing](docs/12_build_release_and_testing.md) | build, installer, release, วิธีรันเทสต์ |
+| [13 Status & Known Issues](docs/13_status_and_known_issues.md) | สถานะฟีเจอร์, บั๊ก, ความเสี่ยงด้านความปลอดภัย, งานที่ควรทำต่อ |
+
+เอกสารฝั่ง Backend: [README](file:///d:/Script/java-script/FlowUltraTech/docs/README.md) · [API Reference](file:///d:/Script/java-script/FlowUltraTech/docs/api_reference.md) · [Data Model](file:///d:/Script/java-script/FlowUltraTech/docs/data_model.md) · [Operations & Backoffice](file:///d:/Script/java-script/FlowUltraTech/docs/operations_and_backoffice.md)
+
+## เริ่มต้นอย่างเร็ว
+
+- รันแอป: `run_app.bat` หรือ build `FlowUltraTech.slnx` ด้วย `dotnet build`
+- สร้างตัวติดตั้ง: `build_installer.ps1` (รายละเอียดใน [เอกสาร 12](docs/12_build_release_and_testing.md))
+- ทดสอบ Captcha ด้วย mock: `start_mock_jigsaw.ps1`, `start_mock_symbol.ps1` (ดู [เอกสาร 07](docs/07_captcha_testing_and_debugging.md))
+- ที่ตั้ง config/log: `%APPDATA%\FlowUltraTech\` (ดู [เอกสาร 01](docs/01_architecture_overview.md))
+
+> [!WARNING]
+> พบ credential ฝังในสคริปต์และไฟล์ทดสอบที่ track ใน git ดูรายละเอียดและข้อเสนอแก้ไขใน [เอกสาร 13](docs/13_status_and_known_issues.md)

@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="th" data-theme="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="dark light" />
+    <title>Studio Live · FlowUltraTech</title>
+    <link rel="icon" type="image/png" href="/favicon.png" />
+    <script>
+      // ตั้งธีมก่อน paint เพื่อไม่ให้หน้ากะพริบ
+      try {
+        var t = localStorage.getItem('fut-theme');
+        if (!t) t = matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+        document.documentElement.dataset.theme = t;
+      } catch (e) {}
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

@@ -1,6 +1,6 @@
 ; Script generated for FlowUltraTech
 #define MyAppName "FlowUltraTech"
-#define MyAppVersion "1.7.0"
+#define MyAppVersion "1.7.5"
 #define MyAppPublisher "FlowUltraTech"
 #define MyAppURL "https://github.com/sawaddee123/FlowUltraTech"
 #define MyAppExeName "FlowUltraTech.App.exe"
@@ -25,6 +25,8 @@ OutputBaseFilename=FlowUltraTech_Setup_v{#MyAppVersion}
 Compression=lzma2/ultra64
 SolidCompression=yes
 WizardStyle=modern
+SetupIconFile=..\src\FlowUltraTech.App\Assets\app.ico
+UninstallDisplayIcon={app}\{#MyAppExeName}
 ArchitecturesInstallIn64BitMode=x64compatible
 PrivilegesRequired=lowest
 PrivilegesRequiredOverridesAllowed=dialog

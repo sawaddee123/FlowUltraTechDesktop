@@ -3,6 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
         Title="อัปเดตระบบ TikTok LIVE Studio Sandbox"
+        Icon="/Assets/app.ico"
         Width="520" SizeToContent="Height"
         MaxHeight="560"
         WindowStartupLocation="CenterOwner"
@@ -132,9 +133,7 @@
 
                     <!-- Title & Branding -->
                     <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                        <Border Width="26" Height="26" CornerRadius="6" Background="#FE2C55" Margin="0,0,10,0" VerticalAlignment="Center">
-                            <ui:SymbolIcon Symbol="ArrowDownload24" Foreground="White" FontSize="13" HorizontalAlignment="Center" VerticalAlignment="Center" />
-                        </Border>
+                        <Image Source="/Assets/logo_mark_256.png" Width="26" Height="26" Margin="0,0,10,0" VerticalAlignment="Center" RenderOptions.BitmapScalingMode="HighQuality" />
                         <StackPanel VerticalAlignment="Center">
                             <TextBlock Text="TikTok LIVE Studio Sandbox" FontSize="12" FontWeight="Bold" Foreground="#FFFFFF" />
                             <TextBlock Text="การแจ้งเตือนอัปเดตระบบ (Software Update)" FontSize="10" Foreground="#71717A" Margin="0,1,0,0" />

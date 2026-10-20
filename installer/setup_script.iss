@@ -17,6 +17,7 @@ AppSupportURL={#MyAppURL}
 AppUpdatesURL={#MyAppURL}
 DefaultDirName={autopf}\{#MyAppName}
 UninstallDisplayIcon={app}\{#MyAppExeName}
+SetupIconFile=..\src\FlowUltraTech.App\Assets\app.ico
 DefaultGroupName={#MyAppName}
 AllowNoIcons=yes
 OutputDir=..\dist

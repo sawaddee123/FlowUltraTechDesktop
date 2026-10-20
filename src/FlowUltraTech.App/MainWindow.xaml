@@ -7,6 +7,7 @@
         xmlns:models="clr-namespace:FlowUltraTech.Core.Models;assembly=FlowUltraTech.Core"
         mc:Ignorable="d"
         Title="{Binding WindowTitle, FallbackValue='FlowUltraTech'}" 
+        Icon="Assets/app.ico"
         Height="820" Width="1260"
         MinHeight="700" MinWidth="1050"
         WindowStartupLocation="CenterScreen"
@@ -378,9 +379,7 @@
                     <!-- Left: App Branding, Title & Live Status -->
                     <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="14,6,0,6">
                         <!-- Brand Icon -->
-                        <Border Width="26" Height="26" CornerRadius="6" Background="#FE2C55" Margin="0,0,10,0" VerticalAlignment="Center">
-                            <ui:SymbolIcon Symbol="Play24" Foreground="White" FontSize="12" HorizontalAlignment="Center" VerticalAlignment="Center" />
-                        </Border>
+                        <Image Source="Assets/logo_mark_256.png" Width="26" Height="26" Margin="0,0,10,0" VerticalAlignment="Center" RenderOptions.BitmapScalingMode="HighQuality" />
 
                         <!-- Title & Version -->
                         <StackPanel VerticalAlignment="Center" Margin="0,0,12,0">

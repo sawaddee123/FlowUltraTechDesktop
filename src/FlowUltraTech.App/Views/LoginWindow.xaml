@@ -3,6 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
         Title="FlowUltraTech - เข้าสู่ระบบ"
+        Icon="/Assets/app.ico"
         Width="440" SizeToContent="Height"
         WindowStartupLocation="CenterScreen"
         WindowStyle="None"
@@ -159,9 +160,7 @@
 
                     <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                         <!-- App Shield Icon -->
-                        <Border Width="24" Height="24" CornerRadius="6" Background="#1E293B" Margin="0,0,10,0">
-                            <TextBlock Text="⚡" FontSize="13" HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="#38BDF8" />
-                        </Border>
+                        <Image Source="/Assets/logo_mark_256.png" Width="24" Height="24" Margin="0,0,10,0" RenderOptions.BitmapScalingMode="HighQuality" />
                         <TextBlock Text="FlowUltraTech Studio" FontWeight="Bold" FontSize="13" Foreground="#E2E8F0" VerticalAlignment="Center" />
                     </StackPanel>
 
