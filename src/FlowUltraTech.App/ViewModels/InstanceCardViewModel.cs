@@ -543,20 +543,6 @@ public partial class InstanceCardViewModel : ObservableObject
     }
 
     [RelayCommand]
-    public void SwitchMode()
-    {
-        LaunchMode = LaunchMode switch
-        {
-            InstanceLaunchMode.DirectProfile => InstanceLaunchMode.DefaultProfile,
-            _ => InstanceLaunchMode.DirectProfile
-        };
-
-        Profile.LaunchMode = LaunchMode;
-        OnPropertyChanged(nameof(ModeBadgeText));
-        StatusMessage = $"สลับเป็น {ModeBadgeText}";
-    }
-
-    [RelayCommand]
     public async Task StartAsync()
     {
         Logger.Info("Instance", $"Start command triggered for '{Name}' (Port: {CdpPort}, Mode: {LaunchMode})");
@@ -807,81 +793,9 @@ public partial class InstanceCardViewModel : ObservableObject
         OnPropertyChanged(nameof(WindowHandlesCountDisplay));
     }
 
-    [RelayCommand]
-    public async Task SendTestChatAsync()
-    {
-        if (Status != InstanceStatus.Running)
-        {
-            Logger.Warn("Chat", $"Cannot send chat: '{Name}' is not running.");
-            ChatStatusText = "หน้าต่างยังไม่ได้เปิดทำงาน (กรุณากด Start ก่อน)";
-            return;
-        }
-
-        if (string.IsNullOrWhiteSpace(TestChatMessage)) return;
-
-        Logger.Info("Chat", $"Sending test chat: \"{TestChatMessage}\"");
-        ChatStatusText = "กำลังส่งข้อความ...";
-        bool ok = await _orchestrator.SendChatAsync(Profile, TestChatMessage);
-        ChatStatusText = ok ? "ส่งข้อความสำเร็จ!" : "ส่งไม่สำเร็จ (ตรวจพอร์ต CDP หรือห้องไลฟ์)";
-    }
-
-
     // ==========================================
     // Script Execution Commands
     // ==========================================
-    [RelayCommand]
-    public async Task ExecuteScriptAsync()
-    {
-        if (Status != InstanceStatus.Running)
-        {
-            Logger.Warn("Script", $"Cannot execute script: '{Name}' is not running.");
-            AppendConsole($"[{DateTime.Now:HH:mm:ss}] ไม่สามารถรันได้: หน้าต่างนี้ยังไม่ได้เปิดทำงาน (สถานะ: {StatusDisplay}) กรุณากดปุ่ม Start ก่อน\n");
-            return;
-        }
-
-        if (string.IsNullOrWhiteSpace(ScriptInput)) return;
-
-        string time = DateTime.Now.ToString("HH:mm:ss");
-        AppendConsole($"[{time}] > {ScriptInput}");
-        Logger.Debug("Script", $"Execute JavaScript: {ScriptInput}");
-
-        try
-        {
-            string result = await _cdpService.ExecuteScriptAsync(CdpPort, ScriptInput);
-            AppendConsole($"[{time}] < {result}\n");
-            Logger.Debug("Script", $"Script result: {result}");
-        }
-        catch (Exception ex)
-        {
-            AppendConsole($"[{time}] Error: {ex.Message}\n");
-            Logger.Error("Script", $"JavaScript execution failed: {ex.Message}", ex);
-        }
-    }
-
-    [RelayCommand]
-    public void SetScriptSnippet(string? snippet)
-    {
-        if (!string.IsNullOrWhiteSpace(snippet))
-        {
-            ScriptInput = snippet;
-        }
-    }
-
-    [RelayCommand]
-    public void ClearConsole()
-    {
-        ConsoleOutput = string.Empty;
-    }
-
-    [RelayCommand]
-    public void CopyConsole()
-    {
-        if (!string.IsNullOrEmpty(ConsoleOutput))
-        {
-            Clipboard.SetText(ConsoleOutput);
-        }
-    }
-
     [RelayCommand]
     public async Task<string?> ExportFullHtmlAsync(string? targetFilePath = null)
     {
@@ -979,28 +893,6 @@ public partial class InstanceCardViewModel : ObservableObject
             return null;
         }
     }
-
-    [RelayCommand]
-    public void OpenLastExportedHtml()
-    {
-        if (!string.IsNullOrEmpty(LastExportedHtmlPath) && System.IO.File.Exists(LastExportedHtmlPath))
-        {
-            try
-            {
-                System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
-                {
-                    FileName = LastExportedHtmlPath,
-                    UseShellExecute = true
-                });
-            }
-            catch (Exception ex)
-            {
-                Logger.Error("System", $"Cannot open exported HTML file: {ex.Message}", ex);
-            }
-        }
-    }
-
-
 
     public void SyncFromProfile()
     {

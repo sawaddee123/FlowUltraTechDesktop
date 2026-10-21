@@ -495,24 +495,6 @@ public partial class InstanceCardViewModel : ObservableObject
     }
 
     [RelayCommand]
-    public void CopyDetectedCaptcha()
-    {
-        if (!string.IsNullOrEmpty(DetectedCaptchaHtml))
-        {
-            try
-            {
-                Clipboard.SetText(DetectedCaptchaHtml);
-                StatusMessage = $"📋 คัดลอก Captcha Full HTML ({DetectedCaptchaCount} รายการ) ลง Clipboard เรียบร้อย!";
-            }
-            catch (Exception ex)
-            {
-                StatusMessage = $"คัดลอกไม่สำเร็จ: {ex.Message}";
-            }
-        }
-    }
-
-
-    [RelayCommand]
     public void DismissCaptchaAlert()
     {
         IsCaptchaAlertVisible = false;
@@ -524,25 +506,6 @@ public partial class InstanceCardViewModel : ObservableObject
     {
         IsDetailOpen = true;
         SelectedDetailTabIndex = 4; // Subtab 5: Captcha Inspector
-    }
-
-    [RelayCommand]
-    public void CopyElementHtml(CaptchaElementItem? item)
-    {
-        var target = item ?? SelectedCaptchaElement;
-        if (target != null && !string.IsNullOrEmpty(target.Html))
-        {
-            try
-            {
-                Clipboard.SetText(target.Html);
-                StatusMessage = $"📋 คัดลอก {target.Summary} ลง Clipboard สำเร็จ!";
-                AppendConsole($"[{DateTime.Now:HH:mm:ss}] 📋 คัดลอกเฉพาะ Element {target.Summary} ลง Clipboard แล้ว\n");
-            }
-            catch (Exception ex)
-            {
-                StatusMessage = $"คัดลอกไม่สำเร็จ: {ex.Message}";
-            }
-        }
     }
 
     [RelayCommand]
@@ -609,12 +572,6 @@ public partial class InstanceCardViewModel : ObservableObject
 
     [RelayCommand]
     public async Task SolveCaptchaAsync()
-    {
-        await SolveCaptchaInternalAsync(_lastDetectionResult);
-    }
-
-    [RelayCommand]
-    public async Task SolveCaptchaMockAsync()
     {
         await SolveCaptchaInternalAsync(_lastDetectionResult);
     }

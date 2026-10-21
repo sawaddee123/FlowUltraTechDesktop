@@ -157,9 +157,6 @@ public partial class MainViewModel : ObservableObject
     private string _telegramTestStatus = string.Empty;
 
     [ObservableProperty]
-    private DebugViewModel _debug;
-
-    [ObservableProperty]
     private InstanceCardViewModel? _selectedCaptchaInstance;
 
     public System.Windows.Visibility HasSelectedCaptchaVisibility => SelectedCaptchaInstance != null ? System.Windows.Visibility.Visible : System.Windows.Visibility.Collapsed;
@@ -246,7 +243,6 @@ public partial class MainViewModel : ObservableObject
         _profileManager = profileManager ?? new Core.Services.ProfileManagerService();
         _telegramService = telegramService ?? new TelegramNotificationService();
         _liveListenerService = liveListenerService ?? new TikTokLiveListenerService();
-        _debug = new DebugViewModel(cdpService);
 
         Settings = _storageService.LoadSettings();
         _overlayService = overlayService ?? new OverlayServerService();
@@ -966,14 +962,6 @@ public partial class MainViewModel : ObservableObject
         {
             StatusNotification = $"เกิดข้อผิดพลาด Proxifier: {ex.Message}";
         }
-    }
-
-    [RelayCommand]
-    public void LaunchProxifier()
-    {
-        GenerateProxifierConfig();
-        bool ok = _proxifierService.ReloadProxifier(ProxifierExePath, ProxifierProfilePath);
-        StatusNotification = ok ? "โหลดโปรไฟล์เข้า Proxifier สำเร็จ!" : "ไม่สามารถโหลด Proxifier (โปรดตรวจ Path)";
     }
 
     public Array RuleTriggerTypes { get; } = Enum.GetValues(typeof(RuleTriggerType));
@@ -1843,15 +1831,6 @@ public partial class MainViewModel : ObservableObject
         var (ok, msg) = await _telegramService.TestConnectionAsync(TelegramBotToken, TelegramChatId);
         TelegramTestStatus = msg;
         StatusNotification = ok ? "ทดสอบ Telegram สำเร็จ" : "ทดสอบ Telegram ไม่สำเร็จ";
-    }
-
-    [RelayCommand]
-    public async Task TestSolverApiAsync()
-    {
-        SolverApiTestStatus = "กำลังทดสอบเชื่อมต่อ Captcha Solver Server...";
-        var (ok, msg) = await _cdpService.TestSolverApiConnectionAsync(AppConstants.DefaultServerEndpoint, CaptchaSolverJwtToken);
-        SolverApiTestStatus = msg;
-        StatusNotification = ok ? "เชื่อมต่อ Solver API สำเร็จ" : "เชื่อมต่อ Solver API ไม่สำเร็จ";
     }
 
     [RelayCommand]

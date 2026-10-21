@@ -552,17 +552,6 @@ public partial class InstanceCardViewModel : ObservableObject
     }
 
     [RelayCommand]
-    public void CopySelectedChatMessageJson(LiveChatMessageItem? item)
-    {
-        var target = item ?? SelectedChatMessage;
-        if (target != null)
-        {
-            Clipboard.SetText(target.FormattedJson);
-            LiveChatStatus = $"คัดลอก JSON ข้อความ [{target.TypeDisplay}] ลง Clipboard แล้ว!";
-        }
-    }
-
-    [RelayCommand]
     public void ReplyToChatMessage(LiveChatMessageItem? item)
     {
         var target = item ?? SelectedChatMessage;

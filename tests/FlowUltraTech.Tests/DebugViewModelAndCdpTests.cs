@@ -11,68 +11,11 @@ namespace FlowUltraTech.Tests;
 public class DebugViewModelAndCdpTests
 {
     [Fact]
-    public void DebugViewModel_InitializesWithSensibleDefaults()
-    {
-        var cdpService = new CdpAutomationService();
-        var vm = new DebugViewModel(cdpService);
-
-        Assert.Equal(9221, vm.TargetPort);
-        Assert.Contains("ไม่ได้เชื่อมต่อ", vm.ConnectionStatus);
-        Assert.NotEmpty(vm.ScriptInput);
-        Assert.NotEmpty(vm.ConsoleOutput);
-        Assert.False(vm.IsHooking);
-        Assert.Empty(vm.NetworkTraffic);
-        Assert.Empty(vm.Cookies);
-        Assert.Equal("-", vm.SessionIdToken);
-        Assert.Equal("-", vm.CsrfToken);
-    }
-
-    [Fact]
-    public void DebugViewModel_ClearConsoleCommand_ClearsOutput()
-    {
-        var cdpService = new CdpAutomationService();
-        var vm = new DebugViewModel(cdpService);
-
-        Assert.NotEmpty(vm.ConsoleOutput);
-        vm.ClearConsoleCommand.Execute(null);
-        Assert.Empty(vm.ConsoleOutput);
-    }
-
-    [Fact]
     public void MainWindow_Type_CanBeLoaded()
     {
         var windowType = typeof(FlowUltraTech.App.MainWindow);
         Assert.NotNull(windowType);
         Assert.True(typeof(System.Windows.Window).IsAssignableFrom(windowType));
-    }
-
-    [Fact]
-    public async Task DebugViewModel_ExecuteScript_OnUnreachablePort_ReportsErrorCleanly()
-    {
-        var cdpService = new CdpAutomationService();
-        var vm = new DebugViewModel(cdpService)
-        {
-            TargetPort = 59999 // Unused port
-        };
-
-        await vm.ExecuteScriptCommand.ExecuteAsync(null);
-
-        Assert.Contains("Cannot connect to CDP port", vm.ConsoleOutput);
-        Assert.Contains("59999", vm.ConsoleOutput);
-    }
-
-    [Fact]
-    public async Task DebugViewModel_CheckConnection_OnUnreachablePort_ReportsDisconnected()
-    {
-        var cdpService = new CdpAutomationService();
-        var vm = new DebugViewModel(cdpService)
-        {
-            TargetPort = 59998
-        };
-
-        await vm.CheckCdpStatusCommand.ExecuteAsync(null);
-
-        Assert.Contains("ไม่ตอบสนอง", vm.ConnectionStatus);
     }
 
     [Fact]
@@ -147,26 +90,6 @@ public class DebugViewModelAndCdpTests
     }
 
     [Fact]
-    public void InstanceCardViewModel_SwitchMode_CyclesThroughAllModes()
-    {
-        var profile = new StudioInstanceProfile { LaunchMode = InstanceLaunchMode.DirectProfile };
-        var settings = new AppSettings();
-        var orchestrator = new InstanceOrchestrator(new ProcessLauncher(), new WindowController(), new CdpAutomationService());
-        var vm = new InstanceCardViewModel(profile, settings, orchestrator);
-
-        Assert.Equal(InstanceLaunchMode.DirectProfile, vm.LaunchMode);
-        Assert.Contains("แยกโฟลเดอร์", vm.ModeBadgeText);
-
-        vm.SwitchModeCommand.Execute(null);
-        Assert.Equal(InstanceLaunchMode.DefaultProfile, vm.LaunchMode);
-        Assert.Contains("บัญชีหลัก", vm.ModeBadgeText);
-
-        vm.SwitchModeCommand.Execute(null);
-        Assert.Equal(InstanceLaunchMode.DirectProfile, vm.LaunchMode);
-        Assert.Contains("แยกโฟลเดอร์", vm.ModeBadgeText);
-    }
-
-    [Fact]
     public void InstanceCardViewModel_ToggleDetail_TogglesStateAndText()
     {
         var profile = new StudioInstanceProfile();
@@ -183,35 +106,6 @@ public class DebugViewModelAndCdpTests
 
         vm.ToggleDetailCommand.Execute(null);
         Assert.False(vm.IsDetailOpen);
-    }
-
-    [Fact]
-    public async Task InstanceCardViewModel_ExecuteScript_WhenNotRunning_WarnsCleanly()
-    {
-        var profile = new StudioInstanceProfile { Status = InstanceStatus.Stopped };
-        var settings = new AppSettings();
-        var orchestrator = new InstanceOrchestrator(new ProcessLauncher(), new WindowController(), new CdpAutomationService());
-        var vm = new InstanceCardViewModel(profile, settings, orchestrator);
-
-        Assert.False(vm.IsRunning);
-        await vm.ExecuteScriptCommand.ExecuteAsync(null);
-
-        Assert.Contains("ยังไม่ได้เปิดทำงาน", vm.ConsoleOutput);
-    }
-
-    [Fact]
-    public void InstanceCardViewModel_SnippetAndClearConsole_WorksCorrectly()
-    {
-        var profile = new StudioInstanceProfile();
-        var settings = new AppSettings();
-        var orchestrator = new InstanceOrchestrator(new ProcessLauncher(), new WindowController(), new CdpAutomationService());
-        var vm = new InstanceCardViewModel(profile, settings, orchestrator);
-
-        vm.SetScriptSnippetCommand.Execute("document.title");
-        Assert.Equal("document.title", vm.ScriptInput);
-
-        vm.ClearConsoleCommand.Execute(null);
-        Assert.Empty(vm.ConsoleOutput);
     }
 
     [Fact]
@@ -450,45 +344,6 @@ public class DebugViewModelAndCdpTests
     }
 
     [Fact]
-    public async Task DebugViewModel_ExportFullHtml_WithDirectPath_ExportsProperly()
-    {
-        var fakeCdp = new TestFakeCdpService
-        {
-            ResultToReturn = new PageHtmlResult
-            {
-                Html = "<html><body>Debug HTML Content</body></html>",
-                Url = "http://127.0.0.1:9221/studio",
-                Title = "Studio Debug",
-                PageCount = 1
-            }
-        };
-
-        var vm = new DebugViewModel(fakeCdp) { TargetPort = 9221 };
-
-        string tempFile = System.IO.Path.Combine(System.IO.Path.GetTempPath(), $"test_debug_export_{Guid.NewGuid():N}.html");
-        try
-        {
-            string? resultPath = await vm.ExportFullHtmlAsync(tempFile);
-
-            Assert.NotNull(resultPath);
-            Assert.True(System.IO.File.Exists(tempFile));
-            string content = await System.IO.File.ReadAllTextAsync(tempFile);
-
-            Assert.Contains("<!-- [TikTok LIVE Studio Sandbox] Exported:", content);
-            Assert.Contains("Port: 9221", content);
-            Assert.Contains("Debug HTML Content", content);
-            Assert.Equal(tempFile, vm.LastExportedHtmlPath);
-        }
-        finally
-        {
-            if (System.IO.File.Exists(tempFile))
-            {
-                System.IO.File.Delete(tempFile);
-            }
-        }
-    }
-
-    [Fact]
     public async Task InstanceCardViewModel_CheckCaptcha_WhenFound_SetsPropertiesAndShowsAlert()
     {
         var fakeCaptcha = new CaptchaDetectionResult
@@ -618,40 +473,6 @@ public class DebugViewModelAndCdpTests
     }
 
     [Fact]
-    public async Task DebugViewModel_CopyCaptchaHtml_WhenFound_ReturnsCombinedHtml()
-    {
-        var fakeCaptcha = new CaptchaDetectionResult
-        {
-            DetectedAt = DateTime.Now,
-            CombinedHtml = "<div class=\"captcha_verify_container\">Verify Code</div>",
-            Elements =
-            {
-                new CaptchaElementItem
-                {
-                    TagName = "div",
-                    ClassName = "captcha_verify_container",
-                    Html = "<div class=\"captcha_verify_container\">Verify Code</div>"
-                }
-            }
-        };
-
-        var fakeCdp = new TestFakeCdpService { CaptchaResultToReturn = fakeCaptcha };
-        var vm = new DebugViewModel(fakeCdp) { TargetPort = 9221 };
-
-        // Test in STA or catch clipboard restriction in headless test
-        try
-        {
-            var html = await vm.CopyCaptchaHtmlAsync();
-            Assert.Equal("<div class=\"captcha_verify_container\">Verify Code</div>", html);
-            Assert.Contains("คัดลอก Captcha Full HTML", vm.ConsoleOutput);
-        }
-        catch (System.Threading.ThreadStateException)
-        {
-            // Clipboard might require STA thread in some test runners
-        }
-    }
-
-    [Fact]
     public void Captcha_TopmostSmartLayerCalculation_KeepsTopmostElementsAndDiscardsDescendants()
     {
         // Simulation of DOM node hierarchy for layer calculation testing:
@@ -717,68 +538,6 @@ public class DebugViewModelAndCdpTests
         Assert.Equal(0, vm.DetectedCaptchaCount);
         Assert.Empty(vm.DetectedCaptchaHtml);
         Assert.False(vm.IsCaptchaAlertVisible);
-    }
-
-    [Fact]
-    public async Task DebugViewModel_DetectCaptcha_PopulatesElementsAndRawHtml()
-    {
-        var fakeCaptcha = new CaptchaDetectionResult
-        {
-            DetectedAt = DateTime.Now,
-            IsActive = true,
-            Type = CaptchaType.Jigsaw,
-            TypeDescription = "จิ๊กซอว์เลื่อนต่อภาพ (Slide Captcha)",
-            CombinedHtml = "<div id=\"captcha-test\">Verify</div>",
-            Elements =
-            {
-                new CaptchaElementItem { TagName = "div", Id = "captcha-test", Html = "<div id=\"captcha-test\">Verify</div>", IsVisible = true }
-            }
-        };
-
-        var fakeCdp = new TestFakeCdpService { CaptchaResultToReturn = fakeCaptcha };
-        var vm = new DebugViewModel(fakeCdp) { TargetPort = 9221 };
-
-        Assert.Empty(vm.CaptchaElements);
-        Assert.Empty(vm.CaptchaRawHtml);
-
-        var res = await vm.DetectCaptchaAsync();
-
-        Assert.True(res.Found);
-        Assert.True(res.IsActive);
-        Assert.Single(vm.CaptchaElements);
-        Assert.Equal("<div id=\"captcha-test\">Verify</div>", vm.CaptchaRawHtml);
-        Assert.Contains("ตรวจพบ Captcha จริง", vm.CaptchaStatusText);
-
-        // Test Clear
-        vm.ClearCaptchaCommand.Execute(null);
-        Assert.Empty(vm.CaptchaElements);
-        Assert.Empty(vm.CaptchaRawHtml);
-    }
-
-    [Fact]
-    public async Task DebugViewModel_DetectCaptcha_WhenHiddenInDom_ShowsInactiveStatus()
-    {
-        var fakeCaptcha = new CaptchaDetectionResult
-        {
-            DetectedAt = DateTime.Now,
-            IsActive = false,
-            State = CaptchaState.HiddenOrUnmounted,
-            Type = CaptchaType.None,
-            CombinedHtml = "<div id=\"captcha-mount-point\" style=\"display: none;\"></div>",
-            Elements =
-            {
-                new CaptchaElementItem { TagName = "div", Id = "captcha-mount-point", Html = "<div id=\"captcha-mount-point\" style=\"display: none;\"></div>", IsVisible = false }
-            }
-        };
-
-        var fakeCdp = new TestFakeCdpService { CaptchaResultToReturn = fakeCaptcha };
-        var vm = new DebugViewModel(fakeCdp) { TargetPort = 9221 };
-
-        var res = await vm.DetectCaptchaAsync();
-
-        Assert.True(res.Found);
-        Assert.False(res.IsActive);
-        Assert.Contains("ซ่อน/ปิดอยู่", vm.CaptchaStatusText);
     }
 
     [Fact]

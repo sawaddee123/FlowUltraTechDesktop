@@ -351,32 +351,6 @@ public partial class InstanceCardViewModel : ObservableObject
     }
 
     [RelayCommand]
-    public async Task ToggleNetworkHookAsync()
-    {
-        if (Status != InstanceStatus.Running)
-        {
-            StatusMessage = "หน้าต่างยังไม่ได้เปิดทำงาน (กรุณากด Start ก่อนดักจับ Network)";
-            return;
-        }
-
-        if (!IsNetworkHooking)
-        {
-            await StartNetworkHookInternalAsync();
-        }
-        else
-        {
-            await StopNetworkHookInternalAsync();
-        }
-    }
-
-    [RelayCommand]
-    public void ClearTraffic()
-    {
-        NetworkTraffic.Clear();
-        SelectedTraffic = null;
-    }
-
-    [RelayCommand]
     public void ResetNetworkFilters()
     {
         NetworkSearchText = string.Empty;
@@ -385,43 +359,6 @@ public partial class InstanceCardViewModel : ObservableObject
         NetworkStatusFilter = "ALL";
         FilteredNetworkTraffic?.Refresh();
     }
-
-    [RelayCommand]
-    public void CopyResponseBody()
-    {
-        if (SelectedTraffic != null && !string.IsNullOrEmpty(SelectedTraffic.ResponseBody))
-        {
-            Clipboard.SetText(SelectedTraffic.ResponseBody);
-        }
-    }
-
-    [RelayCommand]
-    public void CopyPayload()
-    {
-        if (SelectedTraffic != null && !string.IsNullOrEmpty(SelectedTraffic.PostData))
-        {
-            Clipboard.SetText(SelectedTraffic.PostData);
-        }
-    }
-
-    [RelayCommand]
-    public void CopyRequestHeaders()
-    {
-        if (SelectedTraffic != null && !string.IsNullOrEmpty(SelectedTraffic.RequestHeaders))
-        {
-            Clipboard.SetText(SelectedTraffic.RequestHeaders);
-        }
-    }
-
-    [RelayCommand]
-    public void CopyTrafficUrl()
-    {
-        if (SelectedTraffic != null && !string.IsNullOrEmpty(SelectedTraffic.Url))
-        {
-            Clipboard.SetText(SelectedTraffic.Url);
-        }
-    }
-
 
     // ==========================================
     // Cookies & Storage Commands
@@ -485,39 +422,6 @@ public partial class InstanceCardViewModel : ObservableObject
         StorageValueFilter = string.Empty;
         FilteredLocalStorage?.Refresh();
         FilteredSessionStorage?.Refresh();
-    }
-
-    [RelayCommand]
-    public void CopyCookieValue(CookieItem? item)
-    {
-        if (item != null && !string.IsNullOrEmpty(item.Value))
-        {
-            Clipboard.SetText(item.Value);
-            StorageStatus = $"คัดลอก Cookie '{item.Name}' แล้ว!";
-        }
-    }
-
-    [RelayCommand]
-    public void CopyStorageItem(StorageEntry? item)
-    {
-        if (item != null && !string.IsNullOrEmpty(item.Value))
-        {
-            Clipboard.SetText(item.Value);
-            StorageStatus = $"คัดลอก '{item.Key}' แล้ว!";
-        }
-    }
-
-    [RelayCommand]
-    public void CopyAllCookiesString()
-    {
-        if (Cookies.Count == 0) return;
-        var sb = new StringBuilder();
-        foreach (var c in Cookies)
-        {
-            sb.Append($"{c.Name}={c.Value}; ");
-        }
-        Clipboard.SetText(sb.ToString().TrimEnd());
-        StorageStatus = "คัดลอก Cookie Header String ทั้งหมดแล้ว!";
     }
 
     [RelayCommand]

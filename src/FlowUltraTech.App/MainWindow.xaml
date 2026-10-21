@@ -582,9 +582,6 @@
                                                             <DockPanel LastChildFill="False" Margin="0,0,0,8">
                                                                 <StackPanel Orientation="Horizontal" DockPanel.Dock="Left" VerticalAlignment="Center">
                                                                     <TextBlock Text="สถานะบัญชี:" FontWeight="SemiBold" FontSize="12" Foreground="{DynamicResource FgBrush}" Margin="0,0,8,0" />
-                                                                    <Border Visibility="Collapsed" Background="{DynamicResource Surface2Brush}" CornerRadius="4" Padding="6,2" Margin="0,0,8,0">
-                                                                        <TextBlock Text="{Binding CdpPort, StringFormat='CDP: 127.0.0.1:{0}'}" FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource PrimaryBrush}" />
-                                                                    </Border>
                                                                     <TextBlock Text="{Binding StatusMessage}" Foreground="{DynamicResource MutedBrush}" FontSize="11" MaxWidth="380" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
                                                                 </StackPanel>
 
@@ -613,7 +610,6 @@
                                                                             <DockPanel LastChildFill="True">
                                                                                 <!-- Right Action Buttons -->
                                                                                 <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
-                                                                                    <Button Visibility="Collapsed" Style="{StaticResource ActionDarkButton}" Content="{Binding ModeBadgeText}" Command="{Binding SwitchModeCommand}" Margin="0,0,6,0" Padding="10,5" ToolTip="สลับโหมดจำลองโปรไฟล์" />
                                                                                     <Button Style="{StaticResource ActionDarkButton}" Content="ใช้ล็อกอินจากสตูดิโอหลัก" Command="{Binding CloneSessionFromDefaultCommand}" Margin="0,0,6,0" Padding="10,5" />
                                                                                     <Button Style="{StaticResource ActionDarkButton}" Content="เปิดสตูดิโอ" Command="{Binding OpenStudioForLoginCommand}" Visibility="{Binding LoggedInVisibility}" Margin="0,0,6,0" Padding="10,5" />
                                                                                     <Button Style="{StaticResource PrimaryCtaButton}" Content="เปิดสตูดิโอเพื่อล็อกอิน" Command="{Binding OpenStudioForLoginCommand}" Visibility="{Binding NotLoggedInVisibility}" Margin="0,0,6,0" Padding="12,5" />
@@ -638,7 +634,7 @@
                                                                         </Border>
 
                                                                         <!-- Tokens Section -->
-                                                                        <Border Visibility="Collapsed" Grid.Row="1" Background="{DynamicResource Surface2Brush}" BorderBrush="{DynamicResource LineBrush}" BorderThickness="1" CornerRadius="6" Padding="10">
+                                                                        <Border Grid.Row="1" Background="{DynamicResource Surface2Brush}" BorderBrush="{DynamicResource LineBrush}" BorderThickness="1" CornerRadius="6" Padding="10">
                                                                             <Grid>
                                                                                 <Grid.RowDefinitions>
                                                                                     <RowDefinition Height="Auto" />
@@ -764,105 +760,8 @@
                                                                 </TabItem>
 
                                                                 <!-- SUBTAB 1: SCRIPT CONSOLE -->
-                                                                <TabItem Visibility="Collapsed" Header="รันสคริปต์">
-                                                                    <Grid Margin="0,10,0,0">
-                                                                        <Grid.RowDefinitions>
-                                                                            <RowDefinition Height="Auto" />
-                                                                            <RowDefinition Height="Auto" />
-                                                                            <RowDefinition Height="*" />
-                                                                        </Grid.RowDefinitions>
-
-                                                                        <Border Grid.Row="0" Visibility="{Binding NotRunningVisibility}" Background="{DynamicResource Surface3Brush}" CornerRadius="6" Padding="12,8" Margin="0,0,0,8">
-                                                                            <TextBlock Text="หน้าต่างนี้ยังไม่ได้เปิดทำงาน (กดเริ่มทำงานก่อนรันสคริปต์)" Foreground="{DynamicResource WarnBrush}" FontSize="12" />
-                                                                        </Border>
-
-                                                                        <Grid Grid.Row="1" Margin="0,0,0,8">
-                                                                            <Grid.RowDefinitions>
-                                                                                <RowDefinition Height="Auto" />
-                                                                                <RowDefinition Height="Auto" />
-                                                                            </Grid.RowDefinitions>
-
-                                                                            <ui:TextBox Grid.Row="0" Text="{Binding ScriptInput, UpdateSourceTrigger=PropertyChanged}" 
-                                                                                        PlaceholderText="พิมพ์โค้ด JavaScript เช่น window.location.href, document.title..." 
-                                                                                        MinHeight="50" AcceptsReturn="True" VerticalScrollBarVisibility="Auto" Margin="0,0,0,8" />
-
-                                                                            <DockPanel Grid.Row="1" LastChildFill="False">
-                                                                                <StackPanel Orientation="Horizontal" DockPanel.Dock="Left">
-                                                                                    <Button Style="{StaticResource PrimaryCtaButton}" Content="รันสคริปต์" Command="{Binding ExecuteScriptCommand}" IsEnabled="{Binding IsRunning}" ToolTip="กดเริ่มทำงานบัญชีนี้ก่อน" ToolTipService.ShowOnDisabled="True" Margin="0,0,6,0" Padding="12,4" />
-                                                                                    <Button Style="{StaticResource ActionDarkButton}" Content="ส่งออก Full HTML" Command="{Binding ExportFullHtmlCommand}" IsEnabled="{Binding IsRunning}" ToolTip="กดเริ่มทำงานบัญชีนี้ก่อน" ToolTipService.ShowOnDisabled="True" Margin="0,0,6,0" />
-                                                                                    <Button Style="{StaticResource ActionDarkButton}" Content="ล้าง Console" Command="{Binding ClearConsoleCommand}" Margin="0,0,6,0" />
-                                                                                    <Button Style="{StaticResource ActionDarkButton}" Content="คัดลอกผลลัพธ์" Command="{Binding CopyConsoleCommand}" Margin="0,0,10,0" />
-                                                                                </StackPanel>
-
-                                                                                <StackPanel Orientation="Horizontal" DockPanel.Dock="Right" VerticalAlignment="Center">
-                                                                                    <TextBlock Text="คำสั่งด่วน:" Foreground="{DynamicResource MutedBrush}" FontSize="11" VerticalAlignment="Center" Margin="0,0,6,0" />
-                                                                                    <Button Style="{StaticResource MicroButton}" Content="URL" Command="{Binding SetScriptSnippetCommand}" CommandParameter="window.location.href" Margin="0,0,4,0" />
-                                                                                    <Button Style="{StaticResource MicroButton}" Content="Title" Command="{Binding SetScriptSnippetCommand}" CommandParameter="document.title" Margin="0,0,4,0" />
-                                                                                    <Button Style="{StaticResource MicroButton}" Content="LocalStorage" Command="{Binding SetScriptSnippetCommand}" CommandParameter="JSON.stringify(window.localStorage)" Margin="0,0,4,0" />
-                                                                                    <Button Style="{StaticResource MicroButton}" Content="Full HTML" Command="{Binding SetScriptSnippetCommand}" CommandParameter="document.documentElement.outerHTML" />
-                                                                                </StackPanel>
-                                                                            </DockPanel>
-                                                                        </Grid>
-
-                                                                        <Border Grid.Row="2" Background="{DynamicResource BgBrush}" CornerRadius="6" Padding="6" BorderThickness="1" BorderBrush="{DynamicResource LineBrush}">
-                                                                            <TextBox Text="{Binding ConsoleOutput}" IsReadOnly="True" 
-                                                                                     FontFamily="{StaticResource MonoFont}" FontSize="12" 
-                                                                                     Background="Transparent" Foreground="{DynamicResource PrimaryBrush}" 
-                                                                                     BorderThickness="0" Height="130" 
-                                                                                     VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto" />
-                                                                        </Border>
-                                                                    </Grid>
-                                                                </TabItem>
 
                                                                 <!-- SUBTAB 2: NETWORK MONITOR -->
-                                                                <TabItem Visibility="Collapsed" Header="เน็ตเวิร์ก API">
-                                                                    <Grid Margin="0,10,0,0">
-                                                                        <Grid.RowDefinitions>
-                                                                            <RowDefinition Height="Auto" />
-                                                                            <RowDefinition Height="Auto" />
-                                                                            <RowDefinition Height="180" />
-                                                                            <RowDefinition Height="Auto" />
-                                                                        </Grid.RowDefinitions>
-
-                                                                        <Border Grid.Row="0" Visibility="{Binding NotRunningVisibility}" Background="{DynamicResource Surface3Brush}" CornerRadius="6" Padding="12,8" Margin="0,0,0,8">
-                                                                            <TextBlock Text="หน้าต่างนี้ยังไม่ได้เปิดทำงาน (กดเริ่มทำงานก่อนดักจับ Network)" Foreground="{DynamicResource WarnBrush}" FontSize="12" />
-                                                                        </Border>
-
-                                                                        <DockPanel Grid.Row="1" Margin="0,0,0,8">
-                                                                            <StackPanel Orientation="Horizontal" DockPanel.Dock="Left">
-                                                                                <Button Style="{StaticResource PrimaryCtaButton}" Content="{Binding NetworkHookButtonText}" Command="{Binding ToggleNetworkHookCommand}" IsEnabled="{Binding IsRunning}" ToolTip="กดเริ่มทำงานบัญชีนี้ก่อน" ToolTipService.ShowOnDisabled="True" Margin="0,0,6,0" Padding="12,4" />
-                                                                                <Border Background="{DynamicResource Surface2Brush}" CornerRadius="4" Padding="6,2" VerticalAlignment="Center" Margin="0,0,8,0">
-                                                                                    <TextBlock Text="{Binding NetworkHookBadgeText}" FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource OkBrush}" />
-                                                                                </Border>
-                                                                                <Button Style="{StaticResource ActionDarkButton}" Content="ล้างรายการ" Command="{Binding ClearTrafficCommand}" Margin="0,0,8,0" />
-                                                                                <TextBlock Text="{Binding NetworkTraffic.Count, StringFormat='ดักจับแล้ว: {0} รายการ'}" VerticalAlignment="Center" Foreground="{DynamicResource MutedBrush}" FontSize="11" Margin="0,0,12,0" />
-                                                                            </StackPanel>
-
-                                                                            <StackPanel Orientation="Horizontal" DockPanel.Dock="Right">
-                                                                                <ui:TextBox Text="{Binding NetworkSearchText, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="ค้นหาเร็ว..." Width="200" Padding="8,4" FontSize="11" />
-                                                                            </StackPanel>
-                                                                        </DockPanel>
-
-                                                                        <DataGrid Grid.Row="2" ItemsSource="{Binding FilteredNetworkTraffic}" SelectedItem="{Binding SelectedTraffic}"
-                                                                                  FontFamily="{StaticResource MonoFont}" FontSize="11">
-                                                                            <DataGrid.Columns>
-                                                                                <DataGridTextColumn Header="เวลา" Binding="{Binding FormattedTime}" Width="75" />
-                                                                                <DataGridTextColumn Header="Method" Binding="{Binding Method}" Width="65" FontWeight="Bold" />
-                                                                                <DataGridTextColumn Header="Status" Binding="{Binding StatusCode}" Width="60" />
-                                                                                <DataGridTextColumn Header="Type" Binding="{Binding ResourceType}" Width="75" />
-                                                                                <DataGridTextColumn Header="URL" Binding="{Binding Url}" Width="*" />
-                                                                            </DataGrid.Columns>
-                                                                        </DataGrid>
-
-                                                                        <Border Grid.Row="3" Background="{DynamicResource BgBrush}" CornerRadius="6" Padding="6" BorderThickness="1" BorderBrush="{DynamicResource LineBrush}" Margin="0,8,0,0">
-                                                                            <TextBox Text="{Binding SelectedTraffic.ResponseBody}" IsReadOnly="True" 
-                                                                                     FontFamily="{StaticResource MonoFont}" FontSize="11" 
-                                                                                     Background="Transparent" Foreground="{DynamicResource FgBrush}" 
-                                                                                     BorderThickness="0" 
-                                                                                     VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto" />
-                                                                        </Border>
-                                                                    </Grid>
-                                                                </TabItem>
 
                                                                 <!-- SUBTAB 3: CAPTCHA RADAR -->
                                                                 <TabItem Header="Captcha">
@@ -884,15 +783,12 @@
                                                                             <DockPanel LastChildFill="True">
                                                                                 <StackPanel Orientation="Horizontal" DockPanel.Dock="Left" VerticalAlignment="Center">
                                                                                     <Button Style="{StaticResource PrimaryCtaButton}" Content="ตรวจหาเดี๋ยวนี้" Command="{Binding ScanCaptchaNowCommand}" IsEnabled="{Binding IsRunning}" ToolTip="กดเริ่มทำงานบัญชีนี้ก่อน" ToolTipService.ShowOnDisabled="True" Margin="0,0,6,0" Padding="10,4" />
-                                                                                    <Button Visibility="Collapsed" Style="{StaticResource ActionDarkButton}" Content="คัดลอก Full HTML" Command="{Binding CopyCaptchaHtmlCommand}" IsEnabled="{Binding IsRunning}" ToolTip="กดเริ่มทำงานบัญชีนี้ก่อน" ToolTipService.ShowOnDisabled="True" Margin="0,0,6,0" />
-                                                                                    <Button Visibility="Collapsed" Style="{StaticResource ActionDarkButton}" Content="ส่งออกไฟล์" Command="{Binding ExportCaptchaHtmlCommand}" Margin="0,0,6,0" />
                                                                                     <Button Style="{StaticResource ActionDarkButton}" Content="ล้างผลลัพธ์" Command="{Binding ClearCaptchaResultsCommand}" Margin="0,0,10,0" />
                                                                                 </StackPanel>
 
                                                                                 <StackPanel Orientation="Horizontal" DockPanel.Dock="Right" VerticalAlignment="Center">
                                                                                     <CheckBox Content="ตรวจหาอัตโนมัติ" IsChecked="{Binding IsCaptchaAutoDetect}" VerticalAlignment="Center" Margin="0,0,10,0" />
                                                                                     <CheckBox Content="แก้อัตโนมัติ" IsChecked="{Binding IsAutoSolveCaptcha}" VerticalAlignment="Center" Margin="0,0,10,0" />
-                                                                                    <CheckBox Visibility="Collapsed" Content="Auto Copy" IsChecked="{Binding AutoCopyToClipboardOnDetect}" VerticalAlignment="Center" />
                                                                                 </StackPanel>
                                                                             </DockPanel>
                                                                         </Border>
@@ -977,38 +873,8 @@
                                                                         </Border>
 
                                                                         <!-- DataGrid -->
-                                                                        <DataGrid Visibility="Collapsed" Grid.Row="3" ItemsSource="{Binding DetectedCaptchaElements}" SelectedItem="{Binding SelectedCaptchaElement}"
-                                                                                  FontFamily="{StaticResource MonoFont}" FontSize="11" Margin="0,0,0,8">
-                                                                            <DataGrid.Columns>
-                                                                                <DataGridTextColumn Header="Tag" Binding="{Binding TagName}" Width="70" FontWeight="Bold" />
-                                                                                <DataGridTextColumn Header="ID" Binding="{Binding Id}" Width="160" />
-                                                                                <DataGridTextColumn Header="Class" Binding="{Binding ClassName}" Width="180" />
-                                                                                <DataGridTextColumn Header="Layer" Binding="{Binding Depth, StringFormat='Depth {0}'}" Width="85" />
-                                                                                <DataGridTextColumn Header="Frame URL" Binding="{Binding FrameUrl}" Width="170" />
-                                                                                <DataGridTemplateColumn Header="การดำเนินการ" Width="*">
-                                                                                    <DataGridTemplateColumn.CellTemplate>
-                                                                                        <DataTemplate>
-                                                                                            <Button Style="{StaticResource MicroButton}" Content="คัดลอก Element" 
-                                                                                                    Command="{Binding DataContext.CopyElementHtmlCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}" 
-                                                                                                    CommandParameter="{Binding}" />
-                                                                                        </DataTemplate>
-                                                                                    </DataGridTemplateColumn.CellTemplate>
-                                                                                </DataGridTemplateColumn>
-                                                                            </DataGrid.Columns>
-                                                                        </DataGrid>
 
-                                                                        <DockPanel Visibility="Collapsed" Grid.Row="4" Margin="0,0,0,4">
-                                                                            <TextBlock Text="Full HTML ของหน้าที่มี Captcha:" FontWeight="SemiBold" FontSize="11" Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Center" />
-                                                                            <Button Visibility="Collapsed" Style="{StaticResource MicroButton}" DockPanel.Dock="Right" Content="คัดลอกโค้ดนี้" Command="{Binding CopyDetectedCaptchaCommand}" />
-                                                                        </DockPanel>
 
-                                                                        <Border Visibility="Collapsed" Grid.Row="5" Background="{DynamicResource BgBrush}" CornerRadius="6" Padding="6" BorderThickness="1" BorderBrush="{DynamicResource LineBrush}">
-                                                                            <TextBox Text="{Binding DetectedCaptchaHtml, Mode=OneWay}" IsReadOnly="True"
-                                                                                     FontFamily="{StaticResource MonoFont}" FontSize="12" 
-                                                                                     Background="Transparent" Foreground="{DynamicResource WarnBrush}" 
-                                                                                     BorderThickness="0" 
-                                                                                     VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto" />
-                                                                        </Border>
                                                                     </Grid>
                                                                 </TabItem>
 
@@ -1117,9 +983,6 @@
                                                                                                 <Button Style="{StaticResource MicroButton}" Content="คัดลอก" 
                                                                                                         Command="{Binding DataContext.CopySelectedChatMessageCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}" 
                                                                                                         CommandParameter="{Binding}" Margin="0,0,4,0" />
-                                                                                                <Button Visibility="Collapsed" Style="{StaticResource MicroButton}" Content="{}{ } JSON" 
-                                                                                                        Command="{Binding DataContext.CopySelectedChatMessageJsonCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}" 
-                                                                                                        CommandParameter="{Binding}" ToolTip="คัดลอกโครงสร้าง JSON รายการนี้" />
                                                                                             </StackPanel>
                                                                                         </DataTemplate>
                                                                                     </DataGridTemplateColumn.CellTemplate>
@@ -1128,28 +991,6 @@
                                                                         </DataGrid>
 
                                                                         <!-- Raw JSON Inspector Drawer -->
-                                                                        <Border Visibility="Collapsed" Grid.Row="4" Background="{DynamicResource BgBrush}" BorderBrush="{DynamicResource LineBrush}" BorderThickness="1" CornerRadius="6" Padding="8,6" Margin="0,0,0,6">
-                                                                            <Grid>
-                                                                                <Grid.RowDefinitions>
-                                                                                    <RowDefinition Height="Auto" />
-                                                                                    <RowDefinition Height="Auto" />
-                                                                                </Grid.RowDefinitions>
-                                                                                <DockPanel Grid.Row="0" Margin="0,0,0,4">
-                                                                                    <StackPanel Orientation="Horizontal" DockPanel.Dock="Right">
-                                                                                        <Button Visibility="Collapsed" Style="{StaticResource MicroButton}" Content="คัดลอก JSON รายการนี้" Command="{Binding CopySelectedChatMessageJsonCommand}" CommandParameter="{Binding SelectedChatMessage}" ToolTip="คัดลอก JSON ของรายการที่เลือก" />
-                                                                                    </StackPanel>
-                                                                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                                                                        <TextBlock Text="{}{ } Event JSON Viewer:" FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource MutedBrush}" Margin="0,0,6,0" />
-                                                                                        <TextBlock Text="{Binding SelectedChatMessage.TypeDisplay, FallbackValue='(คลิกเลือกรายการในตารางเพื่อดู JSON)'}" Foreground="{Binding SelectedChatMessage.TypeColor, FallbackValue='#64748B'}" FontSize="10" FontWeight="SemiBold" Margin="0,0,6,0" />
-                                                                                        <TextBlock Text="{Binding SelectedChatMessage.SenderDisplay}" FontSize="11" Foreground="{DynamicResource PrimaryBrush}" FontWeight="Medium" />
-                                                                                    </StackPanel>
-                                                                                </DockPanel>
-                                                                                <TextBox Grid.Row="1" Text="{Binding SelectedChatMessage.FormattedJson, Mode=OneWay, FallbackValue='(คลิกเลือกรายการในตารางด้านบนเพื่อตรวจสอบโครงสร้าง JSON หรือ Raw DOM Node)'}" 
-                                                                                         IsReadOnly="True" FontFamily="{StaticResource MonoFont}" FontSize="11" 
-                                                                                         Background="{DynamicResource BgBrush}" Foreground="{DynamicResource OkBrush}" BorderThickness="1" BorderBrush="{DynamicResource LineBrush}" 
-                                                                                         Height="75" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto" Padding="6,4" />
-                                                                            </Grid>
-                                                                        </Border>
 
                                                                         <!-- 5-Mode Auto-Reply & Comment Studio (ส่งทันที | วนส่ง | กฎคำ | ทักทาย | AI ตอบ) -->
                                                                         <Border Grid.Row="5" Grid.RowSpan="2" Background="{DynamicResource BgBrush}" BorderBrush="{DynamicResource LineBrush}" BorderThickness="1" CornerRadius="6" Padding="10,8" Margin="0,0,0,6">
@@ -1399,11 +1240,10 @@
                                                                         </DockPanel>
 
                                                                         <DataGrid Grid.Row="1" ItemsSource="{Binding FilteredLogs}" SelectedItem="{Binding SelectedLog}"
-                                                                                  FontFamily="{StaticResource MonoFont}" FontSize="11">
+                                                                                  FontSize="12">
                                                                             <DataGrid.Columns>
                                                                                 <DataGridTextColumn Header="เวลา" Binding="{Binding FormattedTime}" Width="85" />
                                                                                 <DataGridTextColumn Header="ความสำคัญ" Binding="{Binding LevelDisplay}" Width="70" />
-                                                                                <DataGridTextColumn Header="หมวดหมู่" Binding="{Binding Category}" Width="90" />
                                                                                 <DataGridTextColumn Header="ข้อความ" Binding="{Binding Message}" Width="*" />
                                                                             </DataGrid.Columns>
                                                                         </DataGrid>
@@ -1411,53 +1251,6 @@
                                                                  </TabItem>
 
                                                                 <!-- SUBTAB 6: WINDOW HANDLES -->
-                                                                <TabItem Header="หน้าต่างโปรแกรม">
-                                                                    <Grid Margin="0,10,0,0">
-                                                                        <Grid.RowDefinitions>
-                                                                            <RowDefinition Height="Auto" />
-                                                                            <RowDefinition Height="180" />
-                                                                        </Grid.RowDefinitions>
-
-                                                                        <DockPanel Grid.Row="0" Margin="0,0,0,6">
-                                                                            <StackPanel Orientation="Horizontal" DockPanel.Dock="Left">
-                                                                                <Button Style="{StaticResource ActionDarkButton}" Content="รีเฟรชรายการ" Command="{Binding RefreshWindowHandlesCommand}" Margin="0,0,6,0" Padding="10,4" />
-                                                                                <Button Style="{StaticResource ActionDarkButton}" Content="แสดงทุกหน้าต่าง" Command="{Binding ShowAllWindowsCommand}" Margin="0,0,6,0" Padding="10,4" />
-                                                                                <Button Style="{StaticResource ActionDarkButton}" Content="ซ่อนทุกหน้าต่าง" Command="{Binding HideAllWindowsCommand}" Margin="0,0,6,0" Padding="10,4" />
-                                                                            </StackPanel>
-
-                                                                            <Border DockPanel.Dock="Right" Background="{DynamicResource Surface2Brush}" BorderBrush="{DynamicResource LineBrush}" BorderThickness="1" CornerRadius="4" Padding="8,3" VerticalAlignment="Center">
-                                                                                <TextBlock Text="{Binding WindowHandlesCountDisplay}" FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource PrimaryBrush}" />
-                                                                            </Border>
-                                                                        </DockPanel>
-
-                                                                        <DataGrid Grid.Row="1" ItemsSource="{Binding WindowHandles}" AutoGenerateColumns="False"
-                                                                                  FontSize="11">
-                                                                            <DataGrid.Columns>
-                                                                                <DataGridTemplateColumn Header="แสดง" Width="60">
-                                                                                    <DataGridTemplateColumn.CellTemplate>
-                                                                                        <DataTemplate>
-                                                                                            <CheckBox IsChecked="{Binding IsVisible, UpdateSourceTrigger=PropertyChanged}" 
-                                                                                                      HorizontalAlignment="Center" VerticalAlignment="Center" />
-                                                                                        </DataTemplate>
-                                                                                    </DataGridTemplateColumn.CellTemplate>
-                                                                                </DataGridTemplateColumn>
-                                                                                <DataGridTextColumn Visibility="Collapsed" Header="รหัสหน้าต่าง" Binding="{Binding HandleHex}" Width="110" FontFamily="{StaticResource MonoFont}" />
-                                                                                <DataGridTextColumn Header="บทบาท" Binding="{Binding WindowRole}" Width="150" />
-                                                                                <DataGridTextColumn Header="ขนาด" Binding="{Binding SizeDisplay}" Width="100" FontFamily="{StaticResource MonoFont}" />
-                                                                                <DataGridTextColumn Header="Title" Binding="{Binding Title}" Width="*" />
-                                                                                <DataGridTemplateColumn Header="การกระทำ" Width="110">
-                                                                                    <DataGridTemplateColumn.CellTemplate>
-                                                                                        <DataTemplate>
-                                                                                            <Button Style="{StaticResource MicroButton}" Content="นำขึ้นหน้าสุด" 
-                                                                                                    Command="{Binding BringToFrontCommand}" 
-                                                                                                    HorizontalAlignment="Center" VerticalAlignment="Center" />
-                                                                                        </DataTemplate>
-                                                                                    </DataGridTemplateColumn.CellTemplate>
-                                                                                </DataGridTemplateColumn>
-                                                                            </DataGrid.Columns>
-                                                                        </DataGrid>
-                                                                    </Grid>
-                                                                </TabItem>
 
                                                                 <!-- SUBTAB 7: LIVE OVERLAY STUDIO (ui-craft-clarity Inline 3-Column Studio with Live WebView2 Preview) -->
                                                                 <TabItem>
@@ -1736,9 +1529,6 @@
 
                                                         <!-- Row 0: Name & Port -->
                                                         <DockPanel Grid.Row="0" LastChildFill="True">
-                                                            <Border Visibility="Collapsed" DockPanel.Dock="Right" Background="{DynamicResource BgBrush}" BorderBrush="{DynamicResource LineBrush}" BorderThickness="1" CornerRadius="4" Padding="5,1">
-                                                                <TextBlock Text="{Binding CdpPort, StringFormat=':{0}'}" FontSize="10" FontWeight="SemiBold" Foreground="{DynamicResource PrimaryBrush}" />
-                                                            </Border>
                                                             <TextBlock Text="{Binding Name}" FontWeight="Bold" FontSize="12" Foreground="{DynamicResource FgBrush}" />
                                                         </DockPanel>
 
@@ -1784,8 +1574,6 @@
                                                         <!-- Row 2: Micro Buttons -->
                                                         <StackPanel Grid.Row="2" Orientation="Horizontal">
                                                             <Button Style="{StaticResource MicroButton}" Content="ตรวจหา" Command="{Binding ScanCaptchaNowCommand}" IsEnabled="{Binding IsRunning}" ToolTip="กดเริ่มทำงานบัญชีนี้ก่อน" ToolTipService.ShowOnDisabled="True" Margin="0,0,4,0" />
-                                                            <Button Visibility="Collapsed" Style="{StaticResource MicroButton}" Content="คัดลอก HTML" Command="{Binding CopyDetectedCaptchaCommand}" IsEnabled="{Binding IsCaptchaAlertVisible}" Margin="0,0,4,0" />
-                                                            <Button Visibility="Collapsed" Style="{StaticResource MicroButton}" Content="ส่งออก" Command="{Binding ExportCaptchaHtmlCommand}" IsEnabled="{Binding IsCaptchaAlertVisible}" />
                                                         </StackPanel>
                                                     </Grid>
                                                 </DataTemplate>
@@ -1817,18 +1605,12 @@
                                             <DockPanel Grid.Row="0" Margin="0,0,0,12">
                                                 <StackPanel Orientation="Horizontal" DockPanel.Dock="Left" VerticalAlignment="Center">
                                                     <TextBlock Text="{Binding Name}" FontWeight="Bold" FontSize="15" Foreground="{DynamicResource FgBrush}" Margin="0,0,8,0" />
-                                                    <Border Visibility="Collapsed" Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource LineBrush}" BorderThickness="1" CornerRadius="4" Padding="6,2" Margin="0,0,10,0">
-                                                        <TextBlock Text="{Binding CdpPort, StringFormat='CDP: 127.0.0.1:{0}'}" FontSize="11" Foreground="{DynamicResource PrimaryBrush}" FontWeight="SemiBold" />
-                                                    </Border>
                                                     <Button Style="{StaticResource PrimaryCtaButton}" Content="ตรวจหาเดี๋ยวนี้" Command="{Binding ScanCaptchaNowCommand}" IsEnabled="{Binding IsRunning}" ToolTip="กดเริ่มทำงานบัญชีนี้ก่อน" ToolTipService.ShowOnDisabled="True" Margin="0,0,6,0" Padding="10,4" />
-                                                    <Button Visibility="Collapsed" Style="{StaticResource ActionDarkButton}" Content="คัดลอก Full HTML" Command="{Binding CopyCaptchaHtmlCommand}" IsEnabled="{Binding IsRunning}" ToolTip="กดเริ่มทำงานบัญชีนี้ก่อน" ToolTipService.ShowOnDisabled="True" Margin="0,0,6,0" />
-                                                    <Button Visibility="Collapsed" Style="{StaticResource ActionDarkButton}" Content="ส่งออกไฟล์" Command="{Binding ExportCaptchaHtmlCommand}" Margin="0,0,6,0" />
                                                     <Button Style="{StaticResource ActionDarkButton}" Content="ล้างผลลัพธ์" Command="{Binding ClearCaptchaResultsCommand}" Margin="0,0,10,0" />
                                                 </StackPanel>
 
                                                 <StackPanel Orientation="Horizontal" DockPanel.Dock="Right" VerticalAlignment="Center">
                                                     <CheckBox Content="ตรวจหาอัตโนมัติ" IsChecked="{Binding IsCaptchaAutoDetect}" VerticalAlignment="Center" Margin="0,0,10,0" />
-                                                    <CheckBox Visibility="Collapsed" Content="Auto Copy" IsChecked="{Binding AutoCopyToClipboardOnDetect}" VerticalAlignment="Center" />
                                                 </StackPanel>
                                             </DockPanel>
 
@@ -1907,44 +1689,10 @@
                                             </Border>
 
                                             <!-- Elements DataGrid -->
-                                            <DataGrid Visibility="Collapsed" Grid.Row="2" ItemsSource="{Binding DetectedCaptchaElements}" SelectedItem="{Binding SelectedCaptchaElement}"
-                                                      FontFamily="{StaticResource MonoFont}" FontSize="11" Margin="0,0,0,10">
-                                                <DataGrid.Columns>
-                                                    <DataGridTextColumn Header="Tag" Binding="{Binding TagName}" Width="70" FontWeight="Bold" />
-                                                    <DataGridTextColumn Header="ID" Binding="{Binding Id}" Width="160" />
-                                                    <DataGridTextColumn Header="Class" Binding="{Binding ClassName}" Width="190" />
-                                                    <DataGridTextColumn Header="Layer" Binding="{Binding Depth, StringFormat='Depth {0}'}" Width="80" />
-                                                    <DataGridTextColumn Header="Frame URL" Binding="{Binding FrameUrl}" Width="180" />
-                                                    <DataGridTemplateColumn Header="การดำเนินการ" Width="*">
-                                                        <DataGridTemplateColumn.CellTemplate>
-                                                            <DataTemplate>
-                                                                <Button Style="{StaticResource MicroButton}" Content="คัดลอก Element" 
-                                                                        Command="{Binding DataContext.CopyElementHtmlCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}" 
-                                                                        CommandParameter="{Binding}" />
-                                                            </DataTemplate>
-                                                        </DataGridTemplateColumn.CellTemplate>
-                                                    </DataGridTemplateColumn>
-                                                </DataGrid.Columns>
-                                            </DataGrid>
 
                                             <!-- HTML Preview Header -->
-                                            <DockPanel Visibility="Collapsed" Grid.Row="3" Margin="0,0,0,6">
-                                                <TextBlock Text="Full HTML ของหน้าที่มี Captcha:" FontWeight="SemiBold" FontSize="12" Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Center" />
-                                                <StackPanel Orientation="Horizontal" DockPanel.Dock="Right" HorizontalAlignment="Right">
-                                                    <TextBlock Text="{Binding DetectedCaptchaCount, StringFormat='พบ {0} จุด'}" FontSize="11" Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Center" Margin="0,0,10,0" />
-                                                    <TextBlock Text="{Binding LastCaptchaDetectedTime, StringFormat='เวลา {0}'}" FontSize="11" Foreground="{DynamicResource SubtleBrush}" VerticalAlignment="Center" Margin="0,0,10,0" />
-                                                    <Button Visibility="Collapsed" Style="{StaticResource MicroButton}" Content="คัดลอกโค้ดนี้" Command="{Binding CopyDetectedCaptchaCommand}" />
-                                                </StackPanel>
-                                            </DockPanel>
 
                                             <!-- Code Viewer -->
-                                            <Border Visibility="Collapsed" Grid.Row="4" Background="{DynamicResource BgBrush}" CornerRadius="6" Padding="8" BorderThickness="1" BorderBrush="{DynamicResource LineBrush}">
-                                                <TextBox Text="{Binding DetectedCaptchaHtml, Mode=OneWay}" IsReadOnly="True"
-                                                         FontFamily="{StaticResource MonoFont}" FontSize="12"
-                                                         Background="Transparent" Foreground="{DynamicResource WarnBrush}"
-                                                         BorderThickness="0"
-                                                         VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto" />
-                                            </Border>
                                         </Grid>
                                     </Grid>
                                 </Border>
@@ -1976,7 +1724,6 @@
                                 </StackPanel>
                                 <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
                                     <Button Style="{StaticResource ActionDarkButton}" Content="บันทึกและใช้งาน" Command="{Binding ApplyNativeProxiesCommand}" Margin="0,0,8,0" Padding="12,6" />
-                                    <Button Visibility="Collapsed" Style="{StaticResource ActionDarkButton}" Content="ซิงก์ Proxifier (ทางเลือก)" Command="{Binding LaunchProxifierCommand}" Margin="0,0,8,0" Padding="12,6" />
                                     <Button Style="{StaticResource PrimaryCtaButton}" Content="เพิ่ม Proxy" Command="{Binding AddProxyCommand}" Padding="14,6" />
                                 </StackPanel>
                             </Grid>
@@ -2208,9 +1955,7 @@
                                                         <TextBlock Text="ระบบแก้ Captcha อัตโนมัติ" Foreground="{DynamicResource PrimaryBrush}" FontSize="11" FontWeight="SemiBold" />
                                                     </Border>
                                                     </StackPanel>
-                                                <Button Grid.Row="0" Grid.Column="2" Style="{StaticResource ActionDarkButton}" Content="ทดสอบการเชื่อมต่อ" Command="{Binding TestSolverApiCommand}" VerticalAlignment="Center" Padding="12,5" />
 
-                                                <TextBlock Grid.Row="1" Grid.Column="1" Grid.ColumnSpan="2" Text="{Binding SolverApiTestStatus}" Foreground="{DynamicResource PrimaryBrush}" FontSize="11" Margin="0,0,0,6" />
 
                                                 <!-- Auto-Solve Toggle -->
                                                 <TextBlock Grid.Row="2" Grid.Column="0" Text="แก้ Captcha:" Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Center" Margin="0,6" />
@@ -2361,11 +2106,7 @@
                                                 <TextBlock Grid.Row="0" Grid.Column="0" Text="ตำแหน่งโปรแกรม TikTok LIVE Studio:" Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Center" Margin="0,6" />
                                                 <ui:TextBox Grid.Row="0" Grid.Column="1" Text="{Binding StudioExePath, UpdateSourceTrigger=PropertyChanged}" Margin="0,6" />
 
-                                                <TextBlock Visibility="Collapsed" Grid.Row="1" Grid.Column="0" Text="Proxifier.exe:" Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Center" Margin="0,6" />
-                                                <ui:TextBox Visibility="Collapsed" Grid.Row="1" Grid.Column="1" Text="{Binding ProxifierExePath, UpdateSourceTrigger=PropertyChanged}" Margin="0,6" />
 
-                                                <TextBlock Visibility="Collapsed" Grid.Row="2" Grid.Column="0" Text="ไฟล์โปรไฟล์ Proxifier (.ppx):" Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Center" Margin="0,6" />
-                                                <ui:TextBox Visibility="Collapsed" Grid.Row="2" Grid.Column="1" Text="{Binding ProxifierProfilePath, UpdateSourceTrigger=PropertyChanged}" Margin="0,6" />
                                             </Grid>
 
                                             <Separator Margin="0,2,0,10" Background="{DynamicResource Surface3Brush}" />
