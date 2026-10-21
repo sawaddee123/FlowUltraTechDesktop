@@ -68,6 +68,14 @@ internal static class PreviewRunner
                 var vm = win.ViewModel;
                 for (int i = 0; i < demo; i++) vm.AddInstanceCommand.Execute(null);
                 await Task.Delay(400);
+                if (Arg(args, "--login") != null && vm.Instances.Count > 0)
+                {
+                    var c0 = vm.Instances[0];
+                    c0.LoggedInUserId = "7280774255699526662";
+                    c0.LoggedInNickname = "Sawaddee Shop";
+                    c0.LoggedInDisplayId = "sawaddee_.123";
+                    c0.LoggedInAvatarUrl = Arg(args, "--login");
+                }
                 if (hasDetail && vm.Instances.Count > 0)
                 {
                     var card = vm.Instances[0];
