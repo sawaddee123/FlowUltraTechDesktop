@@ -123,35 +123,6 @@ public class DebugViewModelAndCdpTests
     }
 
     [Fact]
-    public void InstanceCardViewModel_NetworkMonitor_FilterByMethodAndUrl_WorksProperly()
-    {
-        var profile = new StudioInstanceProfile();
-        var settings = new AppSettings();
-        var orchestrator = new InstanceOrchestrator(new ProcessLauncher(), new WindowController(), new CdpAutomationService());
-        var vm = new InstanceCardViewModel(profile, settings, orchestrator);
-
-        vm.NetworkTraffic.Add(new NetworkTrafficItem { Method = "POST", Url = "https://webcast.tiktok.com/api/chat", StatusCode = 200, StatusDisplay = "200 OK" });
-        vm.NetworkTraffic.Add(new NetworkTrafficItem { Method = "GET", Url = "https://tiktok.com/static/index.js", StatusCode = 200, StatusDisplay = "200 OK" });
-
-        // Filter by POST method
-        vm.NetworkMethodFilter = "POST";
-        var filteredList = vm.FilteredNetworkTraffic.Cast<NetworkTrafficItem>().ToList();
-        Assert.Single(filteredList);
-        Assert.Equal("POST", filteredList[0].Method);
-
-        // Filter by URL text
-        vm.NetworkMethodFilter = "ALL";
-        vm.NetworkUrlFilter = "static";
-        filteredList = vm.FilteredNetworkTraffic.Cast<NetworkTrafficItem>().ToList();
-        Assert.Single(filteredList);
-        Assert.Contains("static", filteredList[0].Url);
-
-        // Reset filters
-        vm.ResetNetworkFiltersCommand.Execute(null);
-        Assert.Equal(2, vm.FilteredNetworkTraffic.Cast<NetworkTrafficItem>().Count());
-    }
-
-    [Fact]
     public void InstanceCardViewModel_CookiesAndStorage_FilterEachColumn_WorksProperly()
     {
         var profile = new StudioInstanceProfile();
@@ -193,20 +164,11 @@ public class DebugViewModelAndCdpTests
 
         // Auto refresh should be true by default
         Assert.True(vm.IsStorageAutoRefresh);
-        Assert.Equal("เริ่มดักจับ Network API", vm.NetworkHookButtonText);
-        Assert.Equal("พักการดักจับ", vm.NetworkHookBadgeText);
 
         // When auto monitoring starts
         await vm.StartAutoMonitoringAsync();
 
         Assert.True(vm.IsStorageAutoRefresh);
-        Assert.True(vm.IsNetworkHooking);
-        Assert.Equal("หยุดดักจับ API ชั่วคราว", vm.NetworkHookButtonText);
-        Assert.Equal("Auto Monitor (เปิดอยู่)", vm.NetworkHookBadgeText);
-
-        // Stopping instance should cleanly stop network hook
-        await vm.StopNetworkHookInternalAsync();
-        Assert.False(vm.IsNetworkHooking);
     }
 
     [Fact]

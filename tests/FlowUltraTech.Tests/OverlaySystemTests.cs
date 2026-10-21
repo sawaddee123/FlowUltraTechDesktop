@@ -283,14 +283,12 @@ public class OverlaySystemTests
         // Verify SendMockChatCommand forwards live event on the same thread as ViewModel construction
         vm.SendMockChatCommand.Execute(null);
 
-        // Verify Flash Deal trigger, stop, and SendTestOverlayEventCommand async commands
+        // Verify Flash Deal trigger, and stop async commands
         await vm.TriggerFlashDealCommand.ExecuteAsync(null);
         Assert.True(vm.OverlayEnableFlashDeal);
 
         await vm.StopFlashDealCommand.ExecuteAsync(null);
         Assert.False(vm.OverlayEnableFlashDeal);
-
-        await vm.SendTestOverlayEventCommand.ExecuteAsync(null);
 
         // Verify external live listener event forwards to Overlay WebSocket
         listener.PublishSimulatedEvent("@shop01_official", new LiveChatMessageItem
@@ -316,7 +314,6 @@ public class OverlaySystemTests
         Assert.Contains(frames, f => f.Contains("TwinBell", StringComparison.Ordinal));
         Assert.Contains(frames, f => f.Contains("BKK LIVE OFFICIAL", StringComparison.Ordinal));
         Assert.Contains(frames, f => f.Contains("นาทีทอง ลด 70%", StringComparison.Ordinal));
-        Assert.Contains(frames, f => f.Contains("ส่งของขวัญ กุหลาบ x9", StringComparison.Ordinal));
         Assert.Contains(frames, f => f.Contains("เสี่ยบอย", StringComparison.Ordinal) && f.Contains("ส่ง มังกร x1", StringComparison.Ordinal));
     }
 

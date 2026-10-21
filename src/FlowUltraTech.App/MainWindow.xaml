@@ -1413,8 +1413,6 @@
                                                                                             </StackPanel>
                                                                                         </Button>
 
-                                                                                        <Button Style="{StaticResource ActionDarkButton}" Content="ทดสอบส่งเหตุการณ์"
-                                                                                                Command="{Binding SendTestOverlayEventCommand}" Padding="10,6" FontSize="11" />
                                                                                     </WrapPanel>
                                                                                 </StackPanel>
                                                                             </Border>

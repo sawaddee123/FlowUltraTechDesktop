@@ -1239,27 +1239,6 @@ public partial class InstanceCardViewModel : ObservableObject
         OverlayStatusText = "หยุดนาทีทองแล้ว";
     }
 
-    [RelayCommand]
-    public async Task SendTestOverlayEventAsync()
-    {
-        var payload = new OverlayLiveEventPayload
-        {
-            EventType = "gift",
-            Nickname = !string.IsNullOrWhiteSpace(LoggedInNickname) ? LoggedInNickname : "คุณลูกค้า VIP",
-            Username = !string.IsNullOrWhiteSpace(LoggedInDisplayId) ? LoggedInDisplayId : "vip_viewer",
-            Message = "ส่งของขวัญ กุหลาบ x9 • ยืนยันเวลาจริง",
-            BadgeText = "ของขวัญ",
-            Timestamp = DateTime.Now
-        };
-
-        if (_overlayService != null)
-        {
-            await _overlayService.BroadcastLiveEventAsync(Profile.Id, payload);
-        }
-
-        OverlayStatusText = "ส่งอีเวนต์ทดสอบเข้าป้ายสดแล้ว";
-    }
-
     // ==========================================
     // Per-Instance Native Proxy System (No Proxifier Required)
     // ==========================================

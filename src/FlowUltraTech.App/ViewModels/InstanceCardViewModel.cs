@@ -382,8 +382,6 @@ public partial class InstanceCardViewModel : ObservableObject
         };
 
         // Setup CollectionView filtering for Network
-        FilteredNetworkTraffic = CollectionViewSource.GetDefaultView(NetworkTraffic);
-        FilteredNetworkTraffic.Filter = FilterNetworkTrafficItem;
 
         // Setup CollectionView filtering for Cookies & Storage
         FilteredCookies = CollectionViewSource.GetDefaultView(Cookies);
@@ -686,10 +684,6 @@ public partial class InstanceCardViewModel : ObservableObject
 
         _profileWatcherSub?.Dispose();
         _profileWatcherSub = null;
-        if (IsNetworkHooking)
-        {
-            await StopNetworkHookInternalAsync();
-        }
         _storageRefreshTimer?.Stop();
         _captchaDetectTimer?.Stop();
         _chatMonitorTimer?.Stop();

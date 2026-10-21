@@ -19,36 +19,6 @@ namespace FlowUltraTech.App.ViewModels;
 public partial class InstanceCardViewModel : ObservableObject
 {
     // ==========================================
-    // Network Monitor Properties
-    // ==========================================
-    public ObservableCollection<NetworkTrafficItem> NetworkTraffic { get; } = new();
-    public ICollectionView FilteredNetworkTraffic { get; }
-
-    [ObservableProperty]
-    private bool _isNetworkHooking;
-
-    public string NetworkHookButtonText => IsNetworkHooking ? "หยุดดักจับ API ชั่วคราว" : "เริ่มดักจับ Network API";
-    public string NetworkHookBadgeText => IsNetworkHooking ? "Auto Monitor (เปิดอยู่)" : "พักการดักจับ";
-
-    [ObservableProperty]
-    private NetworkTrafficItem? _selectedTraffic;
-
-    [ObservableProperty]
-    private string _networkSearchText = string.Empty;
-
-    [ObservableProperty]
-    private string _networkUrlFilter = string.Empty;
-
-    [ObservableProperty]
-    private string _networkMethodFilter = "ALL";
-
-    [ObservableProperty]
-    private string _networkStatusFilter = "ALL";
-
-    public string[] MethodOptions => ["ALL", "GET", "POST", "OPTIONS", "PUT", "DELETE"];
-    public string[] StatusOptions => ["ALL", "2xx (สำเร็จ)", "4xx/5xx (Error)", "Pending (รอดำเนินการ)"];
-
-    // ==========================================
     // Cookies & Storage Properties
     // ==========================================
     public ObservableCollection<CookieItem> Cookies { get; } = new();
@@ -80,20 +50,6 @@ public partial class InstanceCardViewModel : ObservableObject
 
     [ObservableProperty]
     private string _storageStatus = "พร้อมอัปเดตเรียลไทม์อัตโนมัติ";
-
-
-    partial void OnIsNetworkHookingChanged(bool value)
-    {
-        OnPropertyChanged(nameof(NetworkHookButtonText));
-        OnPropertyChanged(nameof(NetworkHookBadgeText));
-    }
-
-
-    partial void OnNetworkSearchTextChanged(string value) => FilteredNetworkTraffic?.Refresh();
-    partial void OnNetworkUrlFilterChanged(string value) => FilteredNetworkTraffic?.Refresh();
-    partial void OnNetworkMethodFilterChanged(string value) => FilteredNetworkTraffic?.Refresh();
-    partial void OnNetworkStatusFilterChanged(string value) => FilteredNetworkTraffic?.Refresh();
-
     partial void OnCookieNameFilterChanged(string value) => FilteredCookies?.Refresh();
     partial void OnCookieDomainFilterChanged(string value) => FilteredCookies?.Refresh();
     partial void OnCookieValueFilterChanged(string value) => FilteredCookies?.Refresh();
@@ -170,41 +126,6 @@ public partial class InstanceCardViewModel : ObservableObject
         OnPropertyChanged(nameof(LiveChatCountSummary));
     }
 
-    private bool FilterNetworkTrafficItem(object obj)
-    {
-        if (obj is not NetworkTrafficItem item) return false;
-
-        if (!string.IsNullOrEmpty(NetworkMethodFilter) && NetworkMethodFilter != "ALL")
-        {
-            if (!string.Equals(item.Method, NetworkMethodFilter, StringComparison.OrdinalIgnoreCase))
-                return false;
-        }
-
-        if (!string.IsNullOrEmpty(NetworkStatusFilter) && NetworkStatusFilter != "ALL")
-        {
-            if (NetworkStatusFilter.StartsWith("2xx") && (item.StatusCode < 200 || item.StatusCode >= 300)) return false;
-            if (NetworkStatusFilter.StartsWith("4xx") && item.StatusCode < 400) return false;
-            if (NetworkStatusFilter.StartsWith("Pending") && !item.StatusDisplay.Contains("Pending", StringComparison.OrdinalIgnoreCase)) return false;
-        }
-
-        if (!string.IsNullOrWhiteSpace(NetworkUrlFilter))
-        {
-            if (item.Url == null || !item.Url.Contains(NetworkUrlFilter, StringComparison.OrdinalIgnoreCase))
-                return false;
-        }
-
-        if (!string.IsNullOrWhiteSpace(NetworkSearchText))
-        {
-            bool match = (item.Url != null && item.Url.Contains(NetworkSearchText, StringComparison.OrdinalIgnoreCase)) ||
-                         (item.Method != null && item.Method.Contains(NetworkSearchText, StringComparison.OrdinalIgnoreCase)) ||
-                         (item.StatusDisplay != null && item.StatusDisplay.Contains(NetworkSearchText, StringComparison.OrdinalIgnoreCase)) ||
-                         (item.ResourceType != null && item.ResourceType.Contains(NetworkSearchText, StringComparison.OrdinalIgnoreCase));
-            if (!match) return false;
-        }
-
-        return true;
-    }
-
     private bool FilterCookieItem(object obj)
     {
         if (obj is not CookieItem cookie) return false;
@@ -268,12 +189,6 @@ public partial class InstanceCardViewModel : ObservableObject
             _ = CheckCaptchaInternalAsync(isAuto: true);
         }
 
-        // 3. Start Network Hooking automatically
-        if (!IsNetworkHooking)
-        {
-            await StartNetworkHookInternalAsync();
-        }
-
         // 4. Trigger initial snapshot fetch of Cookies & Storage
         _ = Task.Run(async () =>
         {
@@ -309,55 +224,6 @@ public partial class InstanceCardViewModel : ObservableObject
                 }
             });
         }
-    }
-
-    public async Task StartNetworkHookInternalAsync()
-    {
-        if (Status != InstanceStatus.Running) return;
-
-        IsNetworkHooking = true;
-        await _cdpService.StartNetworkHookAsync(CdpPort, 
-            onRequest: (item) =>
-            {
-                void AddItem()
-                {
-                    if (NetworkTraffic.Count > 1000) NetworkTraffic.RemoveAt(0);
-                    NetworkTraffic.Add(item);
-                }
-
-                if (Application.Current != null)
-                {
-                    Application.Current.Dispatcher.BeginInvoke(
-                        System.Windows.Threading.DispatcherPriority.Background,
-                        (Action)AddItem);
-                }
-                else
-                {
-                    AddItem();
-                }
-            },
-            onResponse: (item) =>
-            {
-                // Item triggers INotifyPropertyChanged so datagrid updates in-place
-            });
-        AppendConsole($"[{DateTime.Now:HH:mm:ss}] [Auto Monitor] เริ่มดักจับ Network API อัตโนมัติบนพอร์ต {CdpPort} เรียบร้อย");
-    }
-
-    public async Task StopNetworkHookInternalAsync()
-    {
-        IsNetworkHooking = false;
-        await _cdpService.StopNetworkHookAsync(CdpPort);
-        AppendConsole($"[{DateTime.Now:HH:mm:ss}] [Network] หยุดดักจับ API บนพอร์ต {CdpPort}");
-    }
-
-    [RelayCommand]
-    public void ResetNetworkFilters()
-    {
-        NetworkSearchText = string.Empty;
-        NetworkUrlFilter = string.Empty;
-        NetworkMethodFilter = "ALL";
-        NetworkStatusFilter = "ALL";
-        FilteredNetworkTraffic?.Refresh();
     }
 
     // ==========================================
