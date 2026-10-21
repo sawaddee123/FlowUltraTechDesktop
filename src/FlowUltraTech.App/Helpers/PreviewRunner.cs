@@ -83,6 +83,34 @@ internal static class PreviewRunner
                 }
                 await Task.Delay(TimeSpan.FromSeconds(delay));
                 if (!string.IsNullOrWhiteSpace(shot)) Capture(win, shot!);
+                var qa = Arg(args, "--qa");
+                if (qa != null)
+                {
+                    var lines = new System.Collections.Generic.List<string>();
+                    int before = vm.Rules.Count;
+                    vm.AddRuleCommand.Execute(null);
+                    lines.Add($"rules add: {before} -> {vm.Rules.Count}");
+                    vm.RemoveRuleCommand.Execute(vm.Rules[vm.Rules.Count - 1]);
+                    lines.Add($"rules remove: -> {vm.Rules.Count} (expect {before})");
+                    int inst = vm.Instances.Count;
+                    vm.RefreshLicenseCommand.Execute(null);
+                    await Task.Delay(200);
+                    lines.Add($"refresh license (no login) status: {vm.StatusNotification}");
+                    vm.SyncWithCloudCommand.Execute(null);
+                    await Task.Delay(200);
+                    lines.Add($"sync (no login) status: {vm.StatusNotification}");
+                    vm.HideAllWindowsCommand.Execute(null);
+                    lines.Add($"hide all: {vm.StatusNotification}");
+                    vm.ShowAllWindowsCommand.Execute(null);
+                    lines.Add($"show all: {vm.StatusNotification}");
+                    await vm.ScanAllCaptchasAsync();
+                    lines.Add($"scan all: {vm.StatusNotification}");
+                    vm.AddProxyCommand.Execute(null);
+                    lines.Add($"proxy add -> count {vm.Proxies.Count}");
+                    var first = vm.Instances[0];
+                    lines.Add($"instance0 CanStart={first.CanStart} CanStop={first.CanStop} tip={first.StartButtonToolTip}");
+                    File.WriteAllLines(qa, lines);
+                }
             }
             catch (Exception ex)
             {

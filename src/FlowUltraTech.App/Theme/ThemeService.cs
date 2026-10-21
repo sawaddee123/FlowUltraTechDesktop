@@ -34,7 +34,7 @@ public static class ThemeService
             ApplicationThemeManager.Apply(dark ? ApplicationTheme.Dark : ApplicationTheme.Light, updateAccent: false);
             // สีเน้นของ WPF-UI (CheckBox, Slider, ProgressBar) ให้ตรงกับสีหลักของธีม
             ApplicationAccentColorManager.Apply(
-                dark ? System.Windows.Media.Color.FromRgb(0x6B, 0x9A, 0xFF) : System.Windows.Media.Color.FromRgb(0x2D, 0x54, 0xD3),
+                dark ? System.Windows.Media.Color.FromRgb(0x2D, 0xD4, 0xBF) : System.Windows.Media.Color.FromRgb(0x0F, 0x76, 0x6E),
                 dark ? ApplicationTheme.Dark : ApplicationTheme.Light);
             // ApplicationThemeManager สลับพจนานุกรมของ WPF-UI อาจดันตำแหน่ง ให้ยืนยันว่าโทเคนยังอยู่ท้ายสุดก่อน Controls
             EnsureTokenOrder(merged, tokens);

@@ -976,6 +976,8 @@ public partial class MainViewModel : ObservableObject
         StatusNotification = ok ? "โหลดโปรไฟล์เข้า Proxifier สำเร็จ!" : "ไม่สามารถโหลด Proxifier (โปรดตรวจ Path)";
     }
 
+    public Array RuleTriggerTypes { get; } = Enum.GetValues(typeof(RuleTriggerType));
+
     [RelayCommand]
     public void AddRule()
     {
@@ -1164,7 +1166,11 @@ public partial class MainViewModel : ObservableObject
     [RelayCommand]
     public async Task SyncWithCloudAsync()
     {
-        if (string.IsNullOrWhiteSpace(AuthToken)) return;
+        if (string.IsNullOrWhiteSpace(AuthToken))
+        {
+            StatusNotification = "ยังไม่ได้เข้าสู่ระบบ • เข้าสู่ระบบก่อนซิงก์";
+            return;
+        }
 
         try
         {
@@ -1367,7 +1373,11 @@ public partial class MainViewModel : ObservableObject
     [RelayCommand]
     public async Task RefreshLicenseAsync()
     {
-        if (string.IsNullOrWhiteSpace(AuthToken)) return;
+        if (string.IsNullOrWhiteSpace(AuthToken))
+        {
+            StatusNotification = "ยังไม่ได้เข้าสู่ระบบ • เข้าสู่ระบบก่อนตรวจสิทธิ์";
+            return;
+        }
         var res = await _authService.GetProfileAsync(AuthToken, AuthApiEndpoint);
         if (!res.Success && !string.IsNullOrWhiteSpace(Settings.RefreshToken))
         {

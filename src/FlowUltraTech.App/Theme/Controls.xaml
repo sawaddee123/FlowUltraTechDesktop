@@ -69,9 +69,9 @@
     </Style>
 
     <!-- ───────── ปุ่ม ───────── -->
-    <!-- ปุ่มรอง (secondary): พื้น surface-2 ไม่มีเส้นขอบ -->
+    <!-- ปุ่มรอง (secondary): พื้น surface-3 ไม่มีเส้นขอบ -->
     <Style x:Key="TopNavButton" TargetType="Button">
-        <Setter Property="Background" Value="{DynamicResource Surface2Brush}" />
+        <Setter Property="Background" Value="{DynamicResource Surface3Brush}" />
         <Setter Property="Foreground" Value="{DynamicResource FgBrush}" />
         <Setter Property="BorderThickness" Value="0" />
         <Setter Property="Padding" Value="12,6" />
@@ -87,7 +87,7 @@
                     </Border>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsMouseOver" Value="True">
-                            <Setter TargetName="Bd" Property="Background" Value="{DynamicResource Surface3Brush}" />
+                            <Setter TargetName="Bd" Property="Background" Value="{DynamicResource LineBrush}" />
                         </Trigger>
                         <Trigger Property="IsKeyboardFocused" Value="True">
                             <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource PrimaryBrush}" />
@@ -97,7 +97,7 @@
                             <Setter TargetName="Bd" Property="Opacity" Value="0.85" />
                         </Trigger>
                         <Trigger Property="IsEnabled" Value="False">
-                            <Setter Property="Opacity" Value="0.45" />
+                            <Setter Property="Opacity" Value="0.55" />
                         </Trigger>
                     </ControlTemplate.Triggers>
                 </ControlTemplate>
@@ -129,7 +129,7 @@
                             <Setter TargetName="Bd" Property="Opacity" Value="0.85" />
                         </Trigger>
                         <Trigger Property="IsEnabled" Value="False">
-                            <Setter Property="Opacity" Value="0.45" />
+                            <Setter Property="Opacity" Value="0.55" />
                         </Trigger>
                     </ControlTemplate.Triggers>
                 </ControlTemplate>
@@ -161,7 +161,7 @@
                             <Setter TargetName="Bd" Property="Opacity" Value="0.85" />
                         </Trigger>
                         <Trigger Property="IsEnabled" Value="False">
-                            <Setter Property="Opacity" Value="0.35" />
+                            <Setter Property="Opacity" Value="0.5" />
                             <Setter Property="Cursor" Value="Arrow" />
                         </Trigger>
                     </ControlTemplate.Triggers>

@@ -103,7 +103,7 @@
             <Border Grid.Row="2" Background="{DynamicResource SurfaceBrush}" BorderThickness="0,1,0,0" BorderBrush="{DynamicResource LineBrush}" CornerRadius="0,0,15,15" Padding="20,14">
                 <DockPanel LastChildFill="True">
                     <!-- Helper Text -->
-                    <TextBlock x:Name="FooterHelperText" DockPanel.Dock="Left" Text="ระบบจะดาวน์โหลดตัวติดตั้งเวอร์ชันใหม่อัตโนมัติ" FontSize="10" Foreground="{DynamicResource SubtleBrush}" VerticalAlignment="Center" />
+                    <TextBlock x:Name="FooterHelperText" Visibility="Collapsed" DockPanel.Dock="Left" Text="ระบบจะดาวน์โหลดตัวติดตั้งเวอร์ชันใหม่อัตโนมัติ" FontSize="10" Foreground="{DynamicResource SubtleBrush}" VerticalAlignment="Center" />
 
                     <!-- Action Buttons -->
                     <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">

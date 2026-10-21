@@ -646,7 +646,7 @@
                                                                                 </Grid.RowDefinitions>
                                                                                 <DockPanel Grid.Row="0" Margin="0,0,0,8">
                                                                                     <StackPanel Orientation="Horizontal" DockPanel.Dock="Left">
-                                                                                        <Button Style="{StaticResource ActionDarkButton}" Content="ดึง Cookies &amp; Tokens" Command="{Binding FetchSessionInfoCommand}" IsEnabled="{Binding IsRunning}" Margin="0,0,8,0" />
+                                                                                        <Button Style="{StaticResource ActionDarkButton}" Content="ดึง Cookies &amp; Tokens" Command="{Binding FetchSessionInfoCommand}" IsEnabled="{Binding IsRunning}" ToolTip="กดเริ่มทำงานบัญชีนี้ก่อน" ToolTipService.ShowOnDisabled="True" Margin="0,0,8,0" />
                                                                                         <TextBlock Text="{Binding SessionFetchStatus}" VerticalAlignment="Center" Foreground="{DynamicResource MutedBrush}" FontSize="11" />
                                                                                     </StackPanel>
                                                                                 </DockPanel>
@@ -788,8 +788,8 @@
 
                                                                             <DockPanel Grid.Row="1" LastChildFill="False">
                                                                                 <StackPanel Orientation="Horizontal" DockPanel.Dock="Left">
-                                                                                    <Button Style="{StaticResource PrimaryCtaButton}" Content="รันสคริปต์" Command="{Binding ExecuteScriptCommand}" IsEnabled="{Binding IsRunning}" Margin="0,0,6,0" Padding="12,4" />
-                                                                                    <Button Style="{StaticResource ActionDarkButton}" Content="ส่งออก Full HTML" Command="{Binding ExportFullHtmlCommand}" IsEnabled="{Binding IsRunning}" Margin="0,0,6,0" />
+                                                                                    <Button Style="{StaticResource PrimaryCtaButton}" Content="รันสคริปต์" Command="{Binding ExecuteScriptCommand}" IsEnabled="{Binding IsRunning}" ToolTip="กดเริ่มทำงานบัญชีนี้ก่อน" ToolTipService.ShowOnDisabled="True" Margin="0,0,6,0" Padding="12,4" />
+                                                                                    <Button Style="{StaticResource ActionDarkButton}" Content="ส่งออก Full HTML" Command="{Binding ExportFullHtmlCommand}" IsEnabled="{Binding IsRunning}" ToolTip="กดเริ่มทำงานบัญชีนี้ก่อน" ToolTipService.ShowOnDisabled="True" Margin="0,0,6,0" />
                                                                                     <Button Style="{StaticResource ActionDarkButton}" Content="ล้าง Console" Command="{Binding ClearConsoleCommand}" Margin="0,0,6,0" />
                                                                                     <Button Style="{StaticResource ActionDarkButton}" Content="คัดลอกผลลัพธ์" Command="{Binding CopyConsoleCommand}" Margin="0,0,10,0" />
                                                                                 </StackPanel>
@@ -830,7 +830,7 @@
 
                                                                         <DockPanel Grid.Row="1" Margin="0,0,0,8">
                                                                             <StackPanel Orientation="Horizontal" DockPanel.Dock="Left">
-                                                                                <Button Style="{StaticResource PrimaryCtaButton}" Content="{Binding NetworkHookButtonText}" Command="{Binding ToggleNetworkHookCommand}" IsEnabled="{Binding IsRunning}" Margin="0,0,6,0" Padding="12,4" />
+                                                                                <Button Style="{StaticResource PrimaryCtaButton}" Content="{Binding NetworkHookButtonText}" Command="{Binding ToggleNetworkHookCommand}" IsEnabled="{Binding IsRunning}" ToolTip="กดเริ่มทำงานบัญชีนี้ก่อน" ToolTipService.ShowOnDisabled="True" Margin="0,0,6,0" Padding="12,4" />
                                                                                 <Border Background="{DynamicResource Surface2Brush}" CornerRadius="4" Padding="6,2" VerticalAlignment="Center" Margin="0,0,8,0">
                                                                                     <TextBlock Text="{Binding NetworkHookBadgeText}" FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource OkBrush}" />
                                                                                 </Border>
@@ -883,8 +883,8 @@
                                                                         <Border Grid.Row="1" Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource LineBrush}" BorderThickness="1" CornerRadius="6" Padding="10,8" Margin="0,0,0,8">
                                                                             <DockPanel LastChildFill="True">
                                                                                 <StackPanel Orientation="Horizontal" DockPanel.Dock="Left" VerticalAlignment="Center">
-                                                                                    <Button Style="{StaticResource PrimaryCtaButton}" Content="ตรวจหาเดี๋ยวนี้" Command="{Binding ScanCaptchaNowCommand}" IsEnabled="{Binding IsRunning}" Margin="0,0,6,0" Padding="10,4" />
-                                                                                    <Button Visibility="Collapsed" Style="{StaticResource ActionDarkButton}" Content="คัดลอก Full HTML" Command="{Binding CopyCaptchaHtmlCommand}" IsEnabled="{Binding IsRunning}" Margin="0,0,6,0" />
+                                                                                    <Button Style="{StaticResource PrimaryCtaButton}" Content="ตรวจหาเดี๋ยวนี้" Command="{Binding ScanCaptchaNowCommand}" IsEnabled="{Binding IsRunning}" ToolTip="กดเริ่มทำงานบัญชีนี้ก่อน" ToolTipService.ShowOnDisabled="True" Margin="0,0,6,0" Padding="10,4" />
+                                                                                    <Button Visibility="Collapsed" Style="{StaticResource ActionDarkButton}" Content="คัดลอก Full HTML" Command="{Binding CopyCaptchaHtmlCommand}" IsEnabled="{Binding IsRunning}" ToolTip="กดเริ่มทำงานบัญชีนี้ก่อน" ToolTipService.ShowOnDisabled="True" Margin="0,0,6,0" />
                                                                                     <Button Visibility="Collapsed" Style="{StaticResource ActionDarkButton}" Content="ส่งออกไฟล์" Command="{Binding ExportCaptchaHtmlCommand}" Margin="0,0,6,0" />
                                                                                     <Button Style="{StaticResource ActionDarkButton}" Content="ล้างผลลัพธ์" Command="{Binding ClearCaptchaResultsCommand}" Margin="0,0,10,0" />
                                                                                 </StackPanel>
@@ -1783,7 +1783,7 @@
 
                                                         <!-- Row 2: Micro Buttons -->
                                                         <StackPanel Grid.Row="2" Orientation="Horizontal">
-                                                            <Button Style="{StaticResource MicroButton}" Content="ตรวจหา" Command="{Binding ScanCaptchaNowCommand}" IsEnabled="{Binding IsRunning}" Margin="0,0,4,0" />
+                                                            <Button Style="{StaticResource MicroButton}" Content="ตรวจหา" Command="{Binding ScanCaptchaNowCommand}" IsEnabled="{Binding IsRunning}" ToolTip="กดเริ่มทำงานบัญชีนี้ก่อน" ToolTipService.ShowOnDisabled="True" Margin="0,0,4,0" />
                                                             <Button Visibility="Collapsed" Style="{StaticResource MicroButton}" Content="คัดลอก HTML" Command="{Binding CopyDetectedCaptchaCommand}" IsEnabled="{Binding IsCaptchaAlertVisible}" Margin="0,0,4,0" />
                                                             <Button Visibility="Collapsed" Style="{StaticResource MicroButton}" Content="ส่งออก" Command="{Binding ExportCaptchaHtmlCommand}" IsEnabled="{Binding IsCaptchaAlertVisible}" />
                                                         </StackPanel>
@@ -1820,8 +1820,8 @@
                                                     <Border Visibility="Collapsed" Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource LineBrush}" BorderThickness="1" CornerRadius="4" Padding="6,2" Margin="0,0,10,0">
                                                         <TextBlock Text="{Binding CdpPort, StringFormat='CDP: 127.0.0.1:{0}'}" FontSize="11" Foreground="{DynamicResource PrimaryBrush}" FontWeight="SemiBold" />
                                                     </Border>
-                                                    <Button Style="{StaticResource PrimaryCtaButton}" Content="ตรวจหาเดี๋ยวนี้" Command="{Binding ScanCaptchaNowCommand}" IsEnabled="{Binding IsRunning}" Margin="0,0,6,0" Padding="10,4" />
-                                                    <Button Visibility="Collapsed" Style="{StaticResource ActionDarkButton}" Content="คัดลอก Full HTML" Command="{Binding CopyCaptchaHtmlCommand}" IsEnabled="{Binding IsRunning}" Margin="0,0,6,0" />
+                                                    <Button Style="{StaticResource PrimaryCtaButton}" Content="ตรวจหาเดี๋ยวนี้" Command="{Binding ScanCaptchaNowCommand}" IsEnabled="{Binding IsRunning}" ToolTip="กดเริ่มทำงานบัญชีนี้ก่อน" ToolTipService.ShowOnDisabled="True" Margin="0,0,6,0" Padding="10,4" />
+                                                    <Button Visibility="Collapsed" Style="{StaticResource ActionDarkButton}" Content="คัดลอก Full HTML" Command="{Binding CopyCaptchaHtmlCommand}" IsEnabled="{Binding IsRunning}" ToolTip="กดเริ่มทำงานบัญชีนี้ก่อน" ToolTipService.ShowOnDisabled="True" Margin="0,0,6,0" />
                                                     <Button Visibility="Collapsed" Style="{StaticResource ActionDarkButton}" Content="ส่งออกไฟล์" Command="{Binding ExportCaptchaHtmlCommand}" Margin="0,0,6,0" />
                                                     <Button Style="{StaticResource ActionDarkButton}" Content="ล้างผลลัพธ์" Command="{Binding ClearCaptchaResultsCommand}" Margin="0,0,10,0" />
                                                 </StackPanel>
@@ -2044,11 +2044,31 @@
                                 <DataGrid.Columns>
                                     <DataGridCheckBoxColumn Header="เปิดใช้" Binding="{Binding IsEnabled}" Width="70" />
                                     <DataGridTextColumn Header="ชื่อกฎ" Binding="{Binding Name}" Width="160" />
-                                    <DataGridTextColumn Header="เงื่อนไข" Binding="{Binding TriggerType}" Width="140" />
+                                    <DataGridComboBoxColumn Header="เงื่อนไข" SelectedItemBinding="{Binding TriggerType}" Width="150">
+                                        <DataGridComboBoxColumn.ElementStyle>
+                                            <Style TargetType="ComboBox">
+                                                <Setter Property="ItemsSource" Value="{Binding DataContext.RuleTriggerTypes, RelativeSource={RelativeSource AncestorType=DataGrid}}" />
+                                            </Style>
+                                        </DataGridComboBoxColumn.ElementStyle>
+                                        <DataGridComboBoxColumn.EditingElementStyle>
+                                            <Style TargetType="ComboBox">
+                                                <Setter Property="ItemsSource" Value="{Binding DataContext.RuleTriggerTypes, RelativeSource={RelativeSource AncestorType=DataGrid}}" />
+                                            </Style>
+                                        </DataGridComboBoxColumn.EditingElementStyle>
+                                    </DataGridComboBoxColumn>
                                     <DataGridTextColumn Header="คำค้นหา" Binding="{Binding Pattern}" Width="140" />
                                     <DataGridTextColumn Header="เพชรขั้นต่ำ" Binding="{Binding MinDiamonds}" Width="90" />
                                     <DataGridTextColumn Header="ข้อความตอบกลับ" Binding="{Binding ResponseTemplate}" Width="*" />
                                     <DataGridTextColumn Header="เว้นระยะ (วิ)" Binding="{Binding CooldownSeconds}" Width="90" />
+                                    <DataGridTemplateColumn Header="" Width="70">
+                                        <DataGridTemplateColumn.CellTemplate>
+                                            <DataTemplate>
+                                                <Button Style="{StaticResource MicroButton}" Content="ลบ" ToolTip="ลบกฎนี้"
+                                                        Command="{Binding DataContext.RemoveRuleCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
+                                                        CommandParameter="{Binding}" />
+                                            </DataTemplate>
+                                        </DataGridTemplateColumn.CellTemplate>
+                                    </DataGridTemplateColumn>
                                 </DataGrid.Columns>
                             </DataGrid>
                         </Grid>
@@ -2099,6 +2119,7 @@
                                                         <StackPanel Orientation="Horizontal">
                                                             <TextBlock Text="{Binding LoggedInUsername, FallbackValue='ผู้ใช้งานระบบ'}" FontWeight="Bold" FontSize="16" Foreground="{DynamicResource FgBrush}" VerticalAlignment="Center" />
                                                             <Border Background="{DynamicResource PrimarySoftBrush}" BorderBrush="{DynamicResource LineBrush}" BorderThickness="1" CornerRadius="4" Padding="8,2" Margin="10,0,0,0" VerticalAlignment="Center">
+<Border.Style><Style TargetType="Border"><Style.Triggers><DataTrigger Binding="{Binding LicenseRole}" Value=""><Setter Property="Visibility" Value="Collapsed" /></DataTrigger></Style.Triggers></Style></Border.Style>
                                                                 <TextBlock Text="{Binding LicenseRole, FallbackValue='user'}" FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource PrimaryBrush}" />
                                                             </Border>
                                                             <Border Background="{DynamicResource OkSoftBrush}" BorderBrush="{DynamicResource OkBrush}" BorderThickness="1" CornerRadius="4" Padding="8,2" Margin="6,0,0,0" VerticalAlignment="Center">

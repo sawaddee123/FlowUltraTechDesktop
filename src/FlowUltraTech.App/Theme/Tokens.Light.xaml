@@ -1,43 +1,45 @@
 <ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
-    <!-- โทเคนสี Light แปลงจาก OKLCH ใน ui-mock/src/styles.css (hue 270 กรมท่า) -->
-    <Color x:Key="BgColor">#F0F2F9</Color>
+    <!-- โทเคนสี Light แปลงจาก OKLCH ใน ui-mock/src/styles.css (Graphite + Teal) -->
+    <Color x:Key="BgColor">#EEF1F2</Color>
     <SolidColorBrush x:Key="BgBrush" Color="{StaticResource BgColor}" />
-    <Color x:Key="SurfaceColor">#FBFCFF</Color>
+    <Color x:Key="SurfaceColor">#FFFFFF</Color>
     <SolidColorBrush x:Key="SurfaceBrush" Color="{StaticResource SurfaceColor}" />
-    <Color x:Key="Surface2Color">#F2F4FA</Color>
+    <Color x:Key="Surface2Color">#F4F6F7</Color>
     <SolidColorBrush x:Key="Surface2Brush" Color="{StaticResource Surface2Color}" />
-    <Color x:Key="Surface3Color">#E8EBF4</Color>
+    <Color x:Key="Surface3Color">#E6EAEC</Color>
     <SolidColorBrush x:Key="Surface3Brush" Color="{StaticResource Surface3Color}" />
-    <Color x:Key="LineColor">#B2CCD1DF</Color>
+    <Color x:Key="LineColor">#D3DADD</Color>
     <SolidColorBrush x:Key="LineBrush" Color="{StaticResource LineColor}" />
-    <Color x:Key="FgColor">#151D39</Color>
+    <Color x:Key="FgColor">#12181B</Color>
     <SolidColorBrush x:Key="FgBrush" Color="{StaticResource FgColor}" />
-    <Color x:Key="MutedColor">#4B546F</Color>
+    <Color x:Key="MutedColor">#46535A</Color>
     <SolidColorBrush x:Key="MutedBrush" Color="{StaticResource MutedColor}" />
-    <Color x:Key="SubtleColor">#727A90</Color>
+    <Color x:Key="SubtleColor">#5B686F</Color>
     <SolidColorBrush x:Key="SubtleBrush" Color="{StaticResource SubtleColor}" />
-    <Color x:Key="PrimaryColor">#2D54D3</Color>
+    <Color x:Key="PrimaryColor">#0F766E</Color>
     <SolidColorBrush x:Key="PrimaryBrush" Color="{StaticResource PrimaryColor}" />
-    <Color x:Key="PrimaryStrongColor">#1A3AB8</Color>
+    <Color x:Key="PrimaryStrongColor">#115E59</Color>
     <SolidColorBrush x:Key="PrimaryStrongBrush" Color="{StaticResource PrimaryStrongColor}" />
-    <Color x:Key="PrimarySoftColor">#1A2D54D3</Color>
+    <Color x:Key="PrimarySoftColor">#1A0F766E</Color>
     <SolidColorBrush x:Key="PrimarySoftBrush" Color="{StaticResource PrimarySoftColor}" />
-    <Color x:Key="OnPrimaryColor">#FAFCFF</Color>
+    <Color x:Key="OnPrimaryColor">#FFFFFF</Color>
     <SolidColorBrush x:Key="OnPrimaryBrush" Color="{StaticResource OnPrimaryColor}" />
-    <Color x:Key="OkColor">#00804C</Color>
+    <Color x:Key="OkColor">#146C38</Color>
     <SolidColorBrush x:Key="OkBrush" Color="{StaticResource OkColor}" />
-    <Color x:Key="OkSoftColor">#1F00804C</Color>
+    <Color x:Key="OkSoftColor">#1F146C38</Color>
     <SolidColorBrush x:Key="OkSoftBrush" Color="{StaticResource OkSoftColor}" />
-    <Color x:Key="WarnColor">#AE6800</Color>
+    <Color x:Key="WarnColor">#8F5200</Color>
     <SolidColorBrush x:Key="WarnBrush" Color="{StaticResource WarnColor}" />
-    <Color x:Key="WarnSoftColor">#2ECE9200</Color>
+    <Color x:Key="WarnSoftColor">#2E8F5200</Color>
     <SolidColorBrush x:Key="WarnSoftBrush" Color="{StaticResource WarnSoftColor}" />
-    <Color x:Key="BadColor">#CC272E</Color>
+    <Color x:Key="BadColor">#B42318</Color>
     <SolidColorBrush x:Key="BadBrush" Color="{StaticResource BadColor}" />
-    <Color x:Key="BadSoftColor">#1ACC272E</Color>
+    <Color x:Key="BadSoftColor">#1AB42318</Color>
     <SolidColorBrush x:Key="BadSoftBrush" Color="{StaticResource BadSoftColor}" />
-    <Color x:Key="ScrimColor">#5918203A</Color>
+    <Color x:Key="ControlLineColor">#7C8A91</Color>
+    <SolidColorBrush x:Key="ControlLineBrush" Color="{StaticResource ControlLineColor}" />
+    <Color x:Key="ScrimColor">#5912181B</Color>
     <SolidColorBrush x:Key="ScrimBrush" Color="{StaticResource ScrimColor}" />
 
     <!-- สะพานไปยังคีย์ของ WPF-UI เพื่อให้คอนโทรลสำเร็จรูป (TextBox, ComboBox, CheckBox ฯลฯ) ใช้สีเดียวกัน -->
@@ -55,7 +57,7 @@
     <SolidColorBrush x:Key="ControlAltFillColorSecondaryBrush" Color="{StaticResource Surface2Color}" />
     <SolidColorBrush x:Key="ControlAltFillColorTertiaryBrush" Color="{StaticResource Surface3Color}" />
     <SolidColorBrush x:Key="ControlAltFillColorQuarternaryBrush" Color="{StaticResource Surface3Color}" />
-    <SolidColorBrush x:Key="ControlStrokeColorDefaultBrush" Color="{StaticResource LineColor}" />
+    <SolidColorBrush x:Key="ControlStrokeColorDefaultBrush" Color="{StaticResource ControlLineColor}" />
     <SolidColorBrush x:Key="ControlStrokeColorSecondaryBrush" Color="{StaticResource LineColor}" />
     <SolidColorBrush x:Key="ControlStrongStrokeColorDefaultBrush" Color="{StaticResource SubtleColor}" />
     <SolidColorBrush x:Key="ControlStrongFillColorDefaultBrush" Color="{StaticResource MutedColor}" />
@@ -86,7 +88,7 @@
     <SolidColorBrush x:Key="TextControlForegroundPointerOver" Color="{StaticResource FgColor}" />
     <SolidColorBrush x:Key="TextControlForegroundFocused" Color="{StaticResource FgColor}" />
     <SolidColorBrush x:Key="TextControlForegroundDisabled" Color="{StaticResource SubtleColor}" />
-    <SolidColorBrush x:Key="TextControlBorderBrush" Color="{StaticResource LineColor}" />
+    <SolidColorBrush x:Key="TextControlBorderBrush" Color="{StaticResource ControlLineColor}" />
     <SolidColorBrush x:Key="TextControlBorderBrushPointerOver" Color="{StaticResource SubtleColor}" />
     <SolidColorBrush x:Key="TextControlBorderBrushFocused" Color="{StaticResource PrimaryColor}" />
     <SolidColorBrush x:Key="TextControlBorderBrushDisabled" Color="{StaticResource LineColor}" />
