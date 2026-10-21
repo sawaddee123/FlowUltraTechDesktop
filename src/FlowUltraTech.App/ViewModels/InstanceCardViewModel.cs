@@ -207,8 +207,8 @@ public partial class InstanceCardViewModel : ObservableObject
     public bool HasStreamerHandle => !string.IsNullOrWhiteSpace(StreamerHandle);
 
     public string SlotSubtitle => IsLoggedIn
-        ? $"สล็อต: {Name}  •  CDP: {CdpPort}  •  โฟลเดอร์: {ProfileFolderName}"
-        : $"ยังไม่เข้าสู่ระบบ  •  CDP: {CdpPort}  •  โฟลเดอร์: {ProfileFolderName}";
+        ? $"{Name}"
+        : $"{Name}  •  ยังไม่ได้ล็อกอิน";
 
     public string DisplayNameAndHandle => IsLoggedIn ? $"{LoggedInNickname} (@{LoggedInDisplayId})" : "ยังไม่เข้าสู่ระบบ";
     public string LoginBadgeText => IsLoggedIn ? $"🟢 @{LoggedInDisplayId}" : "⚪ ยังไม่ล็อกอิน";
@@ -270,24 +270,24 @@ public partial class InstanceCardViewModel : ObservableObject
     public Visibility LoggedInVisibility => IsLoggedIn ? Visibility.Visible : Visibility.Collapsed;
     public Visibility NotLoggedInVisibility => !IsLoggedIn ? Visibility.Visible : Visibility.Collapsed;
 
-    public string DetailButtonText => IsDetailOpen ? "▲ ปิด Detail" : "⚙️ Detail & สคริปต์";
+    public string DetailButtonText => IsDetailOpen ? "ปิดรายละเอียด" : "รายละเอียด";
 
     public string StatusDisplay => Status switch
     {
-        InstanceStatus.Running => "🟢 กำลังทำงาน",
-        InstanceStatus.Starting => "⏳ กำลังเริ่ม...",
-        InstanceStatus.Error => "🔴 ข้อผิดพลาด",
-        _ => "⚪ หยุดทำงาน"
+        InstanceStatus.Running => "กำลังทำงาน",
+        InstanceStatus.Starting => "กำลังเริ่ม...",
+        InstanceStatus.Error => "ผิดพลาด",
+        _ => "หยุดทำงาน"
     };
 
     public string WindowVisibilityDisplay => IsRunning 
-        ? (IsWindowHidden ? "🙈 ซ่อนจอ (SW_HIDE)" : "👁️ แสดงปกติ") 
-        : "⚪ ยังไม่เปิด";
+        ? (IsWindowHidden ? "ซ่อนหน้าต่าง" : "แสดงหน้าต่าง") 
+        : "ยังไม่เปิด";
 
     public string ModeBadgeText => LaunchMode switch
     {
-        InstanceLaunchMode.DefaultProfile => "🏠 บัญชีหลัก (Default Profile)",
-        _ => "📁 โหมด: Direct Profile (แยกโฟลเดอร์)"
+        InstanceLaunchMode.DefaultProfile => "บัญชีหลัก",
+        _ => "แยกโฟลเดอร์"
     };
 
     private readonly IOverlayServerService? _overlayService;

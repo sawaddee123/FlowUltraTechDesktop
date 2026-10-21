@@ -1367,17 +1367,17 @@ public partial class InstanceCardViewModel : ObservableObject
 
     public string ProxySummaryBadgeText =>
         Profile.UseCustomProxy && !string.IsNullOrWhiteSpace(Profile.ProxyHost)
-            ? $"Proxy: {Profile.ProxyProtocol.ToString().ToUpperInvariant()} {Profile.ProxyHost}:{Profile.ProxyPort}"
-            : "Proxy: เชื่อมต่อตรง (Direct)";
+            ? $"Proxy {Profile.ProxyHost}:{Profile.ProxyPort}"
+            : "ไม่ใช้ Proxy";
 
     [ObservableProperty]
-    private string _instanceProxyStatusText = "โหมด Native Proxy พร้อมทำงาน (ไม่ต้องใช้ Proxifier)";
+    private string _instanceProxyStatusText = "พร้อมใช้งาน";
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(TestInstanceProxyButtonText))]
     private bool _isTestingInstanceProxy;
 
-    public string TestInstanceProxyButtonText => IsTestingInstanceProxy ? "กำลังเช็ก IP..." : "ทดสอบ Proxy";
+    public string TestInstanceProxyButtonText => IsTestingInstanceProxy ? "กำลังทดสอบ..." : "ทดสอบ Proxy";
 
     private void ApplyAndSaveInstanceProxy()
     {

@@ -155,7 +155,7 @@ public class DebugViewModelAndCdpTests
         var vm = new InstanceCardViewModel(profile, settings, orchestrator);
 
         Assert.Equal(InstanceLaunchMode.DirectProfile, vm.LaunchMode);
-        Assert.Contains("Direct Profile", vm.ModeBadgeText);
+        Assert.Contains("แยกโฟลเดอร์", vm.ModeBadgeText);
 
         vm.SwitchModeCommand.Execute(null);
         Assert.Equal(InstanceLaunchMode.DefaultProfile, vm.LaunchMode);
@@ -163,7 +163,7 @@ public class DebugViewModelAndCdpTests
 
         vm.SwitchModeCommand.Execute(null);
         Assert.Equal(InstanceLaunchMode.DirectProfile, vm.LaunchMode);
-        Assert.Contains("Direct Profile", vm.ModeBadgeText);
+        Assert.Contains("แยกโฟลเดอร์", vm.ModeBadgeText);
     }
 
     [Fact]
@@ -175,11 +175,11 @@ public class DebugViewModelAndCdpTests
         var vm = new InstanceCardViewModel(profile, settings, orchestrator);
 
         Assert.False(vm.IsDetailOpen);
-        Assert.Contains("Detail", vm.DetailButtonText);
+        Assert.Contains("รายละเอียด", vm.DetailButtonText);
 
         vm.ToggleDetailCommand.Execute(null);
         Assert.True(vm.IsDetailOpen);
-        Assert.Contains("ปิด Detail", vm.DetailButtonText);
+        Assert.Contains("ปิดรายละเอียด", vm.DetailButtonText);
 
         vm.ToggleDetailCommand.Execute(null);
         Assert.False(vm.IsDetailOpen);
@@ -225,7 +225,7 @@ public class DebugViewModelAndCdpTests
         Assert.Equal(InstanceStatus.Stopped, vm.Status);
         Assert.True(vm.CanStart);
         Assert.False(vm.IsStarting);
-        Assert.Equal("⚪ หยุดทำงาน", vm.StatusDisplay);
+        Assert.Equal("หยุดทำงาน", vm.StatusDisplay);
     }
 
     [Fact]

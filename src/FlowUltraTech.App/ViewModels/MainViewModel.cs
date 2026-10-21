@@ -780,7 +780,7 @@ public partial class MainViewModel : ObservableObject
         OnPropertyChanged(nameof(TotalCaptchaAlertCount));
         OnPropertyChanged(nameof(HasAnyCaptchaAlert));
         OnPropertyChanged(nameof(RunningStatusSummary));
-        StatusNotification = $"เพิ่ม {newProfile.Name} (พอร์ต {newProfile.CdpPort})";
+        StatusNotification = $"เพิ่ม {newProfile.Name} แล้ว";
 
         // Sync to cloud if authenticated
         if (!string.IsNullOrWhiteSpace(AuthToken))
