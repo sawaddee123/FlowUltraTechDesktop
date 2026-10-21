@@ -7,8 +7,8 @@ import json
 
 sys.stdout.reconfigure(encoding='utf-8')
 
-VERSION = "1.7.0"
-MIN_VERSION = "1.7.0" # Force update!
+VERSION = "1.8.0"
+MIN_VERSION = "1.8.0" # Force update!
 SERVER_HOST = "210.246.215.66"
 SERVER_URL = f"http://{SERVER_HOST}:8001"
 ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -75,11 +75,11 @@ headers = {
 broadcast_payload = {
     "version": VERSION,
     "minRequiredVersion": MIN_VERSION,
-    "title": f"FlowUltraTech v{VERSION} (Native Proxy Bridge & 5-Mode Auto-Reply Studio)",
+    "title": f"FlowUltraTech v{VERSION} (ธีมใหม่ อ่านง่ายขึ้น)",
     "description": (
-        "• เพิ่มระบบ Native Proxy Bridge ในตัวแอป (รองรับ HTTP / HTTPS / SOCKS5 พร้อม Username & Password แยกรายโปรไฟล์โดยไม่ต้องใช้ Proxifier) และปุ่มทดสอบ IP/Ping\n"
-        "• เพิ่มสตูดิโอคอมเมนต์และตอบกลับอัตโนมัติครบ 5 โหมด: ส่งทันที, วนส่งอัตโนมัติ, กฎคำแบบย่อพร้อมระบบกันสแปม/กันแบน, ทักทายผู้ชมเข้าไลฟ์ และ AI ตอบกลับอัจฉริยะ (OpenRouter / OpenAI)\n"
-        "• ปรับปรุงการแสดงผล Clock Overlay WebView แก้ไข Padding/Margin และจัดกรอบแสงสะท้อน (Glare/Shadow) ให้แนบสนิทพอดีกับตัวนาฬิกาทุกรูปแบบ"
+        "• ธีมสีใหม่ Graphite + Teal ทั้งโหมดมืดและสว่าง ตัวอักษรและปุ่มอ่านชัดขึ้น\n"
+        "• เอาเครื่องมือนักพัฒนาออก เมนูเหลือเฉพาะที่ใช้งานจริง\n"
+        "• แก้ปุ่มที่กดแล้วไม่ตอบสนอง: ลบกฎตอบแชท, ตรวจสิทธิ์/ซิงก์ตอนยังไม่ล็อกอิน, ตรวจหา Captcha ไม่เขียนทับ Clipboard"
     ),
     "fileName": f"FlowUltraTech_Setup_v{VERSION}.exe",
     "fileSize": FILE_SIZE,
