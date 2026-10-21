@@ -43,6 +43,9 @@ public class StudioInstanceProfile
     public string? LoggedInNickname { get; set; }
     public string? LoggedInDisplayId { get; set; }
     public string? LoggedInAvatarUrl { get; set; }
+
+    /// <summary>Last channel auto-filled from the Studio login; used to detect an account switch.</summary>
+    public string? AutoDetectedChannel { get; set; }
     public bool IsLoggedIn { get; set; } = false;
     public DateTime? LastProfileSync { get; set; }
 

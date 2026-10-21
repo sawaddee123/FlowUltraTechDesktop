@@ -243,18 +243,16 @@ public partial class InstanceCardViewModel : ObservableObject
                     bmp.Freeze();
                     return bmp;
                 }
-                else if (Uri.TryCreate(avatarUrl, UriKind.Absolute, out var uriResult) && 
+                else if (Uri.TryCreate(avatarUrl, UriKind.Absolute, out var uriResult) &&
                          (uriResult.Scheme == Uri.UriSchemeHttp || uriResult.Scheme == Uri.UriSchemeHttps))
                 {
-                    var bmp = new System.Windows.Media.Imaging.BitmapImage();
-                    bmp.BeginInit();
-                    bmp.CacheOption = System.Windows.Media.Imaging.BitmapCacheOption.OnLoad;
-                    bmp.CreateOptions = System.Windows.Media.Imaging.BitmapCreateOptions.PreservePixelFormat;
-                    bmp.DecodePixelWidth = 128;
-                    bmp.UriSource = uriResult;
-                    bmp.EndInit();
-                    bmp.Freeze();
-                    return bmp;
+                    string cached = FlowUltraTech.App.Helpers.AvatarCache.CachePathFor(avatarUrl);
+                    if (!File.Exists(cached))
+                    {
+                        _ = FetchAvatarAsync(avatarUrl);
+                        return null;
+                    }
+                    return LoadLocalAvatar(cached);
                 }
             }
             catch
@@ -263,6 +261,31 @@ public partial class InstanceCardViewModel : ObservableObject
             }
             return null;
         }
+    }
+
+    private static System.Windows.Media.ImageSource LoadLocalAvatar(string path)
+    {
+        var bmp = new System.Windows.Media.Imaging.BitmapImage();
+        bmp.BeginInit();
+        bmp.CacheOption = System.Windows.Media.Imaging.BitmapCacheOption.OnLoad;
+        bmp.CreateOptions = System.Windows.Media.Imaging.BitmapCreateOptions.PreservePixelFormat;
+        bmp.DecodePixelWidth = 128;
+        bmp.UriSource = new Uri(path, UriKind.Absolute);
+        bmp.EndInit();
+        bmp.Freeze();
+        return bmp;
+    }
+
+    private async Task FetchAvatarAsync(string url)
+    {
+        if (!await FlowUltraTech.App.Helpers.AvatarCache.EnsureAsync(url)) return;
+        if (LoggedInAvatarUrl != url) return;
+        System.Windows.Application.Current?.Dispatcher.Invoke(() =>
+        {
+            OnPropertyChanged(nameof(AvatarImageSource));
+            OnPropertyChanged(nameof(AvatarVisibility));
+            OnPropertyChanged(nameof(FallbackAvatarVisibility));
+        });
     }
 
     public Visibility AvatarVisibility => AvatarImageSource != null ? Visibility.Visible : Visibility.Collapsed;
@@ -862,9 +885,17 @@ public partial class InstanceCardViewModel : ObservableObject
             SessionIdToken = info.SessionId;
         }
 
-        if (string.IsNullOrWhiteSpace(Profile.StreamerUsername) && !string.IsNullOrWhiteSpace(LoggedInDisplayId))
+        // Follow the TikTok Studio account: when the logged-in account changes (or no channel was ever set),
+        // the watched channel switches to it. A manual edit sticks until the account changes again.
+        string detected = NormalizeUsername(LoggedInDisplayId);
+        if (!string.IsNullOrWhiteSpace(detected) &&
+            (string.IsNullOrWhiteSpace(Profile.StreamerUsername) ||
+             !string.Equals(Profile.AutoDetectedChannel, detected, StringComparison.OrdinalIgnoreCase)))
         {
-            StreamerUsername = NormalizeUsername(LoggedInDisplayId);
+            Profile.AutoDetectedChannel = detected;
+            StreamerUsername = detected;
+            SaveStreamerUsername();
+            ChannelStatusText = $"ตรวจจับช่องจาก TikTok Studio: @{detected}";
         }
 
         OnPropertyChanged(nameof(AvatarImageSource));
