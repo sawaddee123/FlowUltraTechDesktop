@@ -273,24 +273,6 @@ public partial class InstanceCardViewModel : ObservableObject
     public Task FetchSessionInfoAsync() => FetchCookiesAndStorageAsync();
 
     [RelayCommand]
-    public void ResetCookieFilters()
-    {
-        CookieNameFilter = string.Empty;
-        CookieDomainFilter = string.Empty;
-        CookieValueFilter = string.Empty;
-        FilteredCookies?.Refresh();
-    }
-
-    [RelayCommand]
-    public void ResetStorageFilters()
-    {
-        StorageKeyFilter = string.Empty;
-        StorageValueFilter = string.Empty;
-        FilteredLocalStorage?.Refresh();
-        FilteredSessionStorage?.Refresh();
-    }
-
-    [RelayCommand]
     public void CopySessionId()
     {
         if (!string.IsNullOrEmpty(SessionIdToken) && SessionIdToken != "-")

@@ -20,8 +20,6 @@ public partial class CdpAutomationService : ICdpAutomationService, IDisposable
     private readonly HttpClient _solverHttpClient = new() { Timeout = TimeSpan.FromSeconds(30) };
     private readonly ConcurrentDictionary<int, IBrowser> _connectedBrowsers = new();
     private readonly ConcurrentDictionary<int, SemaphoreSlim> _connectLocks = new();
-    private readonly ConcurrentDictionary<string, (NetworkTrafficItem item, Stopwatch sw)> _activeRequests = new();
-    private readonly ConcurrentDictionary<int, bool> _hookedPorts = new();
     private readonly IInstanceLogManager _logManager;
     private IBrowser? _headlessBrowser;
 
@@ -100,7 +98,6 @@ public partial class CdpAutomationService : ICdpAutomationService, IDisposable
 
     private void InvalidateBrowserConnection(int cdpPort)
     {
-        _hookedPorts.TryRemove(cdpPort, out _);
         if (_connectedBrowsers.TryRemove(cdpPort, out var staleBrowser))
         {
             try { staleBrowser.Disconnect(); } catch { }

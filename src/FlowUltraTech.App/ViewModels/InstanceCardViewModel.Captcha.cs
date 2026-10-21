@@ -30,9 +30,6 @@ public partial class InstanceCardViewModel : ObservableObject
     [ObservableProperty]
     private bool _isCaptchaAutoDetect = true;
 
-    [ObservableProperty]
-    private bool _autoCopyToClipboardOnDetect = false;
-
 
     [ObservableProperty]
     private bool _isCaptchaAlertVisible;
@@ -277,19 +274,7 @@ public partial class InstanceCardViewModel : ObservableObject
                     SelectedCaptchaElement = DetectedCaptchaElements[0];
                 }
 
-                if (AutoCopyToClipboardOnDetect)
-                {
-                    try
-                    {
-                        Clipboard.SetText(result.CombinedHtml);
-                        StatusMessage = $"🚨 ตรวจพบ Captcha จริง ({result.TypeDescription}) และคัดลอก Full HTML ลง Clipboard แล้ว!";
-                    }
-                    catch { }
-                }
-                else
-                {
-                    StatusMessage = $"🚨 ตรวจพบ Captcha จริง ({result.TypeDescription})! สามารถกดคัดลอก Full HTML หรือสั่งแก้ได้ทันที";
-                }
+                StatusMessage = $"🚨 ตรวจพบ Captcha จริง ({result.TypeDescription}) สั่งแก้ได้ทันที";
 
                 // Auto solve if enabled
                 if (IsAutoSolveCaptcha && !IsSolvingCaptcha && IsRunning)
@@ -449,49 +434,20 @@ public partial class InstanceCardViewModel : ObservableObject
     }
 
     [RelayCommand]
-    public async Task<string?> CopyCaptchaHtmlAsync()
+    public async Task ScanCaptchaNowAsync()
     {
         if (Status != InstanceStatus.Running)
         {
-            Logger.Warn("Captcha", $"Cannot copy captcha: '{Name}' is not running.");
-            AppendConsole($"[{DateTime.Now:HH:mm:ss}] ⚠️ ไม่สามารถตรวจ Captcha ได้: หน้าต่างนี้ยังไม่ได้เปิดทำงาน กรุณากด Start ก่อน\n");
+            Logger.Warn("Captcha", $"Cannot scan captcha: '{Name}' is not running.");
             StatusMessage = "กรุณาเปิดสตูดิโอก่อนตรวจจับ Captcha";
-            return null;
+            return;
         }
 
-        string time = DateTime.Now.ToString("HH:mm:ss");
-        AppendConsole($"[{time}] 🔍 กำลังค้นหา Captcha ในหน้าต่างพอร์ต {CdpPort}...");
-        StatusMessage = "กำลังค้นหา Captcha และดึง Full HTML...";
-
+        StatusMessage = "กำลังตรวจหา Captcha...";
         var result = await CheckCaptchaInternalAsync(isAuto: false);
-        if (result.Found && !string.IsNullOrWhiteSpace(result.CombinedHtml))
-        {
-            try
-            {
-                Clipboard.SetText(result.CombinedHtml);
-                string activeStatus = result.IsActive ? "🚨 กำลังแสดงผลอยู่จริง" : "ℹ️ ซ่อนอยู่ใน DOM";
-                StatusMessage = $"✅ คัดลอก Full HTML ({result.Elements.Count} Elements, {activeStatus}) สำเร็จ!";
-                AppendConsole($"[{DateTime.Now:HH:mm:ss}] ✅ คัดลอก Full HTML สำเร็จเรียบร้อย! ({activeStatus})");
-                AppendConsole($"   📊 พบทั้งหมด: {result.Elements.Count} Element | ประเภท: {result.TypeDescription}");
-                for (int i = 0; i < result.Elements.Count; i++)
-                {
-                    var el = result.Elements[i];
-                    AppendConsole($"      [{i + 1}] {el.Summary} (Depth {el.Depth}, Visible={el.IsVisible})");
-                }
-                AppendConsole($"   📋 โค้ด Full HTML ถูกคัดลอกลง Clipboard แล้ว ({result.CombinedHtml.Length:N0} ตัวอักษร)\n");
-            }
-            catch (Exception ex)
-            {
-                AppendConsole($"[{DateTime.Now:HH:mm:ss}] ❌ ไม่สามารถคัดลอกลง Clipboard ได้: {ex.Message}\n");
-            }
-            return result.CombinedHtml;
-        }
-        else
-        {
-            StatusMessage = "ไม่พบ Element ที่มี Captcha ในหน้าต่างนี้";
-            AppendConsole($"[{DateTime.Now:HH:mm:ss}] ℹ️ ไม่พบ Element ใดๆ ที่มี ID, Class หรือ Attribute ระบุถึง Captcha ในหน้าต่างนี้\n");
-            return null;
-        }
+        StatusMessage = result.Found
+            ? $"ตรวจพบ Captcha ({result.TypeDescription})"
+            : "ไม่พบ Captcha ในหน้าต่างนี้";
     }
 
     [RelayCommand]
@@ -525,49 +481,6 @@ public partial class InstanceCardViewModel : ObservableObject
         AudioAlertService.StopAlert();
         StatusMessage = "ล้างข้อมูล Captcha เรียบร้อย";
         AppendConsole($"[{DateTime.Now:HH:mm:ss}] 🗑️ ล้างข้อมูลผลลัพธ์ Captcha เรียบร้อยแล้ว\n");
-    }
-
-    [RelayCommand]
-    public async Task ScanCaptchaNowAsync()
-    {
-        await CopyCaptchaHtmlAsync();
-    }
-
-    [RelayCommand]
-    public async Task<string?> ExportCaptchaHtmlAsync(string? targetFilePath = null)
-    {
-        if (string.IsNullOrEmpty(DetectedCaptchaHtml))
-        {
-            var res = await CheckCaptchaInternalAsync(isAuto: false);
-            if (!res.Found)
-            {
-                StatusMessage = "ไม่พบ Captcha ให้บันทึก";
-                return null;
-            }
-        }
-
-        if (string.IsNullOrWhiteSpace(targetFilePath))
-        {
-            string defaultName = $"Captcha_{ProfileFolderName}_{DateTime.Now:yyyyMMdd_HHmmss}.html";
-            var dialog = new Microsoft.Win32.SaveFileDialog
-            {
-                Title = $"Export Captcha HTML - {Name}",
-                Filter = "HTML Files (*.html;*.htm)|*.html;*.htm|All Files (*.*)|*.*",
-                FileName = defaultName,
-                DefaultExt = "html"
-            };
-
-            if (dialog.ShowDialog() != true) return null;
-            targetFilePath = dialog.FileName;
-        }
-
-        string header = $"<!-- [TikTok LIVE Studio Sandbox] Captcha Full HTML Dump | Date: {DateTime.Now:yyyy-MM-dd HH:mm:ss} | Profile: {Name} ({ProfileFolderName}) | Port: {CdpPort} -->\n";
-        string content = header + DetectedCaptchaHtml;
-        await System.IO.File.WriteAllTextAsync(targetFilePath, content, Encoding.UTF8);
-
-        StatusMessage = $"✅ บันทึก Captcha Full HTML สำเร็จ: {System.IO.Path.GetFileName(targetFilePath)}";
-        AppendConsole($"[{DateTime.Now:HH:mm:ss}] 💾 บันทึก Captcha Full HTML เป็นไฟล์เรียบร้อย: {targetFilePath}\n");
-        return targetFilePath;
     }
 
     [RelayCommand]

@@ -940,30 +940,6 @@ public partial class MainViewModel : ObservableObject
         StatusNotification = $"บันทึกและเปิดใช้งาน Native Proxy Bridge เรียบร้อย ({activeCount} บัญชีใช้งาน Proxy โดยไม่ต้องพึ่ง Proxifier)";
     }
 
-    [RelayCommand]
-    public void GenerateProxifierConfig()
-    {
-        try
-        {
-            string profilePath = ProxifierProfilePath;
-            if (string.IsNullOrWhiteSpace(profilePath))
-            {
-                string appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
-                profilePath = Path.Combine(appData, "Proxifier", "Profiles", "TikTokSandbox.ppx");
-                ProxifierProfilePath = profilePath;
-                Settings.ProxifierProfilePath = profilePath;
-            }
-
-            _proxifierService.UpdateProfileFile(profilePath, Settings.Instances, Settings.Proxies);
-            _storageService.SaveSettings(Settings);
-            StatusNotification = $"อัปเดตกฎ Proxifier XML สำเร็จ: {profilePath}";
-        }
-        catch (Exception ex)
-        {
-            StatusNotification = $"เกิดข้อผิดพลาด Proxifier: {ex.Message}";
-        }
-    }
-
     public Array RuleTriggerTypes { get; } = Enum.GetValues(typeof(RuleTriggerType));
 
     [RelayCommand]

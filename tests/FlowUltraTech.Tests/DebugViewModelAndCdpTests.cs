@@ -47,34 +47,6 @@ public class DebugViewModelAndCdpTests
     }
 
     [Fact]
-    public void NetworkTrafficItem_LifecycleState_UpdatesInPlace()
-    {
-        var item = new NetworkTrafficItem
-        {
-            RequestId = Guid.NewGuid().ToString(),
-            Method = "POST",
-            Url = "https://webcast.tiktok.com/api/chat/send",
-            StatusCode = 0,
-            StatusDisplay = "Pending ⏳",
-            ResourceType = "Fetch/XHR"
-        };
-
-        Assert.Equal("Pending ⏳", item.StatusDisplay);
-        Assert.Equal(0, item.StatusCode);
-
-        // Simulate response arrival in-place
-        item.StatusCode = 200;
-        item.StatusDisplay = "200 OK";
-        item.DurationMs = 145;
-        item.ResponseBody = "{\"status_code\":0,\"data\":{\"message\":\"sent\"}}";
-
-        Assert.Equal("200 OK", item.StatusDisplay);
-        Assert.Equal(200, item.StatusCode);
-        Assert.Equal(145, item.DurationMs);
-        Assert.Contains("\"sent\"", item.ResponseBody);
-    }
-
-    [Fact]
     public void ProcessTreeHelper_NeverIncludesCurrentProcess()
     {
         var (root, pids) = ProcessTreeHelper.GetProcessTree(Environment.ProcessId);
@@ -120,38 +92,6 @@ public class DebugViewModelAndCdpTests
         Assert.True(vm.CanStart);
         Assert.False(vm.IsStarting);
         Assert.Equal("หยุดทำงาน", vm.StatusDisplay);
-    }
-
-    [Fact]
-    public void InstanceCardViewModel_CookiesAndStorage_FilterEachColumn_WorksProperly()
-    {
-        var profile = new StudioInstanceProfile();
-        var settings = new AppSettings();
-        var orchestrator = new InstanceOrchestrator(new ProcessLauncher(), new WindowController(), new CdpAutomationService());
-        var vm = new InstanceCardViewModel(profile, settings, orchestrator);
-
-        vm.Cookies.Add(new CookieItem { Name = "sessionid", Value = "abc12345", Domain = ".tiktok.com" });
-        vm.Cookies.Add(new CookieItem { Name = "tt_csrf_token", Value = "csrf_token_xyz", Domain = ".tiktok.com" });
-
-        vm.CookieNameFilter = "session";
-        var filteredCookies = vm.FilteredCookies.Cast<CookieItem>().ToList();
-        Assert.Single(filteredCookies);
-        Assert.Equal("sessionid", filteredCookies[0].Name);
-
-        vm.ResetCookieFiltersCommand.Execute(null);
-        Assert.Equal(2, vm.FilteredCookies.Cast<CookieItem>().Count());
-
-        // Test LocalStorage filter
-        vm.LocalStorageItems.Add(new StorageEntry { Key = "theme", Value = "dark" });
-        vm.LocalStorageItems.Add(new StorageEntry { Key = "auth_token", Value = "token999" });
-
-        vm.StorageKeyFilter = "theme";
-        var filteredStorage = vm.FilteredLocalStorage.Cast<StorageEntry>().ToList();
-        Assert.Single(filteredStorage);
-        Assert.Equal("theme", filteredStorage[0].Key);
-
-        vm.ResetStorageFiltersCommand.Execute(null);
-        Assert.Equal(2, vm.FilteredLocalStorage.Cast<StorageEntry>().Count());
     }
 
     [Fact]
@@ -201,159 +141,6 @@ public class DebugViewModelAndCdpTests
     }
 
     [Fact]
-    public void NetworkTrafficItem_AutomaticallyFormats_PayloadAndResponseBodyWhenJson()
-    {
-        var item = new NetworkTrafficItem
-        {
-            PostData = "{\"action\":\"send_msg\",\"text\":\"สวัสดี\"}",
-            ResponseBody = "{\"status\":200,\"success\":true}"
-        };
-
-        Assert.Contains("\n", item.PostData);
-        Assert.Contains("\"action\": \"send_msg\"", item.PostData);
-        Assert.Contains("\"text\": \"สวัสดี\"", item.PostData);
-
-        Assert.Contains("\n", item.ResponseBody);
-        Assert.Contains("\"status\": 200", item.ResponseBody);
-        Assert.Contains("\"success\": true", item.ResponseBody);
-
-        // When setting non-json payload
-        item.PostData = "grant_type=refresh_token&client_id=123";
-        Assert.Equal("grant_type=refresh_token&client_id=123", item.PostData);
-    }
-
-    [Fact]
-    public void PageHtmlResult_Model_PopulatesProperly()
-    {
-        var now = DateTime.Now;
-        var result = new PageHtmlResult
-        {
-            Html = "<!DOCTYPE html><html><head><title>TikTok Live</title></head><body>Hello</body></html>",
-            Url = "https://webcast.tiktok.com/live",
-            Title = "TikTok Live Studio",
-            PageCount = 2,
-            FetchedAt = now
-        };
-
-        Assert.Contains("<!DOCTYPE html>", result.Html);
-        Assert.Equal("https://webcast.tiktok.com/live", result.Url);
-        Assert.Equal("TikTok Live Studio", result.Title);
-        Assert.Equal(2, result.PageCount);
-        Assert.Equal(now, result.FetchedAt);
-    }
-
-    [Fact]
-    public async Task InstanceCardViewModel_ExportFullHtml_WhenNotRunning_WarnsCleanly()
-    {
-        var profile = new StudioInstanceProfile { Status = InstanceStatus.Stopped };
-        var settings = new AppSettings();
-        var orchestrator = new InstanceOrchestrator(new ProcessLauncher(), new WindowController(), new CdpAutomationService());
-        var vm = new InstanceCardViewModel(profile, settings, orchestrator);
-
-        Assert.False(vm.IsRunning);
-        string? exportedPath = await vm.ExportFullHtmlAsync();
-
-        Assert.Null(exportedPath);
-        Assert.Contains("ยังไม่ได้เปิดทำงาน", vm.ConsoleOutput);
-        Assert.Contains("กรุณาเปิดสตูดิโอก่อน", vm.StatusMessage);
-    }
-
-    [Fact]
-    public async Task InstanceCardViewModel_ExportFullHtml_WithDirectPath_ExportsAndAddsHeaderComment()
-    {
-        var fakeCdp = new TestFakeCdpService
-        {
-            ResultToReturn = new PageHtmlResult
-            {
-                Html = "<!DOCTYPE html><html><head><title>Test Page</title></head><body><div id=\"chat-box\">Live Chat</div></body></html>",
-                Url = "https://webcast.tiktok.com/chat",
-                Title = "Test Page",
-                PageCount = 1
-            }
-        };
-
-        var profile = new StudioInstanceProfile { Status = InstanceStatus.Running, Name = "Test Profile", ProfileFolderName = "TestAcc01" };
-        var settings = new AppSettings();
-        var orchestrator = new InstanceOrchestrator(new ProcessLauncher(), new WindowController(), fakeCdp);
-        var vm = new InstanceCardViewModel(profile, settings, orchestrator, fakeCdp);
-
-        string tempFile = System.IO.Path.Combine(System.IO.Path.GetTempPath(), $"test_export_{Guid.NewGuid():N}.html");
-        try
-        {
-            string? resultPath = await vm.ExportFullHtmlAsync(tempFile);
-
-            Assert.NotNull(resultPath);
-            Assert.True(System.IO.File.Exists(tempFile));
-            string content = await System.IO.File.ReadAllTextAsync(tempFile);
-
-            // Assert comment header is injected after DOCTYPE
-            Assert.Contains("<!-- [TikTok LIVE Studio Sandbox] Exported:", content);
-            Assert.Contains("Profile: Test Profile", content);
-            Assert.Contains("https://webcast.tiktok.com/chat", content);
-            Assert.Contains("<div id=\"chat-box\">Live Chat</div>", content);
-
-            Assert.Equal(tempFile, vm.LastExportedHtmlPath);
-            Assert.Contains("Export Full HTML สำเร็จ", vm.StatusMessage);
-            Assert.Contains("Export Full HTML สำเร็จเรียบร้อย!", vm.ConsoleOutput);
-        }
-        finally
-        {
-            if (System.IO.File.Exists(tempFile))
-            {
-                System.IO.File.Delete(tempFile);
-            }
-        }
-    }
-
-    [Fact]
-    public async Task InstanceCardViewModel_CheckCaptcha_WhenFound_SetsPropertiesAndShowsAlert()
-    {
-        var fakeCaptcha = new CaptchaDetectionResult
-        {
-            DetectedAt = DateTime.Now,
-            IsActive = true,
-            Type = CaptchaType.Jigsaw,
-            TypeDescription = "จิ๊กซอว์เลื่อนต่อภาพ (Slide Captcha)",
-            CombinedHtml = "<div id=\"captcha-verify-container\"><div class=\"captcha_verify_slide\"></div></div>",
-            Elements =
-            {
-                new CaptchaElementItem
-                {
-                    TagName = "div",
-                    Id = "captcha-verify-container",
-                    ClassName = "secsdk-captcha-container",
-                    Depth = 2,
-                    Html = "<div id=\"captcha-verify-container\"><div class=\"captcha_verify_slide\"></div></div>",
-                    IsVisible = true
-                }
-            }
-        };
-
-        var fakeCdp = new TestFakeCdpService { CaptchaResultToReturn = fakeCaptcha };
-        var profile = new StudioInstanceProfile { Status = InstanceStatus.Running, Name = "CaptchaTestAcc", CdpPort = 9222 };
-        var settings = new AppSettings();
-        var orchestrator = new InstanceOrchestrator(new ProcessLauncher(), new WindowController(), fakeCdp);
-        var vm = new InstanceCardViewModel(profile, settings, orchestrator, fakeCdp);
-
-        Assert.False(vm.IsCaptchaAlertVisible);
-
-        var result = await vm.CheckCaptchaInternalAsync(isAuto: true);
-
-        Assert.True(result.Found);
-        Assert.True(result.IsActive);
-        Assert.True(vm.IsCaptchaAlertVisible);
-        Assert.Equal(1, vm.DetectedCaptchaCount);
-        Assert.Equal(fakeCaptcha.CombinedHtml, vm.DetectedCaptchaHtml);
-        Assert.Contains("ตรวจพบ Captcha", vm.CaptchaAlertTitle);
-        Assert.Contains("จิ๊กซอว์เลื่อนต่อภาพ", vm.CaptchaAlertMessage);
-        Assert.NotEmpty(vm.LastCaptchaDetectedTime);
-
-        // Test Dismiss
-        vm.DismissCaptchaAlertCommand.Execute(null);
-        Assert.False(vm.IsCaptchaAlertVisible);
-    }
-
-    [Fact]
     public async Task InstanceCardViewModel_CheckCaptcha_WhenHiddenInDom_DoesNotShowAlert()
     {
         var fakeCaptcha = new CaptchaDetectionResult
@@ -386,52 +173,6 @@ public class DebugViewModelAndCdpTests
         Assert.True(result.Found);
         Assert.False(result.IsActive);
         Assert.False(vm.IsCaptchaAlertVisible, "Must NOT show alert for hidden/inactive DOM elements");
-    }
-
-    [Fact]
-    public async Task InstanceCardViewModel_ExportCaptchaHtml_WritesExpectedContent()
-    {
-        var fakeCaptcha = new CaptchaDetectionResult
-        {
-            DetectedAt = DateTime.Now,
-            CombinedHtml = "<div id=\"secsdk-captcha-drag-wrapper\">Slider Captcha</div>",
-            Elements =
-            {
-                new CaptchaElementItem
-                {
-                    TagName = "div",
-                    Id = "secsdk-captcha-drag-wrapper",
-                    Html = "<div id=\"secsdk-captcha-drag-wrapper\">Slider Captcha</div>"
-                }
-            }
-        };
-
-        var fakeCdp = new TestFakeCdpService { CaptchaResultToReturn = fakeCaptcha };
-        var profile = new StudioInstanceProfile { Status = InstanceStatus.Running, Name = "ExportCaptchaAcc", ProfileFolderName = "Acc01" };
-        var settings = new AppSettings();
-        var orchestrator = new InstanceOrchestrator(new ProcessLauncher(), new WindowController(), fakeCdp);
-        var vm = new InstanceCardViewModel(profile, settings, orchestrator, fakeCdp);
-
-        string tempFile = System.IO.Path.Combine(System.IO.Path.GetTempPath(), $"captcha_test_{Guid.NewGuid():N}.html");
-        try
-        {
-            string? exportedPath = await vm.ExportCaptchaHtmlAsync(tempFile);
-
-            Assert.NotNull(exportedPath);
-            Assert.True(System.IO.File.Exists(tempFile));
-            string content = await System.IO.File.ReadAllTextAsync(tempFile);
-
-            Assert.Contains("<!-- [TikTok LIVE Studio Sandbox] Captcha Full HTML Dump", content);
-            Assert.Contains("ExportCaptchaAcc", content);
-            Assert.Contains("<div id=\"secsdk-captcha-drag-wrapper\">Slider Captcha</div>", content);
-        }
-        finally
-        {
-            if (System.IO.File.Exists(tempFile))
-            {
-                System.IO.File.Delete(tempFile);
-            }
-        }
     }
 
     [Fact]
@@ -533,40 +274,6 @@ public class DebugViewModelAndCdpTests
         chat.AutoReplyContent = "ยินดีต้อนรับครับ";
         Assert.Equal("🤖 ยินดีต้อนรับครับ", chat.AutoReplyDisplay);
         Assert.Contains("บอท: ยินดีต้อนรับครับ", chat.FullText);
-    }
-
-    [Fact]
-    public void InstanceCardViewModel_LiveChatMockAndCommands_WorkProperly()
-    {
-        var profile = new StudioInstanceProfile { Name = "Test Profile", CdpPort = 9222 };
-        var settings = new AppSettings();
-        var fakeCdp = new TestFakeCdpService();
-        var orch = new InstanceOrchestrator(new ProcessLauncher(), new WindowController(), fakeCdp);
-
-        var vm = new FlowUltraTech.App.ViewModels.InstanceCardViewModel(profile, settings, orch, fakeCdp);
-
-        Assert.Empty(vm.LiveChatMessages);
-        Assert.Equal(0, vm.TotalChatCount);
-
-        // Generate 5 mock chat messages
-        for (int i = 0; i < 5; i++)
-        {
-            vm.SendMockChatCommand.Execute(null);
-        }
-
-        Assert.Equal(5, vm.LiveChatMessages.Count);
-        Assert.Contains("ทั้งหมด 5 รายการ", vm.LiveChatCountSummary);
-
-        // Test reply to message
-        var firstMsg = vm.LiveChatMessages[0];
-        vm.ReplyToChatMessageCommand.Execute(firstMsg);
-        Assert.StartsWith("@", vm.TestChatMessage);
-
-        // Test clear
-        vm.ClearLiveChatCommand.Execute(null);
-        Assert.Empty(vm.LiveChatMessages);
-        Assert.Equal(0, vm.TotalChatCount);
-        Assert.Equal(0, vm.TotalGiftCount);
     }
 
     [Fact]
@@ -809,19 +516,63 @@ public class DebugViewModelAndCdpTests
         }
     }
 
+    [Fact]
+    public async Task InstanceCardViewModel_CheckCaptcha_WhenFound_SetsPropertiesAndShowsAlert()
+    {
+        var fakeCaptcha = new CaptchaDetectionResult
+        {
+            DetectedAt = DateTime.Now,
+            IsActive = true,
+            Type = CaptchaType.Jigsaw,
+            TypeDescription = "จิ๊กซอว์เลื่อนต่อภาพ (Slide Captcha)",
+            CombinedHtml = "<div id=\"captcha-verify-container\"><div class=\"captcha_verify_slide\"></div></div>",
+            Elements =
+            {
+                new CaptchaElementItem
+                {
+                    TagName = "div",
+                    Id = "captcha-verify-container",
+                    ClassName = "secsdk-captcha-container",
+                    Depth = 2,
+                    Html = "<div id=\"captcha-verify-container\"><div class=\"captcha_verify_slide\"></div></div>",
+                    IsVisible = true
+                }
+            }
+        };
+
+        var fakeCdp = new TestFakeCdpService { CaptchaResultToReturn = fakeCaptcha };
+        var profile = new StudioInstanceProfile { Status = InstanceStatus.Running, Name = "CaptchaTestAcc", CdpPort = 9222 };
+        var settings = new AppSettings();
+        var orchestrator = new InstanceOrchestrator(new ProcessLauncher(), new WindowController(), fakeCdp);
+        var vm = new InstanceCardViewModel(profile, settings, orchestrator, fakeCdp);
+
+        Assert.False(vm.IsCaptchaAlertVisible);
+
+        var result = await vm.CheckCaptchaInternalAsync(isAuto: true);
+
+        Assert.True(result.Found);
+        Assert.True(result.IsActive);
+        Assert.True(vm.IsCaptchaAlertVisible);
+        Assert.Equal(1, vm.DetectedCaptchaCount);
+        Assert.Equal(fakeCaptcha.CombinedHtml, vm.DetectedCaptchaHtml);
+        Assert.Contains("ตรวจพบ Captcha", vm.CaptchaAlertTitle);
+        Assert.Contains("จิ๊กซอว์เลื่อนต่อภาพ", vm.CaptchaAlertMessage);
+        Assert.NotEmpty(vm.LastCaptchaDetectedTime);
+
+        // Test Dismiss
+        vm.DismissCaptchaAlertCommand.Execute(null);
+        Assert.False(vm.IsCaptchaAlertVisible);
+    }
+
     private class TestFakeCdpService : ICdpAutomationService
     {
-        public PageHtmlResult? ResultToReturn { get; set; }
         public CaptchaDetectionResult? CaptchaResultToReturn { get; set; }
 
         public Task<bool> CheckConnectionAsync(int cdpPort) => Task.FromResult(true);
         public Task<bool> SendChatMessageAsync(int cdpPort, string message) => Task.FromResult(true);
         public Task<string?> GetChatPageUrlAsync(int cdpPort) => Task.FromResult<string?>("https://webcast.tiktok.com");
         public Task<string> ExecuteScriptAsync(int cdpPort, string script) => Task.FromResult("ok");
-        public Task StartNetworkHookAsync(int cdpPort, Action<NetworkTrafficItem> onRequest, Action<NetworkTrafficItem> onResponse) => Task.CompletedTask;
-        public Task StopNetworkHookAsync(int cdpPort) => Task.CompletedTask;
         public Task<StorageDumpResult> GetCookiesAndStorageAsync(int cdpPort) => Task.FromResult(new StorageDumpResult());
-        public Task<PageHtmlResult?> GetFullHtmlAsync(int cdpPort) => Task.FromResult(ResultToReturn);
         public Task<CaptchaDetectionResult> DetectCaptchaElementsAsync(int cdpPort, bool forceFullHtml = false) => Task.FromResult(CaptchaResultToReturn ?? new CaptchaDetectionResult());
         public Task<CaptchaSolveResult> SolveCaptchaWithMockAsync(int cdpPort, CaptchaDetectionResult? currentDetection = null, string? mockFilePath = null, Action<string>? logCallback = null, int delaySeconds = 0, string? instanceLeaseId = null, string? profileFolderName = null)
         {

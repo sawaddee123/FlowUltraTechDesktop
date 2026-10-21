@@ -14,10 +14,7 @@ public interface ICdpAutomationService : IDisposable
 
     // Debug Features
     Task<string> ExecuteScriptAsync(int cdpPort, string script);
-    Task StartNetworkHookAsync(int cdpPort, Action<NetworkTrafficItem> onRequest, Action<NetworkTrafficItem> onResponse);
-    Task StopNetworkHookAsync(int cdpPort);
     Task<StorageDumpResult> GetCookiesAndStorageAsync(int cdpPort);
-    Task<PageHtmlResult?> GetFullHtmlAsync(int cdpPort);
     Task<CaptchaDetectionResult> DetectCaptchaElementsAsync(int cdpPort, bool forceFullHtml = false);
     Task<CaptchaSolveResult> SolveCaptchaWithMockAsync(
         int cdpPort,

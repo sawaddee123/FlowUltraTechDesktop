@@ -38,95 +38,6 @@ public static class JsonFormatter
     }
 }
 
-public class NetworkTrafficItem : INotifyPropertyChanged
-{
-    private int _statusCode;
-    private string _statusText = "Pending";
-    private string _statusDisplay = "⏳ Pending...";
-    private string _responseHeaders = string.Empty;
-    private string _responseCookies = string.Empty;
-    private string _responseBody = string.Empty;
-    private string _postData = string.Empty;
-    private bool _isCompleted;
-    private long _durationMs;
-
-    public string RequestId { get; set; } = Guid.NewGuid().ToString();
-    public DateTime Time { get; set; } = DateTime.Now;
-    public string Method { get; set; } = "GET";
-    public string Url { get; set; } = string.Empty;
-    public string ResourceType { get; set; } = "xhr";
-    public string RequestHeaders { get; set; } = string.Empty;
-    public string RequestCookies { get; set; } = string.Empty;
-
-    public string PostData
-    {
-        get => _postData;
-        set
-        {
-            _postData = JsonFormatter.TryFormatJson(value);
-            OnPropertyChanged();
-        }
-    }
-
-    public int StatusCode
-    {
-        get => _statusCode;
-        set { _statusCode = value; OnPropertyChanged(); }
-    }
-
-    public string StatusText
-    {
-        get => _statusText;
-        set { _statusText = value; OnPropertyChanged(); }
-    }
-
-    public string StatusDisplay
-    {
-        get => _statusDisplay;
-        set { _statusDisplay = value; OnPropertyChanged(); }
-    }
-
-    public string ResponseHeaders
-    {
-        get => _responseHeaders;
-        set { _responseHeaders = value; OnPropertyChanged(); }
-    }
-
-    public string ResponseCookies
-    {
-        get => _responseCookies;
-        set { _responseCookies = value; OnPropertyChanged(); }
-    }
-
-    public string ResponseBody
-    {
-        get => _responseBody;
-        set
-        {
-            _responseBody = JsonFormatter.TryFormatJson(value);
-            OnPropertyChanged();
-        }
-    }
-
-    public bool IsCompleted
-    {
-        get => _isCompleted;
-        set { _isCompleted = value; OnPropertyChanged(); }
-    }
-
-    public long DurationMs
-    {
-        get => _durationMs;
-        set { _durationMs = value; OnPropertyChanged(); }
-    }
-
-    public event PropertyChangedEventHandler? PropertyChanged;
-    protected void OnPropertyChanged([CallerMemberName] string? propertyName = null)
-    {
-        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
-    }
-}
-
 public class CookieItem
 {
     public string Name { get; set; } = string.Empty;
@@ -154,15 +65,6 @@ public class StorageEntry
 {
     public string Key { get; set; } = string.Empty;
     public string Value { get; set; } = string.Empty;
-}
-
-public class PageHtmlResult
-{
-    public string Html { get; set; } = string.Empty;
-    public string Url { get; set; } = string.Empty;
-    public string Title { get; set; } = string.Empty;
-    public int PageCount { get; set; }
-    public DateTime FetchedAt { get; set; } = DateTime.Now;
 }
 
 public class CaptchaElementItem

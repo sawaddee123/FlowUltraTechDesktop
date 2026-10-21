@@ -280,9 +280,6 @@ public class OverlaySystemTests
         vm.OverlayFlashDealTitle = "นาทีทอง ลด 70%";
         vm.OverlayFlashDealDurationSeconds = 90;
 
-        // Verify SendMockChatCommand forwards live event on the same thread as ViewModel construction
-        vm.SendMockChatCommand.Execute(null);
-
         // Verify Flash Deal trigger, and stop async commands
         await vm.TriggerFlashDealCommand.ExecuteAsync(null);
         Assert.True(vm.OverlayEnableFlashDeal);
