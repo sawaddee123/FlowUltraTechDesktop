@@ -1,3 +1,4 @@
+import os
 import time
 import requests
 import json
@@ -21,7 +22,7 @@ def main():
     print_step("Step 1: Admin Login as Root")
     login_res = requests.post(f"{BASE_URL}/api/v1/auth/login", json={
         "username": "root",
-        "password": "!WFXU#v1aO7338+",
+        "password": os.environ['FUT_PW'],
         "hwid": "ROOT-TEST-ADMIN-HWID"
     })
     assert login_res.status_code == 200, f"Root login failed: {login_res.text}"

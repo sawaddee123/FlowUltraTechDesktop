@@ -21,7 +21,7 @@ public class LiveSessionWatchdogE2ETests
         // Step 1: Admin Login & Connect Backoffice Socket (clientType: backoffice)
         // -------------------------------------------------------------
         using var authService = new AuthClientService();
-        var loginRes = await authService.LoginAsync("root", "!WFXU#v1aO7338+", "E2E-WATCHDOG-HWID", CentralServerUrl);
+        var loginRes = await authService.LoginAsync("root", Environment.GetEnvironmentVariable("FUT_PW") ?? "", "E2E-WATCHDOG-HWID", CentralServerUrl);
         Assert.True(loginRes.Success, "Login should succeed");
         Assert.False(string.IsNullOrWhiteSpace(loginRes.AccessToken));
 

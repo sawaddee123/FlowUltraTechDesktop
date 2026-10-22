@@ -5,7 +5,7 @@ import os
 sys.stdout.reconfigure(encoding='utf-8')
 c = paramiko.SSHClient()
 c.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-c.connect('210.246.215.66', username='root', password='!WFXU#v1aO7338+', timeout=10)
+c.connect('210.246.215.66', username='root', password=os.environ['FUT_PW'], timeout=10)
 
 sftp = c.open_sftp()
 

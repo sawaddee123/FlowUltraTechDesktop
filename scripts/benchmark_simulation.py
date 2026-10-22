@@ -20,7 +20,7 @@ if hasattr(sys.stdout, 'reconfigure'):
 
 SERVER_URL = os.environ.get("SERVER_URL", "https://api.flowultratech-captcha.shop").rstrip('/')
 ROOT_USER = os.environ.get("ROOT_USER", "root")
-ROOT_PASS = os.environ.get("ROOT_PASS", "!WFXU#v1aO7338+")
+ROOT_PASS = os.environ.get("ROOT_PASS") or os.environ["FUT_PW"]
 DEFAULT_IMAGES_DIR = r"d:\Script\java-script\SimpleSolveCaptchaProject\images\slide"
 
 def log_step(title):

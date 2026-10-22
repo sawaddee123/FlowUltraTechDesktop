@@ -9,7 +9,7 @@ async function run() {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       username: 'root',
-      password: '!WFXU#v1aO7338+',
+      password: process.env.FUT_PW,
       hwid: 'LIVE-CLIENT-PC-TH99'
     })
   }).then(r => r.json());

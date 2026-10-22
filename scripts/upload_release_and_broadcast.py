@@ -33,7 +33,7 @@ print(f"   SHA256: {FILE_HASH}")
 print(f"1. Connecting SSH to {SERVER_HOST}...")
 c = paramiko.SSHClient()
 c.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-c.connect(SERVER_HOST, username='root', password='!WFXU#v1aO7338+', timeout=15)
+c.connect(SERVER_HOST, username='root', password=os.environ['FUT_PW'], timeout=15)
 
 sftp = c.open_sftp()
 try:
@@ -55,7 +55,7 @@ print("   Installer upload complete!")
 print("3. Logging in as root on Central Server...")
 login_res = requests.post(f"{SERVER_URL}/api/v1/auth/login", json={
     "username": "root",
-    "password": "!WFXU#v1aO7338+",
+    "password": os.environ['FUT_PW'],
     "hwid": "RELEASE-BROADCAST-SCRIPT"
 }).json()
 

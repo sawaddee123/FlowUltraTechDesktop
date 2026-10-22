@@ -115,7 +115,7 @@ public class CaptchaLiveApiSolverTests
             }
 
             var authService = new AuthClientService();
-            var loginRes = await authService.LoginAsync("root", "!WFXU#v1aO7338+", "E2E-TEST-HWID", "https://api.flowultratech-captcha.shop");
+            var loginRes = await authService.LoginAsync("root", Environment.GetEnvironmentVariable("FUT_PW") ?? "", "E2E-TEST-HWID", "https://api.flowultratech-captcha.shop");
             Assert.True(loginRes.Success, $"Root login should succeed: {loginRes.Message}");
             Assert.False(string.IsNullOrWhiteSpace(loginRes.AccessToken));
 
@@ -188,7 +188,7 @@ public class CaptchaLiveApiSolverTests
 
             using var cdpService = new CdpAutomationService();
             var authService = new AuthClientService();
-            var loginRes = await authService.LoginAsync("root", "!WFXU#v1aO7338+", "E2E-TEST-HWID", "https://api.flowultratech-captcha.shop");
+            var loginRes = await authService.LoginAsync("root", Environment.GetEnvironmentVariable("FUT_PW") ?? "", "E2E-TEST-HWID", "https://api.flowultratech-captcha.shop");
             Assert.True(loginRes.Success);
 
             // 1. Detect Captcha on Real TikTok DOM (poll briefly while large HTML finishes parsing)
@@ -341,7 +341,7 @@ public class CaptchaLiveApiSolverTests
 
             using var cdpService = new CdpAutomationService();
             var authService = new AuthClientService();
-            var loginRes = await authService.LoginAsync("root", "!WFXU#v1aO7338+", "E2E-TEST-HWID", "https://api.flowultratech-captcha.shop");
+            var loginRes = await authService.LoginAsync("root", Environment.GetEnvironmentVariable("FUT_PW") ?? "", "E2E-TEST-HWID", "https://api.flowultratech-captcha.shop");
             Assert.True(loginRes.Success, $"Root login should succeed: {loginRes.Message}");
 
             var detectRes = await cdpService.DetectCaptchaElementsAsync(testPort);
