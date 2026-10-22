@@ -82,7 +82,7 @@ sequenceDiagram
 | รายการ | ค่า |
 |---|---|
 | Endpoint | `POST {endpoint}/api/v1/captcha/slide` (Jigsaw) หรือ `/api/v1/captcha/symbol` (Symbol); ถ้า 404 ลองซ้ำ `/captcha/slide|symbol` |
-| `endpoint` | `AppSettings.CaptchaSolverEndpoint` (ค่าเริ่มต้น `AppConstants.DefaultServerEndpoint` = `http://<server-host>:8001`) |
+| `endpoint` | `AppSettings.CaptchaSolverEndpoint` (ค่าเริ่มต้น `AppConstants.DefaultServerEndpoint` = `https://api.flowultratech-captcha.shop`) |
 | Body (JSON) | `image` (base64/data URI), `displayWidth`, `displayHeight`, `appVersion`, `profileFolder` |
 | Headers | `Authorization: Bearer {AuthToken หรือ CaptchaSolverJwtToken}`, `X-App-Version`, `X-Device-Hwid` (จาก `DeepHwidGenerator.GenerateDeepHwid()`), `X-Profile-Folder`, `X-Instance-Lease` (`ActiveLeaseId` จาก slot lease) |
 | Timeout | `_solverHttpClient` = **30 วินาที** (แก้ใน v1.5.5 ด้วย commit `330574e`: ก่อนหน้านี้การเรียก solver ใช้ `_httpClient` ตัวเดียวกับ `CheckConnection` ที่ timeout 2 วินาที) |

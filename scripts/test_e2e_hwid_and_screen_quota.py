@@ -5,7 +5,7 @@ import sys
 
 sys.stdout.reconfigure(encoding='utf-8')
 
-BASE_URL = "http://210.246.215.66:8001"
+BASE_URL = "https://api.flowultratech-captcha.shop"
 
 def print_step(title):
     print(f"\n========================================================")

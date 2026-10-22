@@ -12,7 +12,7 @@ namespace FlowUltraTech.Tests;
 
 public class LiveSessionWatchdogE2ETests
 {
-    private const string CentralServerUrl = "http://210.246.215.66:8001";
+    private const string CentralServerUrl = "https://api.flowultratech-captcha.shop";
 
     [Fact]
     public async Task LiveSession_BackofficeDoesNotGhost_AndDesktopReportsRunningAccounts()

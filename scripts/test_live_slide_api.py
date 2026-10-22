@@ -4,7 +4,7 @@ import re
 
 # 1. Login as root
 login_data = json.dumps({'username': 'root', 'password': '!WFXU#v1aO7338+', 'hwid': 'test'}).encode()
-req = urllib.request.Request('http://210.246.215.66:8001/api/v1/auth/login', data=login_data, headers={'Content-Type': 'application/json'})
+req = urllib.request.Request('https://api.flowultratech-captcha.shop/api/v1/auth/login', data=login_data, headers={'Content-Type': 'application/json'})
 res = urllib.request.urlopen(req)
 token = json.loads(res.read().decode())['accessToken']
 print('Login OK!')
@@ -26,7 +26,7 @@ payload = json.dumps({
 }).encode()
 
 req2 = urllib.request.Request(
-    'http://210.246.215.66:8001/api/v1/captcha/slide',
+    'https://api.flowultratech-captcha.shop/api/v1/captcha/slide',
     data=payload,
     headers={
         'Content-Type': 'application/json',

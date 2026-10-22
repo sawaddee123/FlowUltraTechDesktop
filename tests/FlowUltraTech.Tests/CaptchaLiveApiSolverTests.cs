@@ -115,7 +115,7 @@ public class CaptchaLiveApiSolverTests
             }
 
             var authService = new AuthClientService();
-            var loginRes = await authService.LoginAsync("root", "!WFXU#v1aO7338+", "E2E-TEST-HWID", "http://210.246.215.66:8001");
+            var loginRes = await authService.LoginAsync("root", "!WFXU#v1aO7338+", "E2E-TEST-HWID", "https://api.flowultratech-captcha.shop");
             Assert.True(loginRes.Success, $"Root login should succeed: {loginRes.Message}");
             Assert.False(string.IsNullOrWhiteSpace(loginRes.AccessToken));
 
@@ -123,7 +123,7 @@ public class CaptchaLiveApiSolverTests
             var result = await cdpService.SolveCaptchaAsync(
                 cdpPort: 9221,
                 solverMode: CaptchaSolverType.LocalApiServer,
-                solverApiEndpoint: "http://210.246.215.66:8001",
+                solverApiEndpoint: "https://api.flowultratech-captcha.shop",
                 solverJwtToken: loginRes.AccessToken,
                 progressLogger: msg => { logs.Add(msg); Console.WriteLine(msg); });
 
@@ -188,7 +188,7 @@ public class CaptchaLiveApiSolverTests
 
             using var cdpService = new CdpAutomationService();
             var authService = new AuthClientService();
-            var loginRes = await authService.LoginAsync("root", "!WFXU#v1aO7338+", "E2E-TEST-HWID", "http://210.246.215.66:8001");
+            var loginRes = await authService.LoginAsync("root", "!WFXU#v1aO7338+", "E2E-TEST-HWID", "https://api.flowultratech-captcha.shop");
             Assert.True(loginRes.Success);
 
             // 1. Detect Captcha on Real TikTok DOM (poll briefly while large HTML finishes parsing)
@@ -209,7 +209,7 @@ public class CaptchaLiveApiSolverTests
                 cdpPort: 9225,
                 detection: detectRes,
                 solverMode: CaptchaSolverType.LocalApiServer,
-                solverApiEndpoint: "http://210.246.215.66:8001",
+                solverApiEndpoint: "https://api.flowultratech-captcha.shop",
                 solverJwtToken: loginRes.AccessToken,
                 progressLogger: msg => { logs.Add(msg); Console.WriteLine(msg); });
 
@@ -233,7 +233,7 @@ public class CaptchaLiveApiSolverTests
     public async Task SolverApi_WhenTokenExpiredOrInvalid_Returns401TokenExpired()
     {
         using var client = new HttpClient();
-        using var req = new HttpRequestMessage(HttpMethod.Post, "http://210.246.215.66:8001/api/v1/captcha/slide")
+        using var req = new HttpRequestMessage(HttpMethod.Post, "https://api.flowultratech-captcha.shop/api/v1/captcha/slide")
         {
             Content = new StringContent("{\"image\":\"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAA=C\"}", System.Text.Encoding.UTF8, "application/json")
         };
@@ -341,7 +341,7 @@ public class CaptchaLiveApiSolverTests
 
             using var cdpService = new CdpAutomationService();
             var authService = new AuthClientService();
-            var loginRes = await authService.LoginAsync("root", "!WFXU#v1aO7338+", "E2E-TEST-HWID", "http://210.246.215.66:8001");
+            var loginRes = await authService.LoginAsync("root", "!WFXU#v1aO7338+", "E2E-TEST-HWID", "https://api.flowultratech-captcha.shop");
             Assert.True(loginRes.Success, $"Root login should succeed: {loginRes.Message}");
 
             var detectRes = await cdpService.DetectCaptchaElementsAsync(testPort);
@@ -354,7 +354,7 @@ public class CaptchaLiveApiSolverTests
                 cdpPort: testPort,
                 detection: detectRes,
                 solverMode: CaptchaSolverType.LocalApiServer,
-                solverApiEndpoint: "http://210.246.215.66:8001",
+                solverApiEndpoint: "https://api.flowultratech-captcha.shop",
                 solverJwtToken: loginRes.AccessToken,
                 progressLogger: msg => { logs.Add(msg); Console.WriteLine(msg); },
                 delaySeconds: 0);

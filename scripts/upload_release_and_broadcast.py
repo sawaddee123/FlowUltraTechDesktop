@@ -7,10 +7,10 @@ import json
 
 sys.stdout.reconfigure(encoding='utf-8')
 
-VERSION = "1.8.0"
-MIN_VERSION = "1.8.0" # Force update!
+VERSION = "0.5.0"
+MIN_VERSION = "0.5.0" # Force update!
 SERVER_HOST = "210.246.215.66"
-SERVER_URL = f"http://{SERVER_HOST}:8001"
+SERVER_URL = "https://api.flowultratech-captcha.shop"
 ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 LOCAL_INSTALLER = os.path.join(ROOT_DIR, "dist", "installer", f"FlowUltraTech_Setup_v{VERSION}.exe")
 REMOTE_INSTALLER = f"/root/FlowUltraTech/storage/releases/FlowUltraTech_Setup_v{VERSION}.exe"

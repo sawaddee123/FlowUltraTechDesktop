@@ -96,7 +96,7 @@ Singleton แบบ static ที่มีในโค้ด: `InstanceLogManage
 
 ### AppConstants และเวอร์ชัน
 
-- `DefaultServerEndpoint` = `http://<server-host>:8001` (ค่าคงที่ในโค้ด; `MainViewModel` และ `SaveSettingsAsync` เขียนทับ `AuthApiEndpoint`/`CaptchaSolverEndpoint` ด้วยค่านี้ทุกครั้ง)
+- `DefaultServerEndpoint` = `https://api.flowultratech-captcha.shop` (ค่าคงที่ในโค้ด; `MainViewModel` และ `SaveSettingsAsync` เขียนทับ `AuthApiEndpoint`/`CaptchaSolverEndpoint` ด้วยค่านี้ทุกครั้ง)
 - `CurrentVersion` อ่านจาก `AssemblyInformationalVersion` ของ Assembly (ตัดส่วนหลัง `+`), ไม่มีค่าจึงใช้ `Version`, ถ้าล้มเหลว fallback เป็น `"0.1.7"`
 - `VersionHelper.ShouldPromptUpdate` ไม่แสดง Dialog อัปเดตเมื่อเวอร์ชันปัจจุบัน ≥ เวอร์ชันล่าสุดและไม่ต่ำกว่า `minRequiredVersion` แม้ `IsMandatory = true`
 

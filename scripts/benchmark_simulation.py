@@ -18,7 +18,7 @@ import urllib.error
 if hasattr(sys.stdout, 'reconfigure'):
     sys.stdout.reconfigure(encoding='utf-8', errors='replace')
 
-SERVER_URL = os.environ.get("SERVER_URL", "http://210.246.215.66:8001").rstrip('/')
+SERVER_URL = os.environ.get("SERVER_URL", "https://api.flowultratech-captcha.shop").rstrip('/')
 ROOT_USER = os.environ.get("ROOT_USER", "root")
 ROOT_PASS = os.environ.get("ROOT_PASS", "!WFXU#v1aO7338+")
 DEFAULT_IMAGES_DIR = r"d:\Script\java-script\SimpleSolveCaptchaProject\images\slide"

@@ -1,6 +1,6 @@
 const { io } = require('socket.io-client');
 
-const SERVER_URL = 'http://210.246.215.66:8001';
+const SERVER_URL = 'https://api.flowultratech-captcha.shop';
 
 async function run() {
   console.log('[CLIENT SIM] Logging in...');

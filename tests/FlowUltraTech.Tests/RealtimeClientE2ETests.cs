@@ -11,7 +11,7 @@ namespace FlowUltraTech.Tests;
 
 public class RealtimeClientE2ETests
 {
-    private const string ServerUrl = "http://210.246.215.66:8001";
+    private const string ServerUrl = "https://api.flowultratech-captcha.shop";
 
     [Fact]
     public async Task RealtimeClient_CanConnect_AndEmitInstancesReport()
