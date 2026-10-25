@@ -47,6 +47,11 @@ public class InstanceOrchestrator : IInstanceOrchestrator
 
             // Off the UI thread: the launcher does blocking port/window/kill checks before its first await.
             var proc = await Task.Run(() => _launcher.LaunchInstanceAsync(profile, settings));
+            if (profile.Status == InstanceStatus.Stopped)
+            {
+                logger.Warn("Orchestrator", $"Instance '{profile.Name}' was stopped during launch. Keeping it stopped.");
+                return false;
+            }
             if (proc == null && !profile.ProcessId.HasValue)
             {
                 profile.Status = InstanceStatus.Error;
@@ -160,6 +165,11 @@ public class InstanceOrchestrator : IInstanceOrchestrator
             ProcessLauncher.BindProtocolToProfile(profile, settings);
 
             var proc = await Task.Run(() => _launcher.LaunchUltraLightBackgroundAsync(profile, settings));
+            if (profile.Status == InstanceStatus.Stopped)
+            {
+                logger.Warn("Orchestrator", "Ultra-Light launch was stopped during launch. Keeping it stopped.");
+                return false;
+            }
             if (proc == null && !profile.ProcessId.HasValue)
             {
                 profile.Status = InstanceStatus.Error;

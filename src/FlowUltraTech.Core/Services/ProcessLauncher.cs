@@ -202,6 +202,12 @@ public class ProcessLauncher : IProcessLauncher
             for (int i = 0; i < 30; i++)
             {
                 await Task.Delay(500);
+                // Stopped meanwhile (user Stop or the 25s watchdog): don't flip it back to Running
+                if (instance.Status == InstanceStatus.Stopped)
+                {
+                    logger.Warn("Process", $"Launch for port {instance.CdpPort} was stopped while waiting for CDP. Aborting launch.");
+                    return null;
+                }
                 int? portPid = GetPidListeningOnPort(instance.CdpPort);
                 if (portPid.HasValue)
                 {
@@ -331,8 +337,15 @@ public class ProcessLauncher : IProcessLauncher
         }
         catch { }
 
-        // No "kill every TikTok LIVE Studio process" fallback here: it closed every other running account too.
-        // StopAllInstances() is the explicit way to do that.
+        // 3. Fallback when both port and PID are lost: match this profile's --user-data-dir in the command line.
+        // No "kill every TikTok LIVE Studio process" fallback: it closed every other running account too.
+        if (rootPids.Count == 0 && pidsToKill.Count == 0 && instance.LaunchMode != InstanceLaunchMode.DefaultProfile)
+        {
+            foreach (var pid in FindPidsByUserDataDir(ProfileManagerService.ResolveProfileDirectoryStatic(instance)))
+            {
+                if (pid != Environment.ProcessId) pidsToKill.Add(pid);
+            }
+        }
 
         // 5. First kill root ancestors using ForceKillProcessTree to cascade down all children
         foreach (var root in rootPids)
@@ -362,6 +375,30 @@ public class ProcessLauncher : IProcessLauncher
         instance.IsWindowHidden = false;
         logger.Info("Process", $"Instance '{instance.Name}' terminated. Status: Stopped (Killed: {killed})");
         return killed;
+    }
+
+    private static List<int> FindPidsByUserDataDir(string profileDir)
+    {
+        var pids = new List<int>();
+        // Quoted exactly as launched, so profile "A" never matches profile "AB"
+        string marker = $"--user-data-dir=\"{profileDir}\"";
+        try
+        {
+            using var searcher = new System.Management.ManagementObjectSearcher(
+                "SELECT ProcessId, CommandLine FROM Win32_Process WHERE Name LIKE 'TikTok LIVE Studio%'");
+            foreach (System.Management.ManagementObject mo in searcher.Get())
+            {
+                using (mo)
+                {
+                    if (mo["CommandLine"] is string cmd && cmd.Contains(marker, StringComparison.OrdinalIgnoreCase))
+                    {
+                        pids.Add(Convert.ToInt32(mo["ProcessId"]));
+                    }
+                }
+            }
+        }
+        catch { }
+        return pids;
     }
 
     public bool IsInstanceRunning(StudioInstanceProfile instance)
