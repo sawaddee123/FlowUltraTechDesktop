@@ -45,7 +45,8 @@ public class InstanceOrchestrator : IInstanceOrchestrator
             // Auto-bind Windows protocol live-studio-app:// to this profile so browser login callbacks route directly here!
             ProcessLauncher.BindProtocolToProfile(profile, settings);
 
-            var proc = await _launcher.LaunchInstanceAsync(profile, settings);
+            // Off the UI thread: the launcher does blocking port/window/kill checks before its first await.
+            var proc = await Task.Run(() => _launcher.LaunchInstanceAsync(profile, settings));
             if (proc == null && !profile.ProcessId.HasValue)
             {
                 profile.Status = InstanceStatus.Error;
@@ -158,7 +159,7 @@ public class InstanceOrchestrator : IInstanceOrchestrator
             // ผูก Protocol live-studio-app:// เข้ากับโปรไฟล์นี้ เพื่อให้บราวเซอร์ส่งกลับมายังโปรไฟล์นี้โดยตรง
             ProcessLauncher.BindProtocolToProfile(profile, settings);
 
-            var proc = await _launcher.LaunchUltraLightBackgroundAsync(profile, settings);
+            var proc = await Task.Run(() => _launcher.LaunchUltraLightBackgroundAsync(profile, settings));
             if (proc == null && !profile.ProcessId.HasValue)
             {
                 profile.Status = InstanceStatus.Error;
@@ -183,18 +184,19 @@ public class InstanceOrchestrator : IInstanceOrchestrator
         }
     }
 
-    public Task<bool> StopInstanceAsync(StudioInstanceProfile profile)
+    public async Task<bool> StopInstanceAsync(StudioInstanceProfile profile)
     {
         var logger = _logManager.GetLogger(profile);
         logger.Info("Orchestrator", $"Stopping instance '{profile.Name}' (Port: {profile.CdpPort}, PID: {profile.ProcessId})...");
-        bool result = _launcher.KillInstance(profile);
+        // Off the UI thread: killing waits up to several seconds per process.
+        bool result = await Task.Run(() => _launcher.KillInstance(profile));
         _windowController.ClearCacheForPort(profile.CdpPort);
         profile.Status = InstanceStatus.Stopped;
         profile.ProcessId = null;
         profile.StatusMessage = "Stopped";
         profile.IsWindowHidden = false;
         logger.Info("Orchestrator", $"Instance '{profile.Name}' stopped. (Result: {result})");
-        return Task.FromResult(result);
+        return result;
     }
 
     public bool ToggleWindowVisibility(StudioInstanceProfile profile)

@@ -178,6 +178,23 @@ public static class Win32
     [return: MarshalAs(UnmanagedType.Bool)]
     public static extern bool CloseHandle(IntPtr hObject);
 
+    public const int AF_INET = 2;
+    public const int TCP_TABLE_OWNER_PID_LISTENER = 3;
+
+    [StructLayout(LayoutKind.Sequential)]
+    public struct MIB_TCPROW_OWNER_PID
+    {
+        public uint dwState;
+        public uint dwLocalAddr;
+        public uint dwLocalPort;
+        public uint dwRemoteAddr;
+        public uint dwRemotePort;
+        public uint dwOwningPid;
+    }
+
+    [DllImport("iphlpapi.dll", SetLastError = true)]
+    public static extern uint GetExtendedTcpTable(IntPtr pTcpTable, ref int pdwSize, bool bOrder, int ulAf, int tableClass, uint reserved);
+
     public static System.Collections.Generic.List<IntPtr> FindWindowsForProcess(int processId)
     {
         var handles = new System.Collections.Generic.List<IntPtr>();

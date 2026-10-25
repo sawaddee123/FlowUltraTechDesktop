@@ -331,37 +331,8 @@ public class ProcessLauncher : IProcessLauncher
         }
         catch { }
 
-        // 3. Fallback: Search for any running "TikTok LIVE Studio" process using FindProcessId
-        if (rootPids.Count == 0 && pidsToKill.Count == 0)
-        {
-            int? fallbackPid = FindProcessId(instance);
-            if (fallbackPid.HasValue && fallbackPid.Value != Environment.ProcessId)
-            {
-                var (root, all) = ProcessTreeHelper.GetProcessTree(fallbackPid.Value);
-                if (root > 0 && root != Environment.ProcessId) rootPids.Add(root);
-                foreach (var p in all)
-                {
-                    if (p > 0 && p != Environment.ProcessId) pidsToKill.Add(p);
-                }
-            }
-        }
-
-        // 4. Fallback: If still no specific PID found, collect any running "TikTok LIVE Studio" processes
-        if (rootPids.Count == 0 && pidsToKill.Count == 0)
-        {
-            try
-            {
-                var studioProcs = Process.GetProcessesByName("TikTok LIVE Studio");
-                foreach (var proc in studioProcs)
-                {
-                    if (proc.Id != Environment.ProcessId)
-                    {
-                        pidsToKill.Add(proc.Id);
-                    }
-                }
-            }
-            catch { }
-        }
+        // No "kill every TikTok LIVE Studio process" fallback here: it closed every other running account too.
+        // StopAllInstances() is the explicit way to do that.
 
         // 5. First kill root ancestors using ForceKillProcessTree to cascade down all children
         foreach (var root in rootPids)
@@ -384,21 +355,6 @@ public class ProcessLauncher : IProcessLauncher
             }
             catch { }
         }
-
-        // 7. Final cleanup check: if any "TikTok LIVE Studio" process remains alive, terminate them
-        try
-        {
-            var remainingProcs = Process.GetProcessesByName("TikTok LIVE Studio");
-            foreach (var proc in remainingProcs)
-            {
-                if (proc.Id != Environment.ProcessId && !proc.HasExited)
-                {
-                    ForceKillProcessTree(proc.Id);
-                    killed = true;
-                }
-            }
-        }
-        catch { }
 
         instance.ProcessId = null;
         instance.Status = InstanceStatus.Stopped;
@@ -465,35 +421,35 @@ public class ProcessLauncher : IProcessLauncher
 
     public static int? GetPidListeningOnPort(int port)
     {
-        try
+        // Reads the IPv4 listener table directly: spawning netstat took seconds on machines with many connections and froze the UI.
+        for (int attempt = 0; attempt < 3; attempt++)
         {
-            var psi = new ProcessStartInfo
+            int size = 0;
+            Native.Win32.GetExtendedTcpTable(IntPtr.Zero, ref size, false, Native.Win32.AF_INET, Native.Win32.TCP_TABLE_OWNER_PID_LISTENER, 0);
+            if (size <= 0) return null;
+            IntPtr buffer = System.Runtime.InteropServices.Marshal.AllocHGlobal(size);
+            try
             {
-                FileName = "netstat",
-                Arguments = "-ano -p tcp",
-                RedirectStandardOutput = true,
-                UseShellExecute = false,
-                CreateNoWindow = true
-            };
-            using var proc = Process.Start(psi);
-            if (proc == null) return null;
-            string output = proc.StandardOutput.ReadToEnd();
-            proc.WaitForExit(1500);
+                // Table grew between the two calls (ERROR_INSUFFICIENT_BUFFER) -> retry with the new size
+                if (Native.Win32.GetExtendedTcpTable(buffer, ref size, false, Native.Win32.AF_INET, Native.Win32.TCP_TABLE_OWNER_PID_LISTENER, 0) != 0) continue;
 
-            foreach (var line in output.Split('\n'))
-            {
-                if (line.Contains($":{port} ") && line.Contains("LISTENING", StringComparison.OrdinalIgnoreCase))
+                int count = System.Runtime.InteropServices.Marshal.ReadInt32(buffer);
+                int rowSize = System.Runtime.InteropServices.Marshal.SizeOf<Native.Win32.MIB_TCPROW_OWNER_PID>();
+                for (int i = 0; i < count; i++)
                 {
-                    var parts = line.Trim().Split(' ', StringSplitOptions.RemoveEmptyEntries);
-                    if (parts.Length >= 5 && int.TryParse(parts[^1], out int pid))
-                    {
-                        if (pid == Environment.ProcessId) return null;
-                        return pid;
-                    }
+                    var row = System.Runtime.InteropServices.Marshal.PtrToStructure<Native.Win32.MIB_TCPROW_OWNER_PID>(buffer + 4 + i * rowSize);
+                    int localPort = (int)(((row.dwLocalPort & 0xFF) << 8) | ((row.dwLocalPort >> 8) & 0xFF)); // network byte order
+                    if (localPort != port) continue;
+                    int pid = (int)row.dwOwningPid;
+                    return pid == Environment.ProcessId ? null : pid;
                 }
+                return null;
+            }
+            finally
+            {
+                System.Runtime.InteropServices.Marshal.FreeHGlobal(buffer);
             }
         }
-        catch { }
         return null;
     }
 
