@@ -7,8 +7,8 @@ import json
 
 sys.stdout.reconfigure(encoding='utf-8')
 
-VERSION = "0.5.0"
-MIN_VERSION = "0.5.0" # Force update!
+VERSION = "0.5.1"
+MIN_VERSION = "0.5.1" # Force update!
 SERVER_HOST = "210.246.215.66"
 SERVER_URL = "https://api.flowultratech-captcha.shop"
 ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -75,11 +75,11 @@ headers = {
 broadcast_payload = {
     "version": VERSION,
     "minRequiredVersion": MIN_VERSION,
-    "title": f"FlowUltraTech v{VERSION} (ธีมใหม่ อ่านง่ายขึ้น)",
+    "title": f"FlowUltraTech v{VERSION} (แก้เปิด TikTok Studio แล้วค้าง)",
     "description": (
-        "• ธีมสีใหม่ Graphite + Teal ทั้งโหมดมืดและสว่าง ตัวอักษรและปุ่มอ่านชัดขึ้น\n"
-        "• เอาเครื่องมือนักพัฒนาออก เมนูเหลือเฉพาะที่ใช้งานจริง\n"
-        "• แก้ปุ่มที่กดแล้วไม่ตอบสนอง: ลบกฎตอบแชท, ตรวจสิทธิ์/ซิงก์ตอนยังไม่ล็อกอิน, ตรวจหา Captcha ไม่เขียนทับ Clipboard"
+        "• แก้กดเปิด TikTok Studio แล้วโปรแกรมค้าง (โดยเฉพาะเครื่องที่ใช้ Proxy/VPN)\n"
+        "• กดหยุดบัญชีหนึ่ง จะไม่ปิด TikTok Studio ของบัญชีอื่นอีกต่อไป\n"
+        "• แก้ติดตั้งเสร็จแล้วเปิดโปรแกรมไม่ขึ้น (Error 740)"
     ),
     "fileName": f"FlowUltraTech_Setup_v{VERSION}.exe",
     "fileSize": FILE_SIZE,
