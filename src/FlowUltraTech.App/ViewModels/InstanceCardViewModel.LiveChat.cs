@@ -34,7 +34,7 @@ public partial class InstanceCardViewModel : ObservableObject
     private string _chatTypeFilter = "ALL";
 
     [ObservableProperty]
-    private bool _isAutoReplyEnabled = true;
+    private bool _isAutoReplyEnabled = false; // auto-reply UI hidden until the feature ships
 
     [ObservableProperty]
     private LiveChatMessageItem? _selectedChatMessage;

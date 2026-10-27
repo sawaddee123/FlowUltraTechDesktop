@@ -256,7 +256,7 @@
                             </Button>
 
                             <!-- Nav 3: Auto-Reply Rules -->
-                            <Button Command="{Binding NavigateRulesCommand}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" Padding="0" Margin="0,2" Background="Transparent" BorderThickness="0" Cursor="Hand">
+                            <Button Command="{Binding NavigateRulesCommand}" Visibility="Collapsed" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" Padding="0" Margin="0,2" Background="Transparent" BorderThickness="0" Cursor="Hand">
                                 <Button.Template>
                                     <ControlTemplate TargetType="Button">
                                         <Border x:Name="NavPill" CornerRadius="6" Padding="12,9" Background="Transparent" HorizontalAlignment="Stretch">
@@ -881,7 +881,7 @@
                                                                                 </StackPanel>
 
                                                                                 <StackPanel Orientation="Horizontal" DockPanel.Dock="Right" VerticalAlignment="Center">
-                                                                                    <CheckBox Content="ตอบแชทอัตโนมัติตามกฎ" IsChecked="{Binding IsAutoReplyEnabled}" VerticalAlignment="Center" Margin="0,0,10,0" />
+                                                                                    <CheckBox Content="ตอบแชทอัตโนมัติตามกฎ" Visibility="Collapsed" IsChecked="{Binding IsAutoReplyEnabled}" VerticalAlignment="Center" Margin="0,0,10,0" />
                                                                                 </StackPanel>
                                                                             </DockPanel>
                                                                         </Border>
@@ -898,7 +898,7 @@
                                                                                 <CheckBox Content="{Binding FilterChatLabel}" IsChecked="{Binding FilterShowChat}" VerticalAlignment="Center" Margin="0,0,10,0" FontSize="11" />
                                                                                 <CheckBox Content="{Binding FilterGiftLabel}" IsChecked="{Binding FilterShowGift}" VerticalAlignment="Center" Margin="0,0,10,0" FontSize="11" />
                                                                                 <CheckBox Content="{Binding FilterLikeFollowLabel}" IsChecked="{Binding FilterShowLikeFollow}" VerticalAlignment="Center" Margin="0,0,10,0" FontSize="11" />
-                                                                                <CheckBox Content="{Binding FilterAutoReplyLabel}" IsChecked="{Binding FilterShowAutoReply}" VerticalAlignment="Center" Margin="0,0,10,0" FontSize="11" />
+                                                                                <CheckBox Content="{Binding FilterAutoReplyLabel}" Visibility="Collapsed" IsChecked="{Binding FilterShowAutoReply}" VerticalAlignment="Center" Margin="0,0,10,0" FontSize="11" />
                                                                                 <CheckBox Content="{Binding FilterOtherLabel}" IsChecked="{Binding FilterShowOther}" VerticalAlignment="Center" Margin="0,0,6,0" FontSize="11" />
                                                                             </WrapPanel>
                                                                         </DockPanel>
@@ -919,7 +919,7 @@
                                                                                 </DataGridTemplateColumn>
                                                                                 <DataGridTextColumn Header="ผู้ส่ง" Binding="{Binding SenderDisplay}" Width="210" FontWeight="SemiBold" />
                                                                                 <DataGridTextColumn Header="ข้อความ / ของขวัญ" Binding="{Binding Message}" Width="*" />
-                                                                                <DataGridTextColumn Header="บอทตอบกลับ" Binding="{Binding AutoReplyDisplay}" Width="160" Foreground="{DynamicResource PrimaryBrush}" />
+                                                                                <DataGridTextColumn Header="บอทตอบกลับ" Visibility="Collapsed" Binding="{Binding AutoReplyDisplay}" Width="160" Foreground="{DynamicResource PrimaryBrush}" />
                                                                                 <DataGridTemplateColumn Header="จัดการ" Width="165">
                                                                                     <DataGridTemplateColumn.CellTemplate>
                                                                                         <DataTemplate>
@@ -948,7 +948,7 @@
                                                                                 </Grid.RowDefinitions>
 
                                                                                 <!-- Studio Header + Save Button -->
-                                                                                <DockPanel Grid.Row="0" Margin="0,0,0,6" LastChildFill="True">
+                                                                                <DockPanel Grid.Row="0" Visibility="Collapsed" Margin="0,0,0,6" LastChildFill="True">
                                                                                     <StackPanel Orientation="Horizontal" DockPanel.Dock="Right" VerticalAlignment="Center">
                                                                                         <TextBlock Text="{Binding AutoReplyStudioStatusText}" FontSize="10" Foreground="{DynamicResource OkBrush}" VerticalAlignment="Center" Margin="0,0,8,0" MaxWidth="320" TextTrimming="CharacterEllipsis" />
                                                                                         <Button Style="{StaticResource PrimaryCtaButton}" Content="บันทึกตั้งค่าตอบกลับ" Command="{Binding SaveAutoReplyStudioConfigCommand}" Padding="10,3" FontSize="11" />
@@ -964,7 +964,7 @@
                                                                                 <!-- 5-Tab Studio Control -->
                                                                                 <TabControl Grid.Row="1" SelectedIndex="{Binding SelectedAutoReplySubTabIndex}" Background="Transparent" BorderThickness="0" Padding="0,6,0,0">
                                                                                     <!-- MODE 1: ส่งทันที (Quick Send & Character Counter) -->
-                                                                                    <TabItem Header="1. ส่งทันที">
+                                                                                    <TabItem Header="ส่งข้อความ">
                                                                                         <StackPanel Margin="0,4,0,0">
                                                                                             <DockPanel Margin="0,0,0,6">
                                                                                                 <TextBlock Text="เทมเพลตส่งด่วน:" FontSize="10" Foreground="{DynamicResource SubtleBrush}" VerticalAlignment="Center" Margin="0,0,6,0" />
@@ -987,7 +987,7 @@
                                                                                     </TabItem>
 
                                                                                     <!-- MODE 2: วนส่ง (Periodic Auto-Post Loop) -->
-                                                                                    <TabItem Header="2. วนส่งอัตโนมัติ">
+                                                                                    <TabItem Header="2. วนส่งอัตโนมัติ" Visibility="Collapsed">
                                                                                         <Grid Margin="0,4,0,0">
                                                                                             <Grid.ColumnDefinitions>
                                                                                                 <ColumnDefinition Width="*" />
@@ -1021,7 +1021,7 @@
                                                                                     </TabItem>
 
                                                                                     <!-- MODE 3: กฎคำ (Shorthand Keyword Rules + Anti-Spam / Anti-Ban) -->
-                                                                                    <TabItem Header="3. ตอบตามคำ">
+                                                                                    <TabItem Header="3. ตอบตามคำ" Visibility="Collapsed">
                                                                                         <Grid Margin="0,4,0,0">
                                                                                             <Grid.ColumnDefinitions>
                                                                                                 <ColumnDefinition Width="*" />
@@ -1068,7 +1068,7 @@
                                                                                     </TabItem>
 
                                                                                     <!-- MODE 4: ทักทาย (Viewer Join Greeting) -->
-                                                                                    <TabItem Header="4. ทักทายผู้ชม">
+                                                                                    <TabItem Header="4. ทักทายผู้ชม" Visibility="Collapsed">
                                                                                         <Grid Margin="0,4,0,0">
                                                                                             <Grid.ColumnDefinitions>
                                                                                                 <ColumnDefinition Width="*" />
@@ -1104,7 +1104,7 @@
                                                                                     </TabItem>
 
                                                                                     <!-- MODE 5: AI ตอบ (OpenRouter / OpenAI Smart Responder) -->
-                                                                                    <TabItem Header="5. AI ตอบให้">
+                                                                                    <TabItem Header="5. AI ตอบให้" Visibility="Collapsed">
                                                                                         <Grid Margin="0,4,0,0">
                                                                                             <Grid.ColumnDefinitions>
                                                                                                 <ColumnDefinition Width="*" />
