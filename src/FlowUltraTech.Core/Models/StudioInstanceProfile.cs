@@ -38,6 +38,10 @@ public class StudioInstanceProfile
     public string StatusMessage { get; set; } = "Idle";
     public string? ActiveLeaseId { get; set; }
 
+    /// <summary>Set after a stalled launch so this session retries with GPU off. Not saved: the next app run tries GPU again.</summary>
+    [System.Text.Json.Serialization.JsonIgnore]
+    public bool UseSafeRendering { get; set; }
+
     // Profile & Authentication Information
     public string? LoggedInUserId { get; set; }
     public string? LoggedInNickname { get; set; }

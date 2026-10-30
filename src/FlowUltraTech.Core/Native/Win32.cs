@@ -25,6 +25,9 @@ public static class Win32
     public const uint SWP_HIDEWINDOW = 0x0080;
     public static readonly IntPtr HWND_TOP = IntPtr.Zero;
 
+    public const int GWL_EXSTYLE = -20;
+    public const int WS_EX_TOPMOST = 0x00000008;
+
     public const uint WM_SYSCOMMAND = 0x0112;
     public const int SC_MINIMIZE = 0xF020;
     public const int SC_RESTORE = 0xF120;
@@ -45,6 +48,9 @@ public static class Win32
     [DllImport("user32.dll", SetLastError = true)]
     [return: MarshalAs(UnmanagedType.Bool)]
     public static extern bool ShowWindowAsync(IntPtr hWnd, int nCmdShow);
+
+    [DllImport("user32.dll", SetLastError = true)]
+    public static extern int GetWindowLong(IntPtr hWnd, int nIndex);
 
     [DllImport("user32.dll", SetLastError = true)]
     [return: MarshalAs(UnmanagedType.Bool)]

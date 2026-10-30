@@ -15,6 +15,16 @@ public class WindowController : IWindowController
     // Cache window handles per port so when hidden, we can restore them!
     private readonly ConcurrentDictionary<int, HashSet<IntPtr>> _cachedPortHandles = new();
     private readonly ConcurrentDictionary<int, HashSet<IntPtr>> _cachedPidHandles = new();
+    private readonly ConcurrentDictionary<int, List<IntPtr>> _hiddenByUs = new();
+
+    private static bool IsTopmost(IntPtr hWnd) => (Win32.GetWindowLong(hWnd, Win32.GWL_EXSTYLE) & Win32.WS_EX_TOPMOST) != 0;
+
+    // Studio creates its main window hidden + topmost and drops topmost when its UI is ready (SHOW_MAIN_WIN).
+    // Showing it before that is the black always-on-top window customers reported.
+    public static bool IsAwaitingStudioShow(IntPtr hWnd) => !Win32.IsWindowVisible(hWnd) && IsTopmost(hWnd);
+
+    public bool IsStudioUiShown(int? processId, int cdpPort) =>
+        FindWindowHandlesForPort(cdpPort, processId).Any(h => Win32.IsWindowVisible(h) && !IsTopmost(h));
 
     public static bool IsRealStudioWindow(IntPtr hWnd)
     {
@@ -141,7 +151,7 @@ public class WindowController : IWindowController
 
     public static void BringToFrontRockSolid(IntPtr hWnd)
     {
-        if (hWnd == IntPtr.Zero || !Win32.IsWindow(hWnd)) return;
+        if (hWnd == IntPtr.Zero || !Win32.IsWindow(hWnd) || IsAwaitingStudioShow(hWnd)) return;
 
         if (Win32.IsIconic(hWnd))
         {
@@ -294,6 +304,7 @@ public class WindowController : IWindowController
     public void ClearCacheForPort(int cdpPort)
     {
         _cachedPortHandles.TryRemove(cdpPort, out _);
+        _hiddenByUs.TryRemove(cdpPort, out _);
     }
 
     public List<StudioWindowHandleInfo> GetWindowHandlesInfoForInstance(int? processId, int cdpPort)
@@ -385,9 +396,22 @@ public class WindowController : IWindowController
         var handles = FindWindowHandlesForPort(cdpPort, processId);
         if (handles.Count == 0) return false;
 
-        foreach (var hWnd in handles)
+        if (visible)
         {
-            SetSingleWindowVisibility(hWnd, visible);
+            // Restore only what we hid: Studio keeps popup/service windows hidden, and they show up as blank windows
+            if (!_hiddenByUs.TryRemove(cdpPort, out var hidden)) return SetWindowVisibilityForInstance(processId, cdpPort, true);
+            foreach (var hWnd in hidden)
+            {
+                SetSingleWindowVisibility(hWnd, true);
+            }
+            return true;
+        }
+
+        var shown = handles.Where(Win32.IsWindowVisible).ToList();
+        if (shown.Count > 0) _hiddenByUs[cdpPort] = shown;
+        foreach (var hWnd in shown)
+        {
+            SetSingleWindowVisibility(hWnd, false);
         }
         return true;
     }
@@ -401,6 +425,7 @@ public class WindowController : IWindowController
         if (visible)
         {
             var primary = handles.First();
+            if (IsAwaitingStudioShow(primary)) return false;
             BringToFrontRockSolid(primary);
 
             // If there is an active child modal (e.g. Login window or Settings popup) owned by primary, bring it to the front on top of primary

@@ -55,7 +55,7 @@ Path ถูกคำนวณที่ `ProfileManagerService.ResolveProfileDire
 
 [TikTokStudioPathResolver.ResolveValidStudioPath](../src/FlowUltraTech.Core/Services/TikTokStudioPathResolver.cs) เรียงลำดับดังนี้
 
-1. ถ้า `TikTokStudioExePath` ที่ตั้งไว้มีอยู่จริง และไม่ลงท้ายด้วย `Launcher.exe` → ใช้ตามนั้น
+1. ถ้า `TikTokStudioExePath` ที่ตั้งไว้มีอยู่จริง และไม่ลงท้ายด้วย `Launcher.exe` → ใช้ตามนั้น ยกเว้นโฟลเดอร์ติดตั้งมี `launcher_config.json` ที่ระบุเวอร์ชันปัจจุบัน จะใช้เวอร์ชันนั้นแทน (Path ที่บันทึกไว้ก่อน Studio อัปเดตจะได้ไม่ติดเวอร์ชันเก่า)
 2. ถ้าชี้ไป `Launcher.exe` → หา exe ตัวจริงในโฟลเดอร์เดียวกัน (`FindRealStudioExeInDir`)
 3. ลอง `C:\Program Files\TikTok LIVE Studio` (`FindRealStudioExeInDir` → `TikTok LIVE Studio.exe` → `TikTok LIVE Studio Launcher.exe`)
 4. ลอง `%LOCALAPPDATA%\Programs\TikTok LIVE Studio\TikTok LIVE Studio.exe`
@@ -144,7 +144,19 @@ Flag Anti-throttling มีเพื่อให้ Studio ทำงานต่
 
 ### Exit Watcher ([InstanceOrchestrator.cs](../src/FlowUltraTech.Core/Services/InstanceOrchestrator.cs))
 
-หลังเปิดสำเร็จ จะรอ 2.5 วินาที แล้วตรวจทุก 1.5 วินาทีว่า `IsInstanceRunning` ยังเป็นจริงหรือไม่ ถ้าไม่ จะตั้ง `Stopped` (ข้อความ "Stopped (โปรแกรมถูกปิด)"), ล้างแคชหน้าต่างของพอร์ต และยิง Event `InstanceExited` ซึ่งการ์ดรับไปหยุด timer/Watcher และล้างรายการหน้าต่าง
+หลังเปิดสำเร็จ จะรอ 2.5 วินาที แล้วตรวจทุก 1.5 วินาทีว่า `IsInstanceRunning` ยังเป็นจริงหรือไม่ ถ้าไม่ จะตั้ง `Stopped` (ข้อความ "Stopped (โปรแกรมถูกปิด)"), ล้างแคชหน้าต่างของพอร์ต แล้วแยก 2 กรณี:
+
+- **ปิดตามปกติ:** ยิง Event `InstanceExited` ซึ่งการ์ดรับไปหยุด timer/Watcher และล้างรายการหน้าต่าง
+- **Studio อัปเดตตัวเอง:** ยิง Event `InstanceUpdated` ซึ่งการ์ดรับไป `StopAsync` + `StartAsync` เพื่อเปิดบัญชีเดิมบนเวอร์ชันใหม่ (ดูหัวข้อถัดไป)
+
+### Studio อัปเดตตัวเอง
+
+ถ้า Studio เวอร์ชันเก่าเกินไป จะเข้าหน้า Update แบบบังคับ: โหลด → ติดตั้งเงียบ → `app.relaunch` ไปที่ `TikTok LIVE Studio Launcher.exe --update_relaunch` แล้วปิดตัว (ทดลองจริง 1.36.6 → 1.38.0 ใช้เวลาราว 40 วินาที) Launcher เปิด `TikTok LIVE Studio.exe --update_relaunch` โดยไม่มี Flag ของเรา จึงเปิดด้วยโปรไฟล์หลัก (`%APPDATA%\TikTok LIVE Studio`) นอกการควบคุมของแอป
+
+`ProcessLauncher.CloseUpdateRelaunch` หาโปรเซสที่มี `--update_relaunch` ใน Command Line และเริ่มไม่เกิน 30 วินาที (ตัวเก่ากว่านั้นคือ Studio ที่ผู้ใช้เปิดใช้อยู่ ไม่แตะ) แล้วปิดทั้ง Tree ถ้าเจอ ถือว่าเป็นการอัปเดต
+
+- บัญชีที่อัปเดตพร้อมกันใช้ Relaunch ชุดเดียวกัน Watcher ตัวอื่นอาจปิดไปก่อนแล้ว จึงนับรวมการปิดของบัญชีอื่นที่เกิดภายใน 30 วินาทีด้วย
+- การ์ดรีสตาร์ตอัตโนมัติได้ 1 ครั้งต่อ 5 นาที กันวนลูปถ้า Studio ติดหน้า Update
 
 ### การล็อกอิน
 
@@ -175,18 +187,36 @@ Flag Anti-throttling มีเพื่อให้ Studio ทำงานต่
 |---|---|
 | ซ่อน (`SetSingleWindowVisibility(false)`, `SetAllWindowsVisibilityForInstance(false)`) | `PostMessage WM_SYSCOMMAND SC_MINIMIZE` + `ShowWindow SW_HIDE` + `ShowWindowAsync SW_HIDE` + `SetWindowPos ... SWP_HIDEWINDOW` |
 | แสดง (`BringToFrontRockSolid`) | ถ้าย่ออยู่ `SC_RESTORE`/`SW_RESTORE` → `SW_SHOWNORMAL` + `SW_SHOW` → ถ้าพิกัดนอกจอ (< -5000) ย้ายไป (100,100) → `AttachThreadInput` + `BringWindowToTop` + `SetForegroundWindow` |
-| แสดงผ่าน `SetWindowVisibilityForInstance(true)` | ดึง Primary (และ Modal) ขึ้นหน้าสุด และ **ซ่อน** หน้าต่างอื่นของโปรเซสนั้นที่ยังมองเห็น |
+| แสดงผ่าน `SetWindowVisibilityForInstance(true)` | ดึง Primary (และ Modal) ขึ้นหน้าสุด และ **ซ่อน** หน้าต่างอื่นของโปรเซสนั้นที่ยังมองเห็น (ถ้า Primary ยังไม่พร้อม ดูหัวข้อถัดไป จะคืน `false` และไม่แตะอะไร) |
 
 เส้นทางที่ UI ใช้จริง:
 
-- ปุ่มซ่อน/แสดงของการ์ด (`ToggleVisibility`, `ShowWindow`, `HideWindow`) เรียก `WindowController.SetAllWindowsVisibilityForInstance` ตรง ซึ่งทำกับ **ทุกหน้าต่าง** ที่พบ
+- ปุ่มซ่อน/แสดงของการ์ด (`ToggleVisibility`, `ShowWindow`, `HideWindow`) เรียก `WindowController.SetAllWindowsVisibilityForInstance` ตรง: ตอนซ่อนจำเฉพาะหน้าต่างที่มองเห็นอยู่ ตอนแสดงคืนเฉพาะหน้าต่างที่จำไว้ (ถ้าไม่มีที่จำไว้ จะแสดงเฉพาะ Primary)
 - ปุ่มระดับบน "ซ่อนทุกจอ/แสดงทุกจอ" วนเรียกเมธอดของการ์ด (เฉพาะสถานะ `Running`/`Starting`)
 - แท็บ "หน้าต่าง (Handles)" แสดงรายการ `StudioWindowHandleInfo` (HWND, Title, Class, PID, ขนาด, Visible/Iconic, บทบาท) และควบคุมทีละหน้าต่างได้
-- หลัง Start สำเร็จ การ์ดเรียก `Orchestrator.ShowWindow`
 
-### Task รอหน้าต่างหลังเปิด (Orchestrator)
+### จังหวะ Boot ของ Studio (ตรวจจาก `main.js` และทดลองจริงกับ 1.36.6, 1.38.0)
 
-ทุก 500 ms สูงสุด 60 รอบ (30 วินาที) หา Handle ของพอร์ต → หา Title ที่มี `Studio`/`TikTok LIVE` → ถ้าขนาดใหญ่พอ (พื้นที่ ≥ 500,000 หรือ ≥ 900×550) หรือผ่านไป ≥ 15 วินาที จะเรียก `SetWindowVisibilityForInstance(true)` แล้วย้ำอีก 3 ครั้ง ห่าง 1 วินาที (กัน Splash/WebView แย่ง Focus); ถ้าครบ 30 วินาทีแล้วไม่พบ จะเตือนใน Log ให้กดปุ่มรูปตา
+Studio สร้างหน้าต่างภายในไว้ล่วงหน้าหลายบานแบบซ่อน (`show:false`, Title `TikTok LIVE Studio` เหมือนกันหมด) เช่น `serviceWindow` 800×600, `standalone` 1024×800, `popup`/`modal` 810×656 ถ้าบังคับโชว์จะเป็นหน้าต่างเปล่า
+
+หน้าต่างหลัก (1200×740, ไม่มีกรอบ, `backgroundColor:#0f0f12`) ถูกสร้างแบบ **ซ่อน + TOPMOST** และจะโชว์พร้อมถอด TOPMOST เองเมื่อ Renderer ส่ง `SHOW_MAIN_WIN`:
+
+| สถานะ | ความหมาย | ตัวตรวจ |
+|---|---|---|
+| ซ่อน + TOPMOST | Studio ยัง boot อยู่ ห้ามบังคับโชว์ | `WindowController.IsAwaitingStudioShow` |
+| โชว์ + ไม่ TOPMOST | UI พร้อมแล้ว | `WindowController.IsStudioUiShown` |
+| โชว์ + TOPMOST | ถูกบังคับโชว์ก่อนพร้อม = **จอดำทับทุกหน้าต่าง** ปกติไม่เกิดขึ้น | - |
+
+`BringToFrontRockSolid` จึงข้ามหน้าต่างที่ `IsAwaitingStudioShow` เป็นจริง
+
+### ตัวเฝ้า Boot หลังเปิด (Orchestrator)
+
+`WatchStudioBootAsync` เช็กทุก 500 ms ว่า Studio โชว์ UI เองหรือยัง พอโชว์แล้วจึงดึงขึ้นหน้าสุดครั้งเดียว ถ้าเกิน `StudioBootTimeout` (90 วินาที) จะยิง Event `InstanceBootStalled` ซึ่งการ์ดจัดการดังนี้:
+
+1. รอบแรก: `StopAsync` แล้ว `StartAsync` ใหม่ด้วย `UseSafeRendering` (เพิ่ม `--disable-gpu --disable-gpu-compositing`) เพราะ Studio บังคับ ANGLE/D3D11 และใส่ `--disable-gpu-process-crash-limit` ทำให้ไม่ถอยไป Software เอง
+2. รอบที่สองยังค้าง: `StopAsync` (คืน Slot) แล้วตั้งสถานะ `Error` พร้อมข้อความบนการ์ด
+
+`UseSafeRendering` ไม่ถูกบันทึกลง `config.json` เปิดแอปใหม่จะลอง GPU ตามปกติ
 
 ---
 

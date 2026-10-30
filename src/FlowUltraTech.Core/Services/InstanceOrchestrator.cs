@@ -12,8 +12,14 @@ public class InstanceOrchestrator : IInstanceOrchestrator
     private readonly IWindowController _windowController;
     private readonly ICdpAutomationService _cdpService;
     private readonly IInstanceLogManager _logManager;
+    private DateTime _lastUpdateRelaunchAt;
 
     public event Action<StudioInstanceProfile>? InstanceExited;
+    public event Action<StudioInstanceProfile>? InstanceBootStalled;
+    public event Action<StudioInstanceProfile>? InstanceUpdated;
+
+    /// <summary>How long Studio gets to show its UI before the launch counts as stalled.</summary>
+    public TimeSpan StudioBootTimeout { get; set; } = TimeSpan.FromSeconds(90);
 
     public InstanceOrchestrator(
         IProcessLauncher launcher,
@@ -66,79 +72,7 @@ public class InstanceOrchestrator : IInstanceOrchestrator
 
             profile.IsWindowHidden = false;
             StartProcessExitWatcher(profile);
-            // ติดตามและดึงหน้าต่างขึ้นมาแสดงบนหน้าจอทันทีที่ Electron เรนเดอร์เสร็จ (รองรับจังหวะที่แอปหรือ Proxy บูตช้า)
-            _ = Task.Run(async () =>
-            {
-                logger.Info("Window", $"Waiting for TikTok Studio UI window to appear (Port: {profile.CdpPort}, Max timeout: 30s)...");
-                bool realWindowShown = false;
-                bool splashDetected = false;
-                for (int i = 0; i < 60; i++)
-                {
-                    await Task.Delay(500);
-                    if (profile.Status != InstanceStatus.Running) break;
-                    var handles = _windowController.FindWindowHandlesForPort(profile.CdpPort, profile.ProcessId);
-                    if (handles.Count > 0)
-                    {
-                        // ตรวจสอบว่าพบหน้าต่าง UI จริงที่มี Title ของ TikTok Studio แล้วหรือไม่ (ไม่รวม background webview)
-                        var realUi = handles.FirstOrDefault(h =>
-                        {
-                            var sb = new System.Text.StringBuilder(256);
-                            Native.Win32.GetWindowText(h, sb, 256);
-                            string title = sb.ToString();
-                            if (string.IsNullOrWhiteSpace(title)) return false;
-                            if (title.Contains("Make Your Day", StringComparison.OrdinalIgnoreCase) ||
-                                title.Contains("For You", StringComparison.OrdinalIgnoreCase) ||
-                                title.Contains("tiktok.com", StringComparison.OrdinalIgnoreCase))
-                            {
-                                return false;
-                            }
-                            return title.Contains("Studio", StringComparison.OrdinalIgnoreCase) ||
-                                   title.Contains("TikTok LIVE", StringComparison.OrdinalIgnoreCase);
-                        });
-
-                        if (realUi != IntPtr.Zero)
-                        {
-                            bool hasRect = Native.Win32.GetWindowRect(realUi, out var rect);
-                            int area = hasRect ? rect.Width * rect.Height : 0;
-                            bool isMainDashboard = area >= 500000 || (rect.Width >= 900 && rect.Height >= 550);
-
-                            if (isMainDashboard || i >= 30) // Main UI dashboard found or >= 15 seconds elapsed
-                            {
-                                logger.Info("Window", $"Found TikTok Studio Main UI window (HWND: {realUi}, {rect.Width}x{rect.Height}) after {(i + 1) * 0.5:F1}s for port {profile.CdpPort}. Restoring window to front.");
-                                _windowController.SetWindowVisibilityForInstance(profile.ProcessId, profile.CdpPort, true);
-                                realWindowShown = true;
-
-                                // ย้ำการดึงขึ้นมาหน้าสุดเฉพาะหน้าต่างหลัก อีก 3 วินาที เพื่อป้องกันจังหวะที่ splash screen หรือ webview สลับหน้าแล้วแย่ง Focus คืน
-                                for (int r = 0; r < 3; r++)
-                                {
-                                    await Task.Delay(1000);
-                                    if (profile.Status != InstanceStatus.Running) break;
-                                    _windowController.SetWindowVisibilityForInstance(profile.ProcessId, profile.CdpPort, true);
-                                }
-                                break;
-                            }
-                            else if (!splashDetected)
-                            {
-                                splashDetected = true;
-                                logger.Info("Window", $"Detected TikTok Studio startup/splash window (HWND: {realUi}, {rect.Width}x{rect.Height}) after {(i + 1) * 0.5:F1}s. Showing splash and waiting for main dashboard UI...");
-                                _windowController.SetWindowVisibilityForInstance(profile.ProcessId, profile.CdpPort, true);
-                            }
-                        }
-                    }
-
-                    if ((i + 1) % 10 == 0 && i < 59)
-                    {
-                        logger.Debug("Window", $"Still waiting for TikTok Studio UI window... ({(i + 1) * 0.5:F0}s elapsed, Port: {profile.CdpPort})");
-                    }
-                }
-
-                if (!realWindowShown && profile.Status == InstanceStatus.Running)
-                {
-                    logger.Warn("Window", $"Window handle not found after 30 seconds for port {profile.CdpPort} (PID: {profile.ProcessId}). " +
-                        $"TikTok Studio may still be loading CEF UI over a slow proxy or running in background. " +
-                        $"You can click the Eye [👁️] button anytime to force show the window when ready.");
-                }
-            });
+            _ = Task.Run(() => WatchStudioBootAsync(profile));
 
             return true;
         }
@@ -290,6 +224,45 @@ public class InstanceOrchestrator : IInstanceOrchestrator
         }
     }
 
+    // Studio shows its own window once the UI is ready, so only wait for that: forcing it earlier gave the black window.
+    private async Task WatchStudioBootAsync(StudioInstanceProfile profile)
+    {
+        var logger = _logManager.GetLogger(profile);
+        var launchedAt = profile.StartedAt;
+        var elapsed = Stopwatch.StartNew();
+        logger.Info("Window", $"Waiting for TikTok Studio to show its UI (Port: {profile.CdpPort}, Max timeout: {StudioBootTimeout.TotalSeconds:F0}s)...");
+
+        while (elapsed.Elapsed < StudioBootTimeout)
+        {
+            await Task.Delay(500);
+            if (profile.Status != InstanceStatus.Running || profile.StartedAt != launchedAt) return;
+
+            if (_windowController.IsStudioUiShown(profile.ProcessId, profile.CdpPort))
+            {
+                logger.Info("Window", $"TikTok Studio UI is up after {elapsed.Elapsed.TotalSeconds:F1}s (Port: {profile.CdpPort}). Bringing it to front.");
+                if (profile.ProcessId.HasValue)
+                {
+                    _windowController.BringToFront(profile.ProcessId.Value);
+                }
+                return;
+            }
+        }
+
+        logger.Warn("Window", $"TikTok Studio did not show its UI within {StudioBootTimeout.TotalSeconds:F0}s (Port: {profile.CdpPort}, PID: {profile.ProcessId}, SafeRendering: {profile.UseSafeRendering}).");
+        InstanceBootStalled?.Invoke(profile);
+    }
+
+    private bool IsUpdateRelaunch()
+    {
+        if (_launcher.CloseUpdateRelaunch())
+        {
+            _lastUpdateRelaunchAt = DateTime.Now;
+            return true;
+        }
+        // Accounts updating together share one relaunch, and another account's watcher may have closed it already
+        return DateTime.Now - _lastUpdateRelaunchAt < TimeSpan.FromSeconds(30);
+    }
+
     private void StartProcessExitWatcher(StudioInstanceProfile profile)
     {
         int targetPort = profile.CdpPort;
@@ -316,7 +289,15 @@ public class InstanceOrchestrator : IInstanceOrchestrator
 
                     try
                     {
-                        InstanceExited?.Invoke(profile);
+                        if (IsUpdateRelaunch())
+                        {
+                            logger.Info("Orchestrator", $"TikTok Studio updated itself and relaunched outside '{profile.Name}'. Closed the stray relaunch.");
+                            InstanceUpdated?.Invoke(profile);
+                        }
+                        else
+                        {
+                            InstanceExited?.Invoke(profile);
+                        }
                     }
                     catch { }
                     break;

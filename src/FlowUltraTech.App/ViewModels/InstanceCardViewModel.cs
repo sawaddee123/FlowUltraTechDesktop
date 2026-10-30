@@ -32,6 +32,7 @@ public partial class InstanceCardViewModel : ObservableObject
     private IDisposable? _profileWatcherSub;
     private System.Windows.Threading.DispatcherTimer? _storageRefreshTimer;
     private System.Windows.Threading.DispatcherTimer? _chatMonitorTimer;
+    private DateTime _lastUpdateRestart;
     private readonly HashSet<string> _seenChatSignatures = new();
     private readonly Queue<string> _chatSignatureQueue = new();
     private const int MaxSeenChatSignatures = 1000;
@@ -508,6 +509,65 @@ public partial class InstanceCardViewModel : ObservableObject
         });
 
         _orchestrator.InstanceExited += OnOrchestratorInstanceExited;
+        _orchestrator.InstanceBootStalled += OnOrchestratorInstanceBootStalled;
+        _orchestrator.InstanceUpdated += OnOrchestratorInstanceUpdated;
+    }
+
+    private static void RunOnUi(Func<Task> work)
+    {
+        if (Application.Current != null)
+        {
+            Application.Current.Dispatcher.InvokeAsync(work);
+        }
+        else
+        {
+            _ = work();
+        }
+    }
+
+    // Studio updated itself and left this account: bring it back on the new version
+    private void OnOrchestratorInstanceUpdated(StudioInstanceProfile p)
+    {
+        if (p.Id != Profile.Id) return;
+
+        // Studio stuck on its update screen must not turn into a restart loop
+        if (DateTime.Now - _lastUpdateRestart < TimeSpan.FromMinutes(5))
+        {
+            OnOrchestratorInstanceExited(p);
+            return;
+        }
+
+        _lastUpdateRestart = DateTime.Now;
+        RunOnUi(async () =>
+        {
+            AppendConsole($"[{DateTime.Now:HH:mm:ss}] 🔄 TikTok Studio อัปเดตเวอร์ชันแล้ว - กำลังเปิดบัญชีนี้กลับมา");
+            await StopAsync();
+            await StartAsync();
+        });
+    }
+
+    // Studio never showed its UI: restart once with GPU off, then stop with a clear error instead of hanging
+    private void OnOrchestratorInstanceBootStalled(StudioInstanceProfile p)
+    {
+        if (p.Id != Profile.Id) return;
+
+        RunOnUi(async () =>
+        {
+            bool retry = !Profile.UseSafeRendering;
+            await StopAsync();
+            Profile.UseSafeRendering = retry;
+            if (retry)
+            {
+                AppendConsole($"[{DateTime.Now:HH:mm:ss}] ⚠️ TikTok Studio ค้างตอนเปิด - กำลังเปิดใหม่แบบปิด GPU");
+                await StartAsync();
+                return;
+            }
+
+            Profile.Status = InstanceStatus.Error;
+            Profile.StatusMessage = "TikTok Studio ค้างตอนเปิดแม้ปิด GPU แล้ว - ปิดให้แล้ว กดเริ่มใหม่ได้";
+            SyncFromProfile();
+            AppendConsole($"[{DateTime.Now:HH:mm:ss}] ❌ {Profile.StatusMessage}");
+        });
     }
 
     private void OnOrchestratorInstanceExited(StudioInstanceProfile p)
@@ -651,7 +711,6 @@ public partial class InstanceCardViewModel : ObservableObject
         if (ok)
         {
             Profile.IsWindowHidden = false;
-            _orchestrator.ShowWindow(Profile);
             SyncFromProfile();
             RefreshWindowHandles();
             AppendConsole($"[{DateTime.Now:HH:mm:ss}] 🚀 หน้าต่างเริ่มทำงานแล้ว (CDP Port: {CdpPort}) - เริ่มระบบ Auto Monitor ทันที");
@@ -1005,7 +1064,6 @@ public partial class InstanceCardViewModel : ObservableObject
         if (ok)
         {
             Profile.IsWindowHidden = false;
-            _orchestrator.ShowWindow(Profile);
             SyncFromProfile();
             StatusMessage = "เปิด TikTok LIVE Studio เรียบร้อย! กรุณาสแกน QR Code หรือเข้าสู่ระบบบนหน้าจอ (ระบบจะบันทึกโปรไฟล์และปิดสตูดิโอให้อัตโนมัติ)";
             Logger.Info("Login", "Opened TikTok LIVE Studio for user login.");

@@ -3,6 +3,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Net.Sockets;
+using System.Threading;
 using System.Threading.Tasks;
 using FlowUltraTech.Core.Interfaces;
 using FlowUltraTech.Core.Models;
@@ -103,9 +104,12 @@ public class ProcessLauncher : IProcessLauncher
 
         const string antiThrottlingFlags = "--disable-background-timer-throttling --disable-renderer-backgrounding --disable-backgrounding-occluded-windows --disable-ipc-flooding-protection";
 
+        // Studio forces ANGLE/D3D11 with no GPU crash limit, so a bad driver never falls back to software by itself
+        const string safeRenderingFlags = "--disable-gpu --disable-gpu-compositing";
+
         string baseFlags = ultraLight
             ? $"--disable-gpu --disable-gpu-compositing --disable-software-rasterizer --disable-d3d11 --disable-accelerated-2d-canvas --disable-gpu-rasterization --no-sandbox {antiThrottlingFlags}"
-            : $"{antiThrottlingFlags} {settings.DefaultChromiumFlags}".Trim();
+            : $"{antiThrottlingFlags} {(instance.UseSafeRendering ? safeRenderingFlags : string.Empty)} {settings.DefaultChromiumFlags}".Trim();
 
         string proxyFlags = string.Empty;
         var effectiveProxy = LocalProxyBridgeService.ResolveEffectiveProxy(instance, settings);
@@ -377,11 +381,44 @@ public class ProcessLauncher : IProcessLauncher
         return killed;
     }
 
-    private static List<int> FindPidsByUserDataDir(string profileDir)
+    // Studio's forced update relaunches through the Launcher with --update_relaunch and without our flags,
+    // which opens the default profile outside the app. Only fresh ones: an older one is a Studio the user kept using.
+    public bool CloseUpdateRelaunch()
+    {
+        bool found = false;
+        // relauncher -> Launcher -> Studio hand over one by one, so sweep until the chain is gone
+        for (int sweep = 0; sweep < 3; sweep++)
+        {
+            var pids = FindPidsByCommandLine("--update_relaunch").Where(StartedRecently).ToList();
+            foreach (var pid in pids)
+            {
+                ForceKillProcessTree(pid);
+            }
+            found |= pids.Count > 0;
+            if (!found) return false;
+            Thread.Sleep(1000);
+        }
+        return found;
+    }
+
+    private static bool StartedRecently(int pid)
+    {
+        try
+        {
+            return DateTime.Now - Process.GetProcessById(pid).StartTime < TimeSpan.FromSeconds(30);
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    // Quoted exactly as launched, so profile "A" never matches profile "AB"
+    private static List<int> FindPidsByUserDataDir(string profileDir) => FindPidsByCommandLine($"--user-data-dir=\"{profileDir}\"");
+
+    private static List<int> FindPidsByCommandLine(string marker)
     {
         var pids = new List<int>();
-        // Quoted exactly as launched, so profile "A" never matches profile "AB"
-        string marker = $"--user-data-dir=\"{profileDir}\"";
         try
         {
             using var searcher = new System.Management.ManagementObjectSearcher(

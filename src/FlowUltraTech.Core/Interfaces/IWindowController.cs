@@ -15,6 +15,7 @@ public interface IWindowController
     bool SetWindowVisibilityForInstance(int? processId, int cdpPort, bool visible);
     bool IsAnyWindowVisible(int processId);
     bool IsAnyWindowVisibleForInstance(int? processId, int cdpPort);
+    bool IsStudioUiShown(int? processId, int cdpPort);
     void BringToFront(int processId);
     void ClearCacheForPort(int cdpPort);
 }

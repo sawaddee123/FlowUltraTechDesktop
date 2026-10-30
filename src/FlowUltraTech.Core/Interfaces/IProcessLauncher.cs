@@ -11,4 +11,5 @@ public interface IProcessLauncher
     bool KillInstance(StudioInstanceProfile instance);
     bool IsInstanceRunning(StudioInstanceProfile instance);
     int? FindProcessId(StudioInstanceProfile instance);
+    bool CloseUpdateRelaunch();
 }

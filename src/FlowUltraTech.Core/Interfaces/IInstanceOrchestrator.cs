@@ -16,4 +16,6 @@ public interface IInstanceOrchestrator
     void RefreshStatus(StudioInstanceProfile profile);
     void StopAllInstances();
     event Action<StudioInstanceProfile>? InstanceExited;
+    event Action<StudioInstanceProfile>? InstanceBootStalled;
+    event Action<StudioInstanceProfile>? InstanceUpdated;
 }
