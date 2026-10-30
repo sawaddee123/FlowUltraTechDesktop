@@ -7,8 +7,8 @@ import json
 
 sys.stdout.reconfigure(encoding='utf-8')
 
-VERSION = "0.7.0"
-MIN_VERSION = "0.7.0" # Force update!
+VERSION = "0.7.1"
+MIN_VERSION = "0.7.1" # Force update!
 SERVER_HOST = "210.246.215.66"
 SERVER_URL = "https://api.flowultratech-captcha.shop"
 ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -75,12 +75,15 @@ headers = {
 broadcast_payload = {
     "version": VERSION,
     "minRequiredVersion": MIN_VERSION,
-    "title": f"FlowUltraTech v{VERSION} (แก้จอดำตอนเปิด TikTok Studio)",
+    "title": f"FlowUltraTech v{VERSION} (แก้สถานะบัญชีไม่ตรงกับ TikTok Studio)",
     "description": (
-        "• แก้หน้าจอดำค้างทับโปรแกรมตอนกดเริ่ม TikTok Studio\n"
-        "• ถ้า TikTok Studio เปิดไม่ขึ้น ระบบจะเปิดใหม่ให้อัตโนมัติ 1 ครั้ง แล้วแจ้งเตือนถ้ายังไม่ได้\n"
-        "• TikTok Studio อัปเดตตัวเองแล้ว บัญชีจะกลับมาเปิดให้เอง ไม่หลุดไปบัญชีอื่น\n"
-        "• ปุ่มแสดงทุกจอ ไม่เปิดหน้าต่างเปล่าของ TikTok Studio อีกต่อไป"
+        "• แก้ TikTok Studio เปิดอยู่แต่บัญชีขึ้นว่าหยุดทำงาน ตอนนี้จะขึ้นกำลังทำงานและกดหยุดได้
+"
+        "• แก้หน้าจอดำค้างทับโปรแกรมตอนกดเริ่ม TikTok Studio
+"
+        "• ถ้า TikTok Studio เปิดไม่ขึ้น ระบบจะเปิดใหม่ให้อัตโนมัติ 1 ครั้ง แล้วแจ้งเตือนถ้ายังไม่ได้
+"
+        "• TikTok Studio อัปเดตตัวเองแล้ว บัญชีจะกลับมาเปิดให้เอง ไม่หลุดไปบัญชีอื่น"
     ),
     "fileName": f"FlowUltraTech_Setup_v{VERSION}.exe",
     "fileSize": FILE_SIZE,
