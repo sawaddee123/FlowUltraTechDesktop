@@ -381,6 +381,24 @@ public class ProcessLauncher : IProcessLauncher
         return killed;
     }
 
+    // A Studio running on this account that the card did not start: left from the last app run, restarted by itself
+    // with the same flags, or opened by a login callback. Chromium's port file proves the port belongs to this profile.
+    public int? FindUntrackedStudio(StudioInstanceProfile instance)
+    {
+        int? pid = GetPidListeningOnPort(instance.CdpPort);
+        if (!pid.HasValue) return null;
+
+        try
+        {
+            string portFile = Path.Combine(ProfileManagerService.ResolveProfileDirectoryStatic(instance), "DevToolsActivePort");
+            return File.Exists(portFile) && File.ReadLines(portFile).FirstOrDefault() == instance.CdpPort.ToString() ? pid : null;
+        }
+        catch (IOException)
+        {
+            return null;
+        }
+    }
+
     // Studio's forced update relaunches through the Launcher with --update_relaunch and without our flags,
     // which opens the default profile outside the app. Only fresh ones: an older one is a Studio the user kept using.
     public bool CloseUpdateRelaunch()
@@ -640,7 +658,7 @@ public class ProcessLauncher : IProcessLauncher
         var psi = new ProcessStartInfo
         {
             FileName = studioExe,
-            Arguments = $"--user-data-dir=\"{profileDir}\" \"{callbackUrl}\"",
+            Arguments = $"--user-data-dir=\"{profileDir}\" --remote-debugging-port={instance.CdpPort} \"{callbackUrl}\"",
             UseShellExecute = true
         };
         Process.Start(psi);
@@ -744,7 +762,8 @@ public class ProcessLauncher : IProcessLauncher
                 {
                     string profileDir = ProfileManagerService.ResolveProfileDirectoryStatic(instance);
                     Directory.CreateDirectory(profileDir);
-                    command = $"\"{studioExe}\" --user-data-dir=\"{profileDir}\" \"%1\"";
+                    // With the port: a callback can cold-start Studio, and without it the card never sees that Studio
+                    command = $"\"{studioExe}\" --user-data-dir=\"{profileDir}\" --remote-debugging-port={instance.CdpPort} \"%1\"";
                 }
 
                 using var rootKey = Microsoft.Win32.Registry.CurrentUser.CreateSubKey(@"Software\Classes\live-studio-app");

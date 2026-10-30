@@ -375,6 +375,17 @@ public partial class MainViewModel : ObservableObject
         UpdateQuotaState();
         StartLicenseWatchdog();
         StartTelemetryReporting();
+        _ = new System.Windows.Threading.DispatcherTimer(
+            TimeSpan.FromSeconds(3),
+            System.Windows.Threading.DispatcherPriority.Background,
+            (_, _) =>
+            {
+                foreach (var card in Instances)
+                {
+                    _ = card.AdoptUntrackedStudioAsync();
+                }
+            },
+            System.Windows.Threading.Dispatcher.CurrentDispatcher);
 
         // Initialize HWID asynchronously to prevent blocking the UI thread during launch
         _ = Task.Run(async () =>

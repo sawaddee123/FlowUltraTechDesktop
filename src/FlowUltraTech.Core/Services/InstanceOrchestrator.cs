@@ -143,6 +143,23 @@ public class InstanceOrchestrator : IInstanceOrchestrator
         return result;
     }
 
+    public bool TryAdoptRunningInstance(StudioInstanceProfile profile)
+    {
+        if (profile.Status is InstanceStatus.Running or InstanceStatus.Starting) return false;
+
+        int? pid = _launcher.FindUntrackedStudio(profile);
+        if (!pid.HasValue) return false;
+
+        profile.Status = InstanceStatus.Running;
+        profile.ProcessId = pid;
+        profile.StartedAt = DateTime.Now;
+        profile.IsWindowHidden = false;
+        profile.StatusMessage = $"Running on port {profile.CdpPort}";
+        _logManager.GetLogger(profile).Info("Orchestrator", $"Found TikTok Studio running on '{profile.Name}' without the card starting it (Port: {profile.CdpPort}, PID: {pid}). Tracking it.");
+        StartProcessExitWatcher(profile);
+        return true;
+    }
+
     public bool ToggleWindowVisibility(StudioInstanceProfile profile)
     {
         var logger = _logManager.GetLogger(profile);

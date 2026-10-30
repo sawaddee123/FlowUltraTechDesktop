@@ -299,6 +299,90 @@ public class StudioBootWatcherTests
         }
     }
 
+    [Fact]
+    public async Task UntrackedStudio_ShowsAsRunning_ThenStoppedWhenItCloses()
+    {
+        var launcher = new FakeLauncher { UntrackedPid = 4242 };
+        var (orchestrator, profile) = Create(new FakeWindowController(), TimeSpan.FromSeconds(10), launcher);
+        int exited = 0;
+        orchestrator.InstanceExited += _ => exited++;
+
+        Assert.True(orchestrator.TryAdoptRunningInstance(profile));
+        Assert.Equal(InstanceStatus.Running, profile.Status);
+        Assert.Equal(4242, profile.ProcessId);
+
+        launcher.Running = false;
+        await WaitUntilAsync(() => exited > 0, attempts: 200);
+        Assert.Equal(InstanceStatus.Stopped, profile.Status);
+    }
+
+    [Theory]
+    [InlineData(InstanceStatus.Running)]   // already tracked
+    [InlineData(InstanceStatus.Starting)]  // our own launch just opened the port
+    public void TrackedStudio_IsNotAdoptedAgain(InstanceStatus status)
+    {
+        var (orchestrator, profile) = Create(new FakeWindowController(), TimeSpan.FromSeconds(10), new FakeLauncher { UntrackedPid = 4242 });
+        profile.Status = status;
+
+        Assert.False(orchestrator.TryAdoptRunningInstance(profile));
+    }
+
+    [Fact]
+    public async Task Card_FollowsUntrackedStudio()
+    {
+        var orchestrator = new FakeOrchestrator();
+        var profile = new StudioInstanceProfile { Name = "AdoptCard", ProfileFolderName = "AdoptCard", CdpPort = 59875, UserDataDir = TempProfileDir };
+        var card = new InstanceCardViewModel(profile, new AppSettings(), orchestrator);
+
+        await card.AdoptUntrackedStudioAsync();
+        Assert.Equal(InstanceStatus.Stopped, card.Status);
+
+        orchestrator.UntrackedStudio = true;
+        await card.AdoptUntrackedStudioAsync();
+        Assert.Equal(InstanceStatus.Running, card.Status);
+    }
+
+    [Fact]
+    public async Task LiveTest_LoginCallbackStudio_IsAdoptedOnlyByItsOwnProfile()
+    {
+        string studioExe = TikTokStudioPathResolver.ResolveValidStudioPath(null);
+        // Studio runs elevated like the app does; only an elevated run can close it again
+        if (!File.Exists(studioExe) || !Environment.IsPrivilegedProcess) return;
+
+        var windows = new WindowController();
+        var launcher = new ProcessLauncher(windows);
+        var orchestrator = new InstanceOrchestrator(launcher, windows, new CdpAutomationService());
+        var owner = new StudioInstanceProfile
+        {
+            Name = "AdoptLive",
+            ProfileFolderName = "AdoptLive",
+            CdpPort = 19291,
+            UserDataDir = Path.Combine(Path.GetTempPath(), $"BootWatcherLive_{Guid.NewGuid():N}")
+        };
+        var otherAccount = new StudioInstanceProfile
+        {
+            Name = "AdoptOther",
+            ProfileFolderName = "AdoptOther",
+            CdpPort = owner.CdpPort,
+            UserDataDir = Path.Combine(Path.GetTempPath(), $"BootWatcherLive_{Guid.NewGuid():N}")
+        };
+
+        try
+        {
+            // What the live-studio-app:// handler does when no Studio is running on the profile
+            Assert.True(ProcessLauncher.ForwardLoginCallback(owner, "live-studio-app://login/prepare", new AppSettings { TikTokStudioExePath = studioExe }));
+            await WaitUntilAsync(() => launcher.FindUntrackedStudio(owner).HasValue, attempts: 600);
+
+            Assert.False(orchestrator.TryAdoptRunningInstance(otherAccount));
+            Assert.True(orchestrator.TryAdoptRunningInstance(owner));
+            Assert.Equal(InstanceStatus.Running, owner.Status);
+        }
+        finally
+        {
+            await orchestrator.StopInstanceAsync(owner);
+        }
+    }
+
     private static (InstanceOrchestrator, StudioInstanceProfile) Create(IWindowController windows, TimeSpan bootTimeout, IProcessLauncher? launcher = null)
     {
         var orchestrator = new InstanceOrchestrator(launcher ?? new FakeLauncher(), windows, new CdpAutomationService())
@@ -320,6 +404,7 @@ public class StudioBootWatcherTests
     {
         public int Starts { get; private set; }
         public int Stops { get; private set; }
+        public bool UntrackedStudio { get; set; }
         public event Action<StudioInstanceProfile>? InstanceExited { add { } remove { } }
         public event Action<StudioInstanceProfile>? InstanceBootStalled;
         public event Action<StudioInstanceProfile>? InstanceUpdated;
@@ -340,6 +425,13 @@ public class StudioBootWatcherTests
         }
 
         public Task<bool> StartUltraLightLoginAsync(StudioInstanceProfile profile, AppSettings settings) => Task.FromResult(false);
+        public bool TryAdoptRunningInstance(StudioInstanceProfile profile)
+        {
+            if (!UntrackedStudio) return false;
+            profile.Status = InstanceStatus.Running;
+            return true;
+        }
+
         public bool ToggleWindowVisibility(StudioInstanceProfile profile) => false;
         public bool ShowWindow(StudioInstanceProfile profile) => false;
         public bool HideWindow(StudioInstanceProfile profile) => false;
@@ -352,6 +444,7 @@ public class StudioBootWatcherTests
     {
         public bool Running { get; set; } = true;
         public bool RelaunchFound { get; set; }
+        public int? UntrackedPid { get; set; }
 
         public Task<Process?> LaunchInstanceAsync(StudioInstanceProfile instance, AppSettings settings)
         {
@@ -364,6 +457,7 @@ public class StudioBootWatcherTests
         public bool IsInstanceRunning(StudioInstanceProfile instance) => Running;
         public int? FindProcessId(StudioInstanceProfile instance) => instance.ProcessId;
         public bool CloseUpdateRelaunch() => RelaunchFound;
+        public int? FindUntrackedStudio(StudioInstanceProfile instance) => UntrackedPid;
     }
 
     private sealed class FakeWindowController : IWindowController

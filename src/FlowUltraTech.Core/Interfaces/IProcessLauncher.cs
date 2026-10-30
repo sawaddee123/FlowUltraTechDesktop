@@ -12,4 +12,5 @@ public interface IProcessLauncher
     bool IsInstanceRunning(StudioInstanceProfile instance);
     int? FindProcessId(StudioInstanceProfile instance);
     bool CloseUpdateRelaunch();
+    int? FindUntrackedStudio(StudioInstanceProfile instance);
 }

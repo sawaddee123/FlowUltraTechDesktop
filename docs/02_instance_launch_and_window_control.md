@@ -149,6 +149,20 @@ Flag Anti-throttling มีเพื่อให้ Studio ทำงานต่
 - **ปิดตามปกติ:** ยิง Event `InstanceExited` ซึ่งการ์ดรับไปหยุด timer/Watcher และล้างรายการหน้าต่าง
 - **Studio อัปเดตตัวเอง:** ยิง Event `InstanceUpdated` ซึ่งการ์ดรับไป `StopAsync` + `StartAsync` เพื่อเปิดบัญชีเดิมบนเวอร์ชันใหม่ (ดูหัวข้อถัดไป)
 
+### Studio ที่การ์ดไม่ได้เปิดเอง
+
+`MainViewModel` เรียก `AdoptUntrackedStudioAsync` ของทุกการ์ดทุก 3 วินาที ถ้าการ์ดหยุดอยู่แต่พอร์ต CDP ของการ์ดมีโปรเซสฟังอยู่ และไฟล์ `DevToolsActivePort` ในโปรไฟล์ตรงกับพอร์ตนั้น จะถือว่า Studio นี้เป็นของการ์ด: เปลี่ยนเป็น `Running`, เริ่ม Exit Watcher, ขอ Slot และเริ่ม Monitor (`InstanceOrchestrator.TryAdoptRunningInstance`)
+
+กรณีที่เข้าข่าย:
+
+- Studio ค้างจากรอบก่อนที่แอปปิดไม่เรียบร้อย
+- Studio รีสตาร์ตตัวเองด้วย Flag เดิม (`process.argv`) ช่วงที่โปรเซสหายไปการ์ดจะขึ้นหยุดชั่วครู่
+- ลิงก์ `live-studio-app://` จากเบราว์เซอร์เปิด Studio ขึ้นมาใหม่ เช่น หลังแอปปิด Studio อัตโนมัติเมื่อล็อกอินสำเร็จ ทดลองจริงพบว่าเปิด Studio เต็มหน้าต่างได้ จึงใส่ `--remote-debugging-port` ใน `BindProtocolToProfile` และ `ForwardLoginCallback` ไม่เช่นนั้นการ์ดจะมองไม่เห็น
+
+Studio ที่ไม่มีพอร์ตของการ์ด เช่น เปิดจากไอคอนหน้าจอด้วยโปรไฟล์หลัก จะไม่ถูกผูกกับการ์ด
+
+Studio ที่เปิดจากลิงก์ `live-studio-app://` ไม่มี Flag Proxy ของการ์ด จึงออกเน็ตตรงแม้การ์ดตั้ง Proxy ไว้
+
 ### Studio อัปเดตตัวเอง
 
 ถ้า Studio เวอร์ชันเก่าเกินไป จะเข้าหน้า Update แบบบังคับ: โหลด → ติดตั้งเงียบ → `app.relaunch` ไปที่ `TikTok LIVE Studio Launcher.exe --update_relaunch` แล้วปิดตัว (ทดลองจริง 1.36.6 → 1.38.0 ใช้เวลาราว 40 วินาที) Launcher เปิด `TikTok LIVE Studio.exe --update_relaunch` โดยไม่มี Flag ของเรา จึงเปิดด้วยโปรไฟล์หลัก (`%APPDATA%\TikTok LIVE Studio`) นอกการควบคุมของแอป

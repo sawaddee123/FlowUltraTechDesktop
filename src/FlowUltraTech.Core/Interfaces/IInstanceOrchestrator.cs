@@ -9,6 +9,7 @@ public interface IInstanceOrchestrator
     Task<bool> StartInstanceAsync(StudioInstanceProfile profile, AppSettings settings);
     Task<bool> StartUltraLightLoginAsync(StudioInstanceProfile profile, AppSettings settings);
     Task<bool> StopInstanceAsync(StudioInstanceProfile profile);
+    bool TryAdoptRunningInstance(StudioInstanceProfile profile);
     bool ToggleWindowVisibility(StudioInstanceProfile profile);
     bool ShowWindow(StudioInstanceProfile profile);
     bool HideWindow(StudioInstanceProfile profile);

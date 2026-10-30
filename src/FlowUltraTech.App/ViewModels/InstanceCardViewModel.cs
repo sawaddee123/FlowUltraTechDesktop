@@ -467,47 +467,6 @@ public partial class InstanceCardViewModel : ObservableObject
             _storageRefreshTimer?.Start();
         }
 
-        // Auto monitor if instance is already running on app start
-        _ = Task.Run(async () =>
-        {
-            try
-            {
-                int? portPid = ProcessLauncher.GetPidListeningOnPort(Profile.CdpPort);
-                if (portPid.HasValue)
-                {
-                    if (Application.Current != null)
-                    {
-                        await Application.Current.Dispatcher.InvokeAsync(async () =>
-                        {
-                            Profile.Status = InstanceStatus.Running;
-                            Profile.ProcessId = portPid.Value;
-                            Profile.StatusMessage = $"Running on port {Profile.CdpPort}";
-                            SyncFromProfile();
-                            await StartAutoMonitoringAsync();
-                        });
-                    }
-                }
-                else
-                {
-                    // If no process is listening on this CDP port, ensure it is NOT shown as Running or Starting!
-                    if (Application.Current != null)
-                    {
-                        await Application.Current.Dispatcher.InvokeAsync(() =>
-                        {
-                            if (Profile.Status != InstanceStatus.Stopped)
-                            {
-                                Profile.Status = InstanceStatus.Stopped;
-                                Profile.ProcessId = null;
-                                Profile.StatusMessage = "Stopped";
-                                SyncFromProfile();
-                            }
-                        });
-                    }
-                }
-            }
-            catch { }
-        });
-
         _orchestrator.InstanceExited += OnOrchestratorInstanceExited;
         _orchestrator.InstanceBootStalled += OnOrchestratorInstanceBootStalled;
         _orchestrator.InstanceUpdated += OnOrchestratorInstanceUpdated;
@@ -523,6 +482,22 @@ public partial class InstanceCardViewModel : ObservableObject
         {
             _ = work();
         }
+    }
+
+    // Keeps the card truthful when Studio runs on this account without the card having started it
+    public async Task AdoptUntrackedStudioAsync()
+    {
+        if (!await Task.Run(() => _orchestrator.TryAdoptRunningInstance(Profile))) return;
+
+        SyncFromProfile();
+        StartLoginWatcher(autoClose: false);
+        if (string.IsNullOrWhiteSpace(ActiveLeaseId))
+        {
+            await TryAcquireSlotLeaseAsync();
+        }
+        RefreshWindowHandles();
+        AppendConsole($"[{DateTime.Now:HH:mm:ss}] 🔗 พบ TikTok Studio กำลังทำงานอยู่บนบัญชีนี้ - เชื่อมต่อให้แล้ว");
+        await StartAutoMonitoringAsync();
     }
 
     // Studio updated itself and left this account: bring it back on the new version
@@ -636,48 +611,7 @@ public partial class InstanceCardViewModel : ObservableObject
             return;
         }
 
-        // Acquire slot lease if auth token exists
-        if (!string.IsNullOrWhiteSpace(_settings.AuthToken))
-        {
-            try
-            {
-                string hwid = DeepHwidGenerator.GenerateDeepHwid();
-                var leaseResult = await _slotLeaseService.AcquireSlotAsync(
-                    ProfileFolderName,
-                    hwid,
-                    _settings.AuthToken,
-                    _settings.AuthApiEndpoint);
-
-                if (leaseResult.Success && !string.IsNullOrWhiteSpace(leaseResult.LeaseId))
-                {
-                    ActiveLeaseId = leaseResult.LeaseId;
-                    _slotLeaseService.RegisterActiveLease(
-                        leaseResult.LeaseId,
-                        ProfileFolderName,
-                        hwid,
-                        _settings.AuthToken,
-                        onWatchdogTriggered: () =>
-                        {
-                            AppendConsole($"[{DateTime.Now:HH:mm:ss}] ⚠️ Slot lease watchdog triggered for '{Name}'. Stopping instance.");
-                            Logger.Error("Lease", $"🚨 Slot lease watchdog triggered for '{Name}'. Stopping instance immediately.");
-                            _ = StopAsync();
-                        },
-                        logger: Logger);
-                    _slotLeaseService.StartHeartbeatTimer();
-                    Logger.Info("Lease", $"Acquired slot lease {ActiveLeaseId} for '{Name}' (HWID: {hwid})");
-                }
-                else if (!leaseResult.Success && (leaseResult.Message?.Contains("QUOTA_EXCEEDED") == true || leaseResult.Message?.Contains("โควต้า") == true))
-                {
-                    StatusMessage = $"ไม่สามารถเริ่มได้: โควต้าจำนวนหน้าต่างเต็ม ({leaseResult.Message})";
-                    AppendConsole($"[{DateTime.Now:HH:mm:ss}] ❌ เริ่มหน้าต่างไม่สำเร็จ: โควต้าหน้าต่างเต็ม");
-                    return;
-                }
-            }
-            catch (Exception ex)
-            {
-                Logger.Warn("Lease", $"Slot lease acquisition error: {ex.Message}");
-            }
-        }
+        if (!await TryAcquireSlotLeaseAsync()) return;
 
         Profile.IsWindowHidden = false;
         StatusMessage = "กำลังเริ่มโปรแกรม...";
@@ -739,6 +673,52 @@ public partial class InstanceCardViewModel : ObservableObject
             }
             AppendConsole($"[{DateTime.Now:HH:mm:ss}] ❌ เริ่มหน้าต่างไม่สำเร็จ: {StatusMessage}");
         }
+    }
+
+    // False only when the quota is full
+    private async Task<bool> TryAcquireSlotLeaseAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_settings.AuthToken)) return true;
+
+        try
+        {
+            string hwid = DeepHwidGenerator.GenerateDeepHwid();
+            var leaseResult = await _slotLeaseService.AcquireSlotAsync(
+                ProfileFolderName,
+                hwid,
+                _settings.AuthToken,
+                _settings.AuthApiEndpoint);
+
+            if (leaseResult.Success && !string.IsNullOrWhiteSpace(leaseResult.LeaseId))
+            {
+                ActiveLeaseId = leaseResult.LeaseId;
+                _slotLeaseService.RegisterActiveLease(
+                    leaseResult.LeaseId,
+                    ProfileFolderName,
+                    hwid,
+                    _settings.AuthToken,
+                    onWatchdogTriggered: () =>
+                    {
+                        AppendConsole($"[{DateTime.Now:HH:mm:ss}] ⚠️ Slot lease watchdog triggered for '{Name}'. Stopping instance.");
+                        Logger.Error("Lease", $"🚨 Slot lease watchdog triggered for '{Name}'. Stopping instance immediately.");
+                        _ = StopAsync();
+                    },
+                    logger: Logger);
+                _slotLeaseService.StartHeartbeatTimer();
+                Logger.Info("Lease", $"Acquired slot lease {ActiveLeaseId} for '{Name}' (HWID: {hwid})");
+            }
+            else if (!leaseResult.Success && (leaseResult.Message?.Contains("QUOTA_EXCEEDED") == true || leaseResult.Message?.Contains("โควต้า") == true))
+            {
+                StatusMessage = $"ไม่สามารถเริ่มได้: โควต้าจำนวนหน้าต่างเต็ม ({leaseResult.Message})";
+                AppendConsole($"[{DateTime.Now:HH:mm:ss}] ❌ เริ่มหน้าต่างไม่สำเร็จ: โควต้าหน้าต่างเต็ม");
+                return false;
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.Warn("Lease", $"Slot lease acquisition error: {ex.Message}");
+        }
+        return true;
     }
 
     [RelayCommand]
