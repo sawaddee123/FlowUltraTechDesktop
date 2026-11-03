@@ -67,6 +67,7 @@ public partial class InstanceCardViewModel : ObservableObject
     }
 
     private bool _isFetchingStorage;
+    private string? _lastStorageSignature;
 
     private void EnsureStorageTimer()
     {
@@ -241,21 +242,31 @@ public partial class InstanceCardViewModel : ObservableObject
         StorageStatus = "กำลังดึงข้อมูล Cookies & Storage จาก Chromium...";
         try
         {
-            var dump = await _cdpService.GetCookiesAndStorageAsync(CdpPort);
+            int port = CdpPort;
+            var dump = await Task.Run(() => _cdpService.GetCookiesAndStorageAsync(port));
 
-            Cookies.Clear();
-            foreach (var c in dump.Cookies) Cookies.Add(c);
-
-            LocalStorageItems.Clear();
-            foreach (var pair in dump.LocalStorage)
+            // The 15s auto refresh usually returns the same data: skip rebuilding the bound lists (one UI update per item) when nothing changed
+            string signature = string.Join("\n", dump.Cookies.Select(c => $"{c.Domain}|{c.Name}={c.Value}"))
+                + "\n#L\n" + string.Join("\n", dump.LocalStorage.Select(p => $"{p.Key}={p.Value}"))
+                + "\n#S\n" + string.Join("\n", dump.SessionStorage.Select(p => $"{p.Key}={p.Value}"));
+            if (signature != _lastStorageSignature)
             {
-                LocalStorageItems.Add(new StorageEntry { Key = pair.Key, Value = pair.Value });
-            }
+                _lastStorageSignature = signature;
 
-            SessionStorageItems.Clear();
-            foreach (var pair in dump.SessionStorage)
-            {
-                SessionStorageItems.Add(new StorageEntry { Key = pair.Key, Value = pair.Value });
+                Cookies.Clear();
+                foreach (var c in dump.Cookies) Cookies.Add(c);
+
+                LocalStorageItems.Clear();
+                foreach (var pair in dump.LocalStorage)
+                {
+                    LocalStorageItems.Add(new StorageEntry { Key = pair.Key, Value = pair.Value });
+                }
+
+                SessionStorageItems.Clear();
+                foreach (var pair in dump.SessionStorage)
+                {
+                    SessionStorageItems.Add(new StorageEntry { Key = pair.Key, Value = pair.Value });
+                }
             }
 
             SessionIdToken = dump.SessionIdToken ?? "ไม่พบ sessionid";

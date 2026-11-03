@@ -198,7 +198,9 @@ public partial class InstanceCardViewModel : ObservableObject
         try
         {
             var sw = System.Diagnostics.Stopwatch.StartNew();
-            var detectTask = _cdpService.DetectCaptchaElementsAsync(CdpPort, forceFullHtml: !isAuto);
+            // Thread pool: the CDP service has no ConfigureAwait(false), so its per-frame continuations would otherwise all land on the UI thread
+            int port = CdpPort;
+            var detectTask = Task.Run(() => _cdpService.DetectCaptchaElementsAsync(port, forceFullHtml: !isAuto));
             CaptchaDetectionResult result;
             if (await Task.WhenAny(detectTask, Task.Delay(isAuto ? 8000 : 15000)) == detectTask)
             {
