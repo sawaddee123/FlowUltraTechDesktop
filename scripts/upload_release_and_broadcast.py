@@ -7,8 +7,8 @@ import json
 
 sys.stdout.reconfigure(encoding='utf-8')
 
-VERSION = "0.7.1"
-MIN_VERSION = "0.7.1" # Force update!
+VERSION = "0.7.2"
+MIN_VERSION = "0.7.2" # Force update!
 SERVER_HOST = "210.246.215.66"
 SERVER_URL = "https://api.flowultratech-captcha.shop"
 ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -75,14 +75,11 @@ headers = {
 broadcast_payload = {
     "version": VERSION,
     "minRequiredVersion": MIN_VERSION,
-    "title": f"FlowUltraTech v{VERSION} (แก้สถานะบัญชีไม่ตรงกับ TikTok Studio)",
+    "title": f"FlowUltraTech v{VERSION} (ลื่นขึ้นเมื่อเปิดหลายบัญชี)",
     "description": (
-        "• แก้ TikTok Studio เปิดอยู่แต่บัญชีขึ้นว่าหยุดทำงาน ตอนนี้จะขึ้นกำลังทำงานและกดหยุดได้
-"
-        "• แก้หน้าจอดำค้างทับโปรแกรมตอนกดเริ่ม TikTok Studio
-"
-        "• ถ้า TikTok Studio เปิดไม่ขึ้น ระบบจะเปิดใหม่ให้อัตโนมัติ 1 ครั้ง แล้วแจ้งเตือนถ้ายังไม่ได้
-"
+        "• หน้าโปรแกรมไม่หน่วงเมื่อเปิดหลายบัญชีพร้อมกัน (ย้ายการตรวจ Captcha และดึง Cookies ไปทำเบื้องหลัง)\n"
+        "• แก้ TikTok Studio เปิดอยู่แต่บัญชีขึ้นว่าหยุดทำงาน ตอนนี้จะขึ้นกำลังทำงานและกดหยุดได้\n"
+        "• แก้หน้าจอดำค้างทับโปรแกรมตอนกดเริ่ม TikTok Studio\n"
         "• TikTok Studio อัปเดตตัวเองแล้ว บัญชีจะกลับมาเปิดให้เอง ไม่หลุดไปบัญชีอื่น"
     ),
     "fileName": f"FlowUltraTech_Setup_v{VERSION}.exe",
