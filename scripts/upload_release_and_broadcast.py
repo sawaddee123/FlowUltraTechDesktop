@@ -7,8 +7,8 @@ import json
 
 sys.stdout.reconfigure(encoding='utf-8')
 
-VERSION = "0.7.2"
-MIN_VERSION = "0.7.2" # Force update!
+VERSION = "0.7.5"
+MIN_VERSION = "0.7.5" # Force update!
 SERVER_HOST = "210.246.215.66"
 SERVER_URL = "https://api.flowultratech-captcha.shop"
 ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
