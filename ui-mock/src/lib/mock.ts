@@ -74,7 +74,7 @@ export const seedInstances = (): Instance[] => [
     id: 'acc02', name: 'Account 02', folder: 'Acc02', cdpPort: 9222, nickname: 'Baan Ploy Shop', handle: 'baanploy.shop',
     hue: 160, loggedIn: true, status: 'running', windowHidden: false, profileMode: 'direct', channel: 'baanploy.shop',
     monitoring: true, proxyId: 'px2', botProxy: noProxy(), startedAt: now() - mins(41),
-    captcha: { id: 'cp-live', kind: 'symbol', sessionId: 'a91f3c70e2', detectedAt: now() - 9_000, countdown: 38 },
+    captcha: { id: 'cp-live', kind: 'symbol', sessionId: 'a91f3c70e2', detectedAt: now() - 9_000, countdown: 84, aiFailed: true },
     stats: { viewers: 217, chats: 640, gifts: 31, diamonds: 1960, likes: 6310, follows: 58, botReplies: 94 },
     autoReply: { ...defaultAutoReply(), greetEnabled: true }, overlay: { ...defaultOverlay(), clockMode: 'led' }, lease: { active: true, ttlMin: 9 },
   },
@@ -152,7 +152,7 @@ export const seedSettings = (): AppSettings => ({
   studioPath: 'C:\\Program Files\\TikTok LIVE Studio\\TikTok LIVE Studio.exe',
   proxifierPath: 'C:\\Program Files (x86)\\Proxifier\\Proxifier.exe',
   proxifierProfile: 'C:\\Users\\Operator\\AppData\\Roaming\\FlowUltraTech\\flow.ppx',
-  autoHideOnLaunch: false, overlayPort: 19450,
+  autoHideOnLaunch: true, overlayPort: 19450, proxyMode: 'auto',
 })
 
 /* ───────────── ตัวสร้างข้อมูลจำลองสำหรับแท็บเครื่องมือ ───────────── */

@@ -1,10 +1,9 @@
-﻿import { useState, type ReactNode } from 'react'
+import { useState, type ReactNode } from 'react'
 import { LogIn, RefreshCw, Trash2 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
-import type { BotProxy, ProxyProtocol } from '@/lib/types'
 import { useApp } from '@/lib/store'
-import { Badge, Button, CopyButton, Switch } from '@/components/ui/base'
-import { Field, Input, NumberInput, SecretInput, Select } from '@/components/ui/form'
+import { Badge, Button, CopyButton } from '@/components/ui/base'
+import { Field, Select } from '@/components/ui/form'
 import { Confirm } from '@/components/ui/overlay'
 import { Section } from '@/components/ui/layout'
 import type { TabProps } from './registry'
@@ -30,9 +29,6 @@ export default function SessionTab({ instance: i }: TabProps) {
 
   const [renewing, setRenewing] = useState(false)
   const [confirm, setConfirm] = useState(false)
-  const [bp, setBp] = useState<BotProxy>(i.botProxy)
-  const dirty = JSON.stringify(bp) !== JSON.stringify(i.botProxy)
-  const setB = (p: Partial<BotProxy>) => setBp((c) => ({ ...c, ...p }))
 
   const renew = () => {
     setRenewing(true)
@@ -41,10 +37,6 @@ export default function SessionTab({ instance: i }: TabProps) {
       setRenewing(false)
       toast({ tone: 'ok', title: 'ต่ออายุ Lease แล้ว', detail: 'เหลือ 60 นาที' })
     }, 700)
-  }
-  const saveBot = () => {
-    patch(i.id, { botProxy: bp })
-    toast({ tone: 'ok', title: 'บันทึก Proxy ของบอทแล้ว' })
   }
 
   return (
@@ -78,27 +70,6 @@ export default function SessionTab({ instance: i }: TabProps) {
               ))}
             </Select>
           </Field>
-        </div>
-      </Section>
-
-      <Section
-        title="Proxy ของบอทตอบแชท"
-        aside={<Switch checked={bp.enabled} onChange={(v) => setB({ enabled: v })} label="เปิดใช้ Proxy ของบอท" />}
-      >
-        <div className="grid max-w-xl grid-cols-2 gap-3">
-          <Field label="โปรโตคอล">
-            <Select value={bp.protocol} disabled={!bp.enabled} onChange={(e) => setB({ protocol: e.target.value as ProxyProtocol })} className="h-9">
-              <option value="Socks5">Socks5</option><option value="Http">Http</option><option value="Https">Https</option>
-            </Select>
-          </Field>
-          <Field label="พอร์ต"><NumberInput value={bp.port} min={1} max={65535} onChange={(n) => setB({ port: n })} /></Field>
-          <Field label="โฮสต์" className="col-span-2"><Input mono value={bp.host} disabled={!bp.enabled} onChange={(e) => setB({ host: e.target.value })} placeholder="proxy.example.com" className="h-9" /></Field>
-          <Field label="ชื่อผู้ใช้"><Input value={bp.username} disabled={!bp.enabled} onChange={(e) => setB({ username: e.target.value })} className="h-9" /></Field>
-          <Field label="รหัสผ่าน"><SecretInput value={bp.password} disabled={!bp.enabled} onChange={(e) => setB({ password: e.target.value })} /></Field>
-          <div className="col-span-2 flex justify-end gap-2">
-            <Button variant="ghost" disabled={!dirty} onClick={() => setBp(i.botProxy)}>ยกเลิก</Button>
-            <Button variant="primary" disabled={!dirty} onClick={saveBot}>บันทึก</Button>
-          </div>
         </div>
       </Section>
 

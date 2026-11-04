@@ -13,6 +13,8 @@ export interface CaptchaAlert {
   detectedAt: number
   /** วินาทีที่เหลือก่อนหมดเวลา */
   countdown: number
+  /** AI ลองแล้วไม่ผ่าน ต้องให้ผู้ใช้ช่วย */
+  aiFailed?: boolean
 }
 
 export interface CaptchaRecord {
@@ -245,4 +247,5 @@ export interface AppSettings {
   proxifierProfile: string
   autoHideOnLaunch: boolean
   overlayPort: number
+  proxyMode: 'auto' | 'own' | 'off'
 }

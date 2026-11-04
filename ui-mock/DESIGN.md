@@ -7,9 +7,10 @@ Mock แบบคลิกได้ของ UI ใหม่ทั้งแอ�
 ## Design context
 
 - **ผู้ใช้:** ผู้ทำไลฟ์ขายของบน TikTok ที่รัน Studio หลายบัญชีพร้อมกันบนเครื่องเดียว นั่งหน้าจอนาน ต้องกวาดสายตาดูสถานะหลายบัญชี และตอบสนอง Captcha ให้ทัน
-- **งานหลัก:** ดูว่าบัญชีไหนปกติ/ผิดปกติ → เริ่ม-หยุด → จัดการ Captcha → ตั้งตอบแชทอัตโนมัติ → ตั้ง Overlay/Proxy
+- **งานหลัก:** ดูว่าบัญชีไหนปกติ/ผิดปกติ → เริ่ม-หยุด → ช่วยแก้ Captcha เฉพาะตอนที่ AI แก้ไม่ผ่าน
+- **หลักการ:** ผู้ใช้ทำแค่สิ่งที่ต้องตัดสินใจเอง ที่เหลือโปรแกรมทำให้ (โฟลเดอร์ พอร์ต Proxy มอนิเตอร์แชท แก้ Captcha ซ่อนหน้าต่าง อัปเดต) · บอทตอบแชทปิดไว้ (เร็วๆ นี้)
 - **บุคลิก:** ห้องควบคุมที่นิ่งและสงบ (calm control room) แน่นแต่ไม่รก ใช้สีเฉพาะจุดที่ต้องลงมือ
-- **จุดจำ:** Master–Detail ที่ปุ่มและรายการไม่ขยับ, ธีมกรมท่าตามโลโก้ Studio Live, สลับ Dark/Light ได้
+- **จุดจำ:** การ์ดบัญชีปุ่มเดียว (เริ่ม/หยุด), แถบเหลืองเฉพาะเมื่อต้องให้ช่วย, ธีมกรมท่าตามโลโก้ Studio Live, สลับ Dark/Light ได้
 - **ตัวอักษร:** Anuphan (ไทย+ละติน, variable) · JetBrains Mono เฉพาะข้อมูลดิบ (log, HWND, URL, JSON)
 
 ## ธีมและโทเคน (ทุกอย่างอยู่ใน `src/styles.css`)
@@ -32,12 +33,12 @@ Mock แบบคลิกได้ของ UI ใหม่ทั้งแอ�
 
 - `base.tsx`: `Button` (variant primary|secondary|ghost|danger, size sm|md, `loading`, `icon`) · `IconButton` (ต้องมี `label`) · `Badge` · `StatusDot` · `Switch` · `Segmented` · `Skeleton` · `Spinner` · `Avatar` · `Meter` · `Kbd` · `CopyButton` · `EmptyState` · `Stat` · `toneClass`
 - `form.tsx`: `Field` (label + hint ใน tooltip + error) · `Input` · `NumberInput` · `Textarea` · `Select` · `Slider` · `ColorInput` · `ToggleRow`
-- `overlay.tsx`: `Menu` · `Sheet` (ลิ้นชักข้าง แทน modal) · `Confirm` (เฉพาะลบถาวร)
-- `layout.tsx`: `Tabs` · `PageHeader` · `Section` · `Surface` · `DataTable` + `tdc`
+- `overlay.tsx`: `Menu` · `Sheet` (ลิ้นชักข้าง) · `Dialog` (กล่องกลางจอ: เพิ่มบัญชี, ช่วยแก้ Captcha, อัปเดต) · `Confirm` (เฉพาะลบถาวร)
+- `layout.tsx`: `Tabs` (รองรับ `disabled`) · `PageHeader` · `Section` · `Surface` · `DataTable` + `tdc`
 
 ## กติกา UX
 
-1. **Spatial continuity:** ปุ่มเปิด/ปิดอยู่ที่เดิมเสมอ ข้อมูลที่ต้องดูคู่กันอยู่ข้างกัน (split pane) ไม่เปลี่ยนหน้าทั้งจอเพื่อดูรายละเอียด
+1. **Spatial continuity:** ปุ่มเริ่ม/หยุดอยู่ที่เดิมเสมอทั้งบนการ์ดและหัวหน้ารายละเอียด · หน้ารายละเอียดมีลิงก์กลับชัดเจน
 2. **Async feedback:** ทุกปุ่มที่ใช้เวลาต้อง `loading` (ล็อกความกว้าง) + มี skeleton ที่ขนาดตรงของจริง ห้ามมี spinner เต็มจอ ห้ามค้างนิ่ง; timeout/ล้มเหลวต้องมีปุ่มลองใหม่
 3. **Micro-copy:** ไม่ใช้ "กรุณา/โปรด/ท่านสามารถ" ปุ่มขึ้นต้นด้วยกริยา (`บันทึก`, `ทดสอบ`) คำอธิบายยาวซ่อนใน tooltip (`Field hint`) หรือ `<details>`
 4. **Progressive disclosure:** ตัวเลือกพื้นฐานก่อน ขั้นสูงพับไว้
@@ -59,12 +60,12 @@ src/
   styles.css           โทเคน + base
   lib/                 types, mock data, store (zustand), simulation, format
   components/ui/       คอมโพเนนต์ร่วม
-  components/shell/    Sidebar, Topbar, StatusBar, Toasts, CommandPalette, NotificationPanel
-  features/            accounts · captcha · proxy · rules · settings · auth · update · design
+  components/shell/    Sidebar (เมนู 2 อัน + สถานะ + เมนูจำลอง), Toasts, CommandPalette
+  features/            accounts · settings · auth · update · design
 ```
 
-เส้นทาง: `#/accounts/:id?/:tab?` · `#/captcha` · `#/proxy` · `#/rules` · `#/settings/:section?` · `#/design` · `#/login`
+เส้นทาง: `#/accounts` (การ์ด / หน้าต้อนรับเมื่อไม่มีบัญชี) · `#/accounts/:id/:tab?` (ภาพรวม · หน้าจอไลฟ์) · `#/accounts/:id/advanced/:sub?` (เซสชัน · บันทึก · Network · สคริปต์ · หน้าต่าง) · `#/settings` · `#/design` · `#/login`
 
 ## สิ่งที่ mock จำลอง
 
-เมนูแฟลสก์บนแถบบน = จำลอง Captcha (Jigsaw/Symbol), อัปเดตใหม่/บังคับ, แจ้งเตือน · `Ctrl K` = พาเลตต์คำสั่ง · รหัสผ่าน `wrong` ที่หน้า Login = จำลองผิดพลาด
+ปุ่ม "จำลองเหตุการณ์" ล่างเมนูซ้าย = จำลอง Captcha ที่ AI แก้ได้/แก้ไม่ผ่าน, อัปเดตใหม่/บังคับ · `Ctrl K` = พาเลตต์คำสั่ง · รหัสผ่าน `wrong` ที่หน้า Login = จำลองผิดพลาด

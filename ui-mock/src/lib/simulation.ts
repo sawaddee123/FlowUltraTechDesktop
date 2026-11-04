@@ -19,7 +19,7 @@ export function useSimulation() {
           continue
         }
         s.patchInstance(inst.id, { captcha: { ...cap, countdown: left } })
-        if (s.settings.autoSolve && !scheduled.current.has(cap.id)) {
+        if (s.settings.autoSolve && !cap.aiFailed && !scheduled.current.has(cap.id)) {
           scheduled.current.add(cap.id)
           window.setTimeout(() => useApp.getState().solveCaptcha(inst.id, 'ai-auto'), s.settings.autoSolveDelay * 1000)
         }

@@ -37,22 +37,18 @@ function PaletteBody() {
   const cmds = useMemo<Cmd[]>(() => {
     const go = (to: string) => () => nav(to)
     return [
-      { id: 'n1', group: 'ไปที่', label: 'บัญชีสตูดิโอ', icon: <Users />, run: go('/accounts') },
-      { id: 'n2', group: 'ไปที่', label: 'ศูนย์ Captcha', icon: <ScanSearch />, run: go('/captcha') },
-      { id: 'n3', group: 'ไปที่', label: 'Proxy เครือข่าย', icon: <Globe />, run: go('/proxy') },
-      { id: 'n4', group: 'ไปที่', label: 'กฎตอบกลับ', icon: <MessagesSquare />, run: go('/rules') },
+      { id: 'n1', group: 'ไปที่', label: 'บัญชี', icon: <Users />, run: go('/accounts') },
       { id: 'n5', group: 'ไปที่', label: 'ตั้งค่า', icon: <Settings2 />, run: go('/settings') },
       ...st.instances.map<Cmd>((i) => ({
         id: 'i' + i.id, group: 'บัญชี', label: displayName(i), keywords: `${i.handle} ${i.name}`,
         icon: <Avatar name={displayName(i)} hue={i.hue} size={20} />, run: go(`/accounts/${i.id}`),
         trailing: <span className="text-xs text-subtle">{i.handle ? '@' + i.handle : i.name}</span>,
       })),
-      { id: 'a1', group: 'คำสั่ง', label: 'เริ่มทุกจอ', icon: <Play />, run: st.startAll },
-      { id: 'a2', group: 'คำสั่ง', label: 'ปิดทุกจอ', icon: <Square />, run: st.stopAll },
-      { id: 'a3', group: 'คำสั่ง', label: 'ซ่อนทุกจอ', icon: <EyeOff />, run: () => st.hideAll(true) },
-      { id: 'a4', group: 'คำสั่ง', label: 'แสดงทุกจอ', icon: <Eye />, run: () => st.hideAll(false) },
-      { id: 'a5', group: 'คำสั่ง', label: 'สแกน Captcha ทุกบัญชี', icon: <ScanSearch />, run: st.scanAll },
-      { id: 'a6', group: 'คำสั่ง', label: 'เพิ่มบัญชีใหม่', icon: <UserPlus />, run: () => { const id = st.addInstance(); if (id) nav(`/accounts/${id}`) } },
+      { id: 'a1', group: 'คำสั่ง', label: 'เริ่มทั้งหมด', icon: <Play />, run: st.startAll },
+      { id: 'a2', group: 'คำสั่ง', label: 'หยุดทั้งหมด', icon: <Square />, run: st.stopAll },
+      { id: 'a3', group: 'คำสั่ง', label: 'ซ่อนหน้าต่าง Studio ทั้งหมด', icon: <EyeOff />, run: () => st.hideAll(true) },
+      { id: 'a4', group: 'คำสั่ง', label: 'แสดงหน้าต่าง Studio ทั้งหมด', icon: <Eye />, run: () => st.hideAll(false) },
+      { id: 'a6', group: 'คำสั่ง', label: 'เพิ่มบัญชี', icon: <UserPlus />, run: () => st.setAddOpen(true) },
       { id: 'a7', group: 'คำสั่ง', label: st.theme === 'dark' ? 'สลับเป็นธีมสว่าง' : 'สลับเป็นธีมมืด', icon: <Moon />, run: () => st.setTheme(st.theme === 'dark' ? 'light' : 'dark') },
       { id: 'a8', group: 'คำสั่ง', label: 'ออกจากระบบ', icon: <LogOut />, run: () => { st.logout(); nav('/login') } },
     ]

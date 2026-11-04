@@ -94,6 +94,29 @@ export function Sheet({ open, onClose, title, children, footer, width = 420, dis
   )
 }
 
+/* ───────── Dialog (กล่องกลางจอ สำหรับงานสั้นๆ ที่ต้องโฟกัส) ───────── */
+export function Dialog({ open, onClose, label, children, width = 520, dismissible = true }: {
+  open: boolean; onClose: () => void; label: string; children: ReactNode; width?: number; dismissible?: boolean
+}) {
+  useEffect(() => {
+    if (!open || !dismissible) return
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [open, dismissible, onClose])
+  if (!open) return null
+  return createPortal(
+    <div className="fixed inset-0 z-[65] grid place-items-center overflow-y-auto p-4">
+      <div className="fixed inset-0 animate-fade-in" style={{ background: 'var(--scrim)' }} onClick={dismissible ? onClose : undefined} />
+      <section role="dialog" aria-modal="true" aria-label={label} style={{ maxWidth: width }}
+        className="relative w-full animate-rise rounded-[20px] bg-surface p-7 shadow-float hairline">
+        {children}
+      </section>
+    </div>,
+    document.body,
+  )
+}
+
 /* ───────── Confirm (ใช้เฉพาะการลบถาวร) ───────── */
 export function Confirm({ open, title, detail, confirmLabel, onConfirm, onCancel }: {
   open: boolean; title: string; detail?: string; confirmLabel: string; onConfirm: () => void; onCancel: () => void

@@ -147,7 +147,7 @@ export function ProxySection({ instance: i }: { instance: Instance }) {
               </Field>
             )}
             <div>
-              <Button size="sm" variant="ghost" icon={<ExternalLink className="size-3.5" />} onClick={() => nav('/proxy')}>จัดการ Proxy Pool</Button>
+              <Button size="sm" variant="ghost" icon={<ExternalLink className="size-3.5" />} onClick={() => nav('/settings')}>จัดการ Proxy</Button>
             </div>
           </div>
         )}

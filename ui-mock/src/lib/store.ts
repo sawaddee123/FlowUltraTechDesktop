@@ -25,11 +25,15 @@ interface State {
   server: { connected: boolean; latencyMs: number }
   update: { open: boolean; mandatory: boolean }
   paletteOpen: boolean
+  addOpen: boolean
+  helpId: string | null
 
   setTheme: (t: 'dark' | 'light') => void
   login: () => void
   logout: () => void
   setPalette: (v: boolean) => void
+  setAddOpen: (v: boolean) => void
+  setHelpId: (id: string | null) => void
   setStatus: (s: string) => void
 
   patchInstance: (id: string, patch: Partial<Instance>) => void
@@ -39,12 +43,11 @@ interface State {
   stopAll: () => void
   setWindowHidden: (id: string, hidden: boolean) => void
   hideAll: (hidden: boolean) => void
-  scanAll: () => void
   addInstance: () => string | null
   removeInstance: (id: string) => void
   openLogin: (id: string) => void
 
-  simulateCaptcha: (id?: string, kind?: CaptchaKind) => void
+  simulateCaptcha: (id?: string, kind?: CaptchaKind, aiFailed?: boolean) => void
   solveCaptcha: (id: string, mode: CaptchaRecord['mode']) => void
   dismissCaptcha: (id: string) => void
 
@@ -52,6 +55,7 @@ interface State {
   patchProxy: (id: string, patch: Partial<ProxyItem>) => void
   removeProxy: (id: string) => void
   testProxy: (id: string) => void
+  importProxies: (text: string) => number
 
   addRule: () => string
   patchRule: (id: string, patch: Partial<AutomationRule>) => void
@@ -81,6 +85,8 @@ export const useApp = create<State>((set, get) => ({
   server: { connected: true, latencyMs: 46 },
   update: { open: false, mandatory: false },
   paletteOpen: false,
+  addOpen: false,
+  helpId: null,
 
   setTheme: (theme) => {
     document.documentElement.dataset.theme = theme
@@ -90,6 +96,8 @@ export const useApp = create<State>((set, get) => ({
   login: () => set({ session: 'in' }),
   logout: () => set({ session: 'out' }),
   setPalette: (paletteOpen) => set({ paletteOpen }),
+  setAddOpen: (addOpen) => set({ addOpen }),
+  setHelpId: (helpId) => set({ helpId }),
   setStatus: (status) => set({ status }),
 
   patchInstance: (id, patch) =>
@@ -112,7 +120,8 @@ export const useApp = create<State>((set, get) => ({
         get().patchInstance(id, { status: 'error', error: 'CDP ไม่ตอบสนองที่พอร์ต ' + inst.cdpPort + ' (หมดเวลา 25 วินาที)' })
         get().push({ tone: 'bad', title: `${inst.name} เริ่มไม่สำเร็จ`, detail: 'CDP ไม่ตอบสนอง', instanceId: id }, true)
       } else {
-        get().patchInstance(id, { status: 'running', startedAt: Date.now(), lease: { active: true, ttlMin: 10 } })
+        // มอนิเตอร์แชทเปิดเองเมื่อเริ่ม ไม่ต้องให้ผู้ใช้กด
+        get().patchInstance(id, { status: 'running', startedAt: Date.now(), monitoring: true, windowHidden: get().settings.autoHideOnLaunch, lease: { active: true, ttlMin: 10 } })
         get().setStatus(`${inst.name} กำลังทำงาน`)
       }
     }, 1500)
@@ -130,29 +139,26 @@ export const useApp = create<State>((set, get) => ({
   },
   stopAll: () => {
     get().instances.forEach((i) => i.status !== 'stopped' && get().stopInstance(i.id))
-    get().toast({ tone: 'info', title: 'ปิดทุกจอแล้ว' })
+    get().toast({ tone: 'info', title: 'หยุดทุกบัญชีแล้ว' })
   },
   setWindowHidden: (id, windowHidden) => get().patchInstance(id, { windowHidden }),
   hideAll: (hidden) =>
     set((s) => ({ instances: s.instances.map((i) => (i.status === 'running' || i.status === 'starting' ? { ...i, windowHidden: hidden } : i)) })),
-  scanAll: () => {
-    const n = get().instances.filter((i) => i.status === 'running').length
-    get().toast({ tone: 'info', title: `สแกน Captcha ${n} บัญชี`, detail: n ? 'พบ 1 รายการรอแก้' : 'ไม่มีบัญชีที่ทำงานอยู่' })
-  },
   addInstance: () => {
     const s = get()
-    const n = s.instances.length + 1
+    // ต่อจากเลขสูงสุด ไม่ใช่จำนวนบัญชี — กัน id ซ้ำหลังลบบัญชีกลางรายการ
+    const n = Math.max(0, ...s.instances.map((i) => Number(i.id.slice(3)) || 0)) + 1
     const num = String(n).padStart(2, '0')
     const id = `acc${num}`
     const inst: Instance = {
+      // โฟลเดอร์ พอร์ต และ Proxy ตั้งให้อัตโนมัติ ผู้ใช้ไม่ต้องเห็น
       id, name: `Account ${num}`, folder: `Acc${num}`, cdpPort: 9220 + n, nickname: '', handle: '', hue: (n * 67) % 360,
       loggedIn: false, status: 'stopped', windowHidden: false, profileMode: 'direct', channel: '', monitoring: false,
-      proxyId: null, botProxy: { enabled: false, protocol: 'Socks5', host: '', port: 1080, username: '', password: '' },
+      proxyId: s.settings.proxyMode === 'off' ? null : s.proxies.find((p) => p.enabled && !s.instances.some((i) => i.proxyId === p.id))?.id ?? null, botProxy: { enabled: false, protocol: 'Socks5', host: '', port: 1080, username: '', password: '' },
       stats: { viewers: 0, chats: 0, gifts: 0, diamonds: 0, likes: 0, follows: 0, botReplies: 0 },
       autoReply: defaultAutoReply(), overlay: defaultOverlay(), lease: { active: false, ttlMin: 0 },
     }
     set({ instances: [...s.instances, inst] })
-    s.toast({ tone: 'ok', title: `เพิ่ม ${inst.name}`, detail: `โฟลเดอร์ ${inst.folder} · CDP ${inst.cdpPort}` })
     return id
   },
   removeInstance: (id) => {
@@ -165,11 +171,11 @@ export const useApp = create<State>((set, get) => ({
     get().setStatus('เปิด Studio เพื่อล็อกอิน… สแกน QR ในหน้าต่าง Studio')
     window.setTimeout(() => {
       get().patchInstance(id, { status: 'stopped', loggedIn: true, nickname: 'บัญชีใหม่', handle: 'new.account', channel: 'new.account' })
-      get().push({ tone: 'ok', title: 'ล็อกอิน TikTok สำเร็จ', detail: 'ตรวจพบบัญชี @new.account — ปิด Studio ให้แล้ว', instanceId: id }, true)
+      get().push({ tone: 'ok', title: 'ล็อกอิน TikTok สำเร็จ', detail: 'ตรวจพบบัญชี @new.account', instanceId: id })
     }, 3200)
   },
 
-  simulateCaptcha: (id, kind = 'jigsaw') => {
+  simulateCaptcha: (id, kind = 'jigsaw', aiFailed = false) => {
     const s = get()
     const target = s.instances.find((i) => (id ? i.id === id : i.status === 'running' && !i.captcha))
     if (!target || target.status !== 'running') {
@@ -177,9 +183,10 @@ export const useApp = create<State>((set, get) => ({
       return
     }
     s.patchInstance(target.id, {
-      captcha: { id: nid('cp'), kind, sessionId: Math.random().toString(16).slice(2, 12), detectedAt: Date.now(), countdown: 40 },
+      captcha: { id: nid('cp'), kind, sessionId: Math.random().toString(16).slice(2, 12), detectedAt: Date.now(), countdown: aiFailed ? 90 : 40, aiFailed },
     })
-    s.push({ tone: 'bad', title: `พบ ${kind === 'symbol' ? 'Symbol' : kind === 'jigsaw' ? 'Jigsaw' : 'Inactivity'} Captcha`, detail: `${target.nickname || target.name} · รอแก้ 40 วินาที`, instanceId: target.id }, true)
+    // แจ้งเฉพาะเมื่อต้องให้ผู้ใช้ช่วย — ถ้า AI แก้ได้ก็เงียบไว้
+    if (aiFailed || !s.settings.autoSolve) s.push({ tone: 'warn', title: `${target.nickname || target.name} ต้องให้คุณช่วยแก้ Captcha`, instanceId: target.id }, true)
   },
   solveCaptcha: (id, mode) => {
     const inst = get().instances.find((i) => i.id === id)
@@ -222,6 +229,20 @@ export const useApp = create<State>((set, get) => ({
     }, 1100)
   },
 
+  importProxies: (text) => {
+    const rows = text.split(/\r?\n/).map((l) => l.trim()).filter(Boolean)
+    const items: ProxyItem[] = []
+    for (const line of rows) {
+      const [host, port, username = '', password = ''] = line.split(':')
+      const n = Number(port)
+      if (!host || !Number.isInteger(n) || n < 1 || n > 65535) continue
+      items.push({ id: nid('px'), name: host, protocol: 'Socks5', host, port: n, username, password, enabled: true })
+    }
+    set((s) => ({ proxies: [...s.proxies, ...items] }))
+    items.forEach((p) => get().testProxy(p.id))
+    return items.length
+  },
+
   addRule: () => {
     const id = nid('r')
     set((s) => ({
@@ -232,10 +253,8 @@ export const useApp = create<State>((set, get) => ({
   patchRule: (id, patch) => set((s) => ({ rules: s.rules.map((r) => (r.id === id ? { ...r, ...patch } : r)) })),
   removeRule: (id) => set((s) => ({ rules: s.rules.filter((r) => r.id !== id) })),
 
-  saveSettings: (settings) => {
-    set({ settings })
-    get().toast({ tone: 'ok', title: 'บันทึกการตั้งค่าแล้ว', detail: 'ซิงก์ขึ้น Cloud สำเร็จ' })
-  },
+  // บันทึกทันทีที่เปลี่ยน ไม่มีปุ่มบันทึก
+  saveSettings: (settings) => set({ settings }),
   push: (n, toast) => {
     const item: AppNotification = { ...n, id: nid('n'), at: Date.now(), read: false }
     set((s) => ({ notifications: [item, ...s.notifications].slice(0, 60) }))

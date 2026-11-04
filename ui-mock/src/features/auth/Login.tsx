@@ -52,7 +52,7 @@ export default function Login() {
           <form onSubmit={submit} className="flex flex-col gap-4" noValidate>
             <div>
               <h1 className="text-2xl font-semibold tracking-tight">เข้าสู่ระบบ</h1>
-              <p className="mt-1 text-sm text-subtle">ใช้บัญชีที่ผู้ดูแลออกให้</p>
+              <p className="mt-1 text-sm text-subtle">ใช้บัญชีที่ได้รับตอนสมัครแพ็กเกจ</p>
             </div>
             <Field label="ชื่อผู้ใช้">
               <Input value={user} onChange={(e) => setUser(e.target.value)} autoComplete="username" autoFocus aria-invalid={!!error && !user} />
@@ -65,10 +65,15 @@ export default function Login() {
               <p role="alert" className="flex items-center gap-2 rounded-ctl bg-bad-soft px-3 py-2 text-sm text-bad"><CircleAlert className="size-4 shrink-0" aria-hidden />{error}</p>
             )}
 
-            <Button variant="primary" type="submit" loading={busy} className="h-10 w-full">เข้าสู่ระบบ</Button>
+            <label className="flex min-h-11 cursor-pointer items-center gap-2.5 text-sm">
+              <input type="checkbox" defaultChecked className="size-4.5 accent-[var(--primary)]" />
+              จำฉันไว้ ไม่ต้องล็อกอินทุกครั้ง
+            </label>
+
+            <Button variant="primary" type="submit" loading={busy} className="h-12 w-full text-base">เข้าสู่ระบบ</Button>
 
             <button type="button" onClick={() => setAdv((a) => !a)} aria-expanded={adv} className="flex items-center gap-1 self-start text-[13px] text-subtle hover:text-fg">
-              ขั้นสูง <ChevronDown className={`size-3.5 transition-transform ${adv ? 'rotate-180' : ''}`} aria-hidden />
+              เปลี่ยนเซิร์ฟเวอร์ <ChevronDown className={`size-3.5 transition-transform ${adv ? 'rotate-180' : ''}`} aria-hidden />
             </button>
             {adv && (
               <div className="flex animate-fade-in items-end gap-2">

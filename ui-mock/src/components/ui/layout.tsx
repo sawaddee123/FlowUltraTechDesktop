@@ -2,17 +2,18 @@ import { useRef, type ReactNode } from 'react'
 import { cn } from '@/lib/cn'
 
 /* ───────── Tabs (ARIA + ลูกศรซ้ายขวา) ───────── */
-export interface TabDef<T extends string> { id: T; label: string; icon?: ReactNode; badge?: ReactNode }
+export interface TabDef<T extends string> { id: T; label: string; icon?: ReactNode; badge?: ReactNode; disabled?: boolean }
 
 export function Tabs<T extends string>({ tabs, value, onChange, label, className, trailing }: {
   tabs: TabDef<T>[]; value: T; onChange: (id: T) => void; label: string; className?: string; trailing?: ReactNode
 }) {
   const ref = useRef<HTMLDivElement>(null)
   const onKey = (e: React.KeyboardEvent) => {
-    const i = tabs.findIndex((t) => t.id === value)
+    const live = tabs.filter((t) => !t.disabled)
+    const i = live.findIndex((t) => t.id === value)
     const next = e.key === 'ArrowRight' ? i + 1 : e.key === 'ArrowLeft' ? i - 1 : null
-    if (next == null) return
-    const t = tabs[(next + tabs.length) % tabs.length]
+    if (next == null || !live.length) return
+    const t = live[(next + live.length) % live.length]
     onChange(t.id)
     ref.current?.querySelector<HTMLElement>(`[data-tab="${t.id}"]`)?.focus()
     e.preventDefault()
@@ -25,10 +26,10 @@ export function Tabs<T extends string>({ tabs, value, onChange, label, className
           return (
             <button
               key={t.id} data-tab={t.id} role="tab" type="button" aria-selected={active} tabIndex={active ? 0 : -1}
-              onClick={() => onChange(t.id)}
+              disabled={t.disabled} onClick={() => onChange(t.id)}
               className={cn(
-                'relative inline-flex h-10 shrink-0 items-center gap-2 px-3 text-sm font-medium whitespace-nowrap transition-colors',
-                active ? 'text-fg' : 'text-subtle hover:text-fg',
+                'relative inline-flex h-10 shrink-0 items-center gap-2 px-3 text-sm font-medium whitespace-nowrap transition-colors disabled:cursor-not-allowed',
+                active ? 'text-fg' : t.disabled ? 'text-subtle/70' : 'text-subtle hover:text-fg',
               )}
             >
               {t.icon && <span className="[&>svg]:size-4">{t.icon}</span>}

@@ -19,20 +19,32 @@ export function ago(t: number, now = Date.now()) {
 
 export function uptime(since?: number, now = Date.now()) {
   if (!since) return '—'
-  const m = Math.floor((now - since) / 60000)
+  // useNow อาจช้ากว่าเวลาเริ่มจริงไม่กี่วินาที — กันค่าติดลบ
+  const m = Math.max(0, Math.floor((now - since) / 60000))
   return m < 60 ? `${m} น.` : `${Math.floor(m / 60)} ชม. ${m % 60} น.`
 }
 
 export const statusMeta: Record<InstanceStatus, { label: string; tone: Tone }> = {
-  running: { label: 'ทำงาน', tone: 'ok' },
+  running: { label: 'กำลังไลฟ์', tone: 'ok' },
   starting: { label: 'กำลังเริ่ม', tone: 'warn' },
-  error: { label: 'ผิดพลาด', tone: 'bad' },
-  stopped: { label: 'หยุด', tone: 'neutral' },
+  error: { label: 'เริ่มไม่สำเร็จ', tone: 'bad' },
+  stopped: { label: 'หยุดอยู่', tone: 'neutral' },
 }
 
 export const captchaLabel: Record<CaptchaKind, string> = { jigsaw: 'Jigsaw', symbol: 'Symbol', inactivity: 'Inactivity' }
 
 export const displayName = (i: Instance) => i.nickname || i.name
+
+/** Captcha ที่ผู้ใช้ต้องลงมือเอง: AI แก้ไม่ผ่าน หรือปิดแก้อัตโนมัติไว้ */
+export const needsHelp = (i: Instance, autoSolve: boolean) => !!i.captcha && (!!i.captcha.aiFailed || !autoSolve)
+
+/** สถานะที่ผู้ใช้เห็นบนการ์ด — รวม Captcha และการล็อกอินไว้ในป้ายเดียว */
+export function cardStatus(i: Instance, autoSolve: boolean): { label: string; tone: Tone } {
+  if (!i.loggedIn && i.status === 'stopped') return { label: 'ยังไม่ล็อกอิน', tone: 'warn' }
+  if (needsHelp(i, autoSolve)) return { label: 'รอคุณช่วย', tone: 'warn' }
+  if (i.captcha) return { label: 'AI กำลังแก้ Captcha', tone: 'info' }
+  return statusMeta[i.status]
+}
 
 /** นาฬิกากลาง 1 วินาที — ใช้ให้ "x วินาทีก่อน" ขยับโดยไม่เรนเดอร์ทั้งแอป */
 export function useNow(intervalMs = 1000) {

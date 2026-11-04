@@ -1,12 +1,9 @@
-﻿import { useState } from 'react'
-import { Play, Square } from 'lucide-react'
 import type { ClockMode, OverlayConfig } from '@/lib/types'
 import { useApp } from '@/lib/store'
 import { useNow } from '@/lib/format'
 import { cn } from '@/lib/cn'
-import { Button, CopyButton, Segmented, Switch } from '@/components/ui/base'
-import { Field, Input, NumberInput, Select, ToggleRow, ColorInput } from '@/components/ui/form'
-import { Section } from '@/components/ui/layout'
+import { CopyButton, Segmented, Switch } from '@/components/ui/base'
+import { Field, Input, Select } from '@/components/ui/form'
 import type { TabProps } from './registry'
 
 const MODES: { value: ClockMode; label: string }[] = [
@@ -53,98 +50,48 @@ function Preview({ o }: { o: OverlayConfig }) {
   )
 }
 
+const BACKGROUNDS: { value: OverlayConfig['background']; label: string }[] = [
+  { value: 'glass-dark', label: 'กระจกมืด' }, { value: 'glass-light', label: 'สว่าง' }, { value: 'transparent', label: 'โปร่งใส' },
+]
+
+/** ตั้งน้อยที่สุด: แบบนาฬิกา พื้นหลัง ข้อความ — ที่เหลือใช้ค่าเริ่มต้น บันทึกทันทีที่เปลี่ยน */
 export default function OverlayTab({ instance }: TabProps) {
   const patch = useApp((s) => s.patchInstance)
-  const toast = useApp((s) => s.toast)
   const port = useApp((s) => s.settings.overlayPort)
-  const [draft, setDraft] = useState<OverlayConfig>(instance.overlay)
-  const dirty = JSON.stringify(draft) !== JSON.stringify(instance.overlay)
-  const set = (p: Partial<OverlayConfig>) => setDraft((c) => ({ ...c, ...p }))
+  const o = instance.overlay
+  const set = (p: Partial<OverlayConfig>) => patch(instance.id, { overlay: { ...o, ...p } })
   const url = `http://127.0.0.1:${port}/overlay/${instance.id}`
-  const counting = !!draft.flashEndsAt && draft.flashEndsAt > Date.now()
-
-  const save = () => {
-    patch(instance.id, { overlay: draft })
-    toast({ tone: 'ok', title: 'บันทึก Overlay แล้ว' })
-  }
 
   return (
-    <div className="relative flex h-full min-h-0 flex-col">
-      <div className="grid min-h-0 flex-1 gap-6 overflow-y-auto px-6 py-4 lg:grid-cols-[minmax(0,1fr)_300px]">
-        <div className="flex min-w-0 flex-col gap-6">
-          <Section title="ทั่วไป">
-            <ToggleRow title="เปิดใช้ Overlay" sub="แสดงนาฬิกาและนาทีทองบนสตรีม">
-              <Switch checked={draft.enabled} onChange={(v) => set({ enabled: v })} label="เปิดใช้ Overlay" />
-            </ToggleRow>
-            <div className="grid gap-3 sm:grid-cols-2">
-              <Field label="รูปแบบนาฬิกา">
-                <Select value={draft.clockMode} onChange={(e) => set({ clockMode: e.target.value as ClockMode })} className="h-9">
-                  {MODES.map((m) => <option key={m.value} value={m.value}>{m.label}</option>)}
-                </Select>
-              </Field>
-              <Field label="พื้นหลัง">
-                <Select value={draft.background} onChange={(e) => set({ background: e.target.value as OverlayConfig['background'] })} className="h-9">
-                  <option value="transparent">โปร่งใส</option><option value="glass-dark">กระจกเข้ม</option><option value="glass-light">กระจกสว่าง</option>
-                </Select>
-              </Field>
-              <Field label="สีหลัก"><ColorInput label="สีหลัก" value={draft.primaryColor} onChange={(v) => set({ primaryColor: v })} /></Field>
-              <Field label="สีเน้น"><ColorInput label="สีเน้น" value={draft.accentColor} onChange={(v) => set({ accentColor: v })} /></Field>
-              <Field label="ชื่อแบรนด์"><Input value={draft.brandText} onChange={(e) => set({ brandText: e.target.value })} className="h-9" /></Field>
-              <Field label="ข้อความรอง"><Input value={draft.subtitleText} onChange={(e) => set({ subtitleText: e.target.value })} className="h-9" /></Field>
-            </div>
-          </Section>
-
-          <Section title="เวลา">
-            <div className="mb-1">
-              <Segmented label="รูปแบบเวลา" value={draft.use24h ? 24 : 12} onChange={(v) => set({ use24h: v === 24 })}
-                options={[{ value: 24, label: '24 ชั่วโมง' }, { value: 12, label: '12 ชั่วโมง' }]} />
-            </div>
-            <ToggleRow title="แสดงวินาที"><Switch checked={draft.showSeconds} onChange={(v) => set({ showSeconds: v })} label="แสดงวินาที" /></ToggleRow>
-            <ToggleRow title="วันที่ไทย" sub="แสดงเป็น พ.ศ."><Switch checked={draft.showThaiDate} onChange={(v) => set({ showThaiDate: v })} label="แสดงวันที่ไทย" /></ToggleRow>
-          </Section>
-
-          <Section title="เอฟเฟกต์">
-            <ToggleRow title="แสงสะท้อน"><Switch checked={draft.glare} onChange={(v) => set({ glare: v })} label="แสงสะท้อน" /></ToggleRow>
-            <ToggleRow title="เงา"><Switch checked={draft.shadow} onChange={(v) => set({ shadow: v })} label="เงา" /></ToggleRow>
-            <ToggleRow title="สั่นเล็กน้อย" sub="กันภาพค้างบนจอ"><Switch checked={draft.jitter} onChange={(v) => set({ jitter: v })} label="สั่นเล็กน้อย" /></ToggleRow>
-            <ToggleRow title="ข้อความวิ่ง"><Switch checked={draft.ticker} onChange={(v) => set({ ticker: v })} label="ข้อความวิ่ง" /></ToggleRow>
-          </Section>
-
-          <Section title="นาทีทอง (Flash deal)">
-            <ToggleRow title="เปิดนาทีทอง"><Switch checked={draft.flashDeal} onChange={(v) => set({ flashDeal: v })} label="เปิดนาทีทอง" /></ToggleRow>
-            <div className="grid gap-3 sm:grid-cols-[1fr_160px_auto] sm:items-end">
-              <Field label="หัวข้อ"><Input value={draft.flashTitle} disabled={!draft.flashDeal} onChange={(e) => set({ flashTitle: e.target.value })} className="h-9" /></Field>
-              <Field label="เวลา"><NumberInput value={draft.flashSeconds} min={10} max={3600} suffix="วิ" onChange={(n) => set({ flashSeconds: n })} /></Field>
-              {counting ? (
-                <Button icon={<Square className="size-3.5 fill-current" />} onClick={() => set({ flashEndsAt: undefined })}>หยุดนับ</Button>
-              ) : (
-                <Button disabled={!draft.flashDeal} icon={<Play className="size-3.5 fill-current" />}
-                  onClick={() => set({ flashEndsAt: Date.now() + draft.flashSeconds * 1000 })}>เริ่มนับถอยหลัง</Button>
-              )}
-            </div>
-          </Section>
-        </div>
-
-        <aside className="flex min-w-0 flex-col gap-4 lg:sticky lg:top-0 lg:self-start" aria-label="ตัวอย่างและลิงก์">
-          <Preview o={draft} />
-          <Field label="URL สำหรับ OBS (Browser Source)">
-            <div className="flex items-center gap-1.5 rounded-ctl bg-surface-2 py-1 pl-3 pr-1">
-              <span className="min-w-0 flex-1 truncate font-mono text-[13px] text-muted" title={url}>{url}</span>
-              <CopyButton text={url} label="คัดลอก URL" />
-            </div>
-          </Field>
-        </aside>
-      </div>
-
-      {dirty && (
-        <div role="region" aria-label="การเปลี่ยนแปลงที่ยังไม่บันทึก" className="sticky bottom-0 flex shrink-0 items-center justify-between gap-3 bg-surface px-6 py-3 shadow-float">
-          <span className="text-sm text-muted">มีการเปลี่ยนแปลงที่ยังไม่บันทึก</span>
-          <div className="flex gap-2">
-            <Button variant="ghost" onClick={() => setDraft(instance.overlay)}>ยกเลิก</Button>
-            <Button variant="primary" onClick={save}>บันทึก</Button>
+    <div className="flex flex-wrap items-start gap-6">
+      <div className="w-full max-w-[320px] flex-[1_1_280px]"><Preview o={o} /></div>
+      <div className="flex max-w-[520px] flex-[1_1_320px] flex-col gap-5">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h2 className="text-lg font-semibold">นาฬิกาบนไลฟ์</h2>
+            <p className="text-sm text-muted">ใส่ลิงก์ครั้งเดียว ใช้ได้ทุกไลฟ์</p>
           </div>
+          <Switch checked={o.enabled} onChange={(v) => set({ enabled: v })} label="แสดงนาฬิกาบนไลฟ์" />
         </div>
-      )}
+        <Field label="แบบนาฬิกา">
+          <Select value={o.clockMode} onChange={(e) => set({ clockMode: e.target.value as ClockMode })} className="h-11">
+            {MODES.map((m) => <option key={m.value} value={m.value}>{m.label}</option>)}
+          </Select>
+        </Field>
+        <Field label="พื้นหลัง">
+          <Segmented label="พื้นหลัง" value={o.background} onChange={(v) => set({ background: v })} options={BACKGROUNDS} />
+        </Field>
+        <Field label="ข้อความใต้นาฬิกา">
+          <Input value={o.brandText} onChange={(e) => set({ brandText: e.target.value })} className="h-11" />
+        </Field>
+        <div className="flex flex-col gap-2">
+          <div className="flex items-center gap-1.5 rounded-ctl bg-surface-2 py-1 pl-3 pr-1">
+            <span className="min-w-0 flex-1 truncate font-mono text-[13px] text-muted" title={url}>{url}</span>
+            <CopyButton text={url} label="คัดลอกลิงก์" />
+          </div>
+          <p className="text-[13px] text-muted">ใน TikTok LIVE Studio กด เพิ่มแหล่งที่มา › ลิงก์ แล้ววาง</p>
+        </div>
+      </div>
     </div>
   )
 }
