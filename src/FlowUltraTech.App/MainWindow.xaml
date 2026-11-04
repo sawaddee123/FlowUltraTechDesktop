@@ -1312,8 +1312,7 @@
                                                                                     <CheckBox Content="ระบบ 24 ชม." IsChecked="{Binding OverlayUse24HourFormat, Mode=TwoWay}" Foreground="{DynamicResource FgBrush}" FontSize="11" Margin="0,0,14,6" />
                                                                                     <CheckBox Content="แสงสะท้อนบนหน้าปัด" IsChecked="{Binding OverlayEnableGlare, Mode=TwoWay}" Foreground="{DynamicResource FgBrush}" FontSize="11" Margin="0,0,14,6" />
                                                                                     <CheckBox Content="เงาของนาฬิกา" IsChecked="{Binding OverlayEnableShadow, Mode=TwoWay}" Foreground="{DynamicResource FgBrush}" FontSize="11" Margin="0,0,14,6" />
-                                                                                    <CheckBox Content="ภาพสั่นเล็กน้อยให้เหมือนกล้องจริง" IsChecked="{Binding OverlayEnableJitter, Mode=TwoWay}" Foreground="{DynamicResource FgBrush}" FontSize="11" Margin="0,0,14,6" />
-                                                                                    <CheckBox Content="ป้ายจำนวนผู้ชม" IsChecked="{Binding OverlayEnableLiveTicker, Mode=TwoWay}" Foreground="{DynamicResource FgBrush}" FontSize="11" Margin="0,0,0,6" />
+                                                                                    <CheckBox Content="ภาพสั่นเล็กน้อยให้เหมือนกล้องจริง" IsChecked="{Binding OverlayEnableJitter, Mode=TwoWay}" Foreground="{DynamicResource FgBrush}" FontSize="11" Margin="0,0,0,6" />
                                                                                 </WrapPanel>
                                                                             </StackPanel>
                                                                         </Border>

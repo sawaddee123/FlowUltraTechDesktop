@@ -538,9 +538,8 @@ public class OverlayServerService : IOverlayServerService
 
         Guid targetProfileId = ExtractProfileId(path, query);
         var initialConfig = GetConfig(targetProfileId);
-        _lastEvents.TryGetValue(targetProfileId, out var lastEvent);
 
-        string html = BuildOverlayHtmlDocument(targetProfileId, initialConfig, lastEvent);
+        string html = BuildOverlayHtmlDocument(targetProfileId, initialConfig);
         byte[] bodyBytes = Encoding.UTF8.GetBytes(html);
         await WriteHttpResponseAsync(stream, "200 OK", "text/html; charset=utf-8", bodyBytes, ct).ConfigureAwait(false);
     }
@@ -735,13 +734,9 @@ public class OverlayServerService : IOverlayServerService
 
     private static string BuildOverlayHtmlDocument(
         Guid profileId,
-        OverlayConfig initialConfig,
-        OverlayLiveEventPayload? lastEvent)
+        OverlayConfig initialConfig)
     {
         string initialConfigJson = BuildConfigEnvelope(profileId, initialConfig, "initial");
-        string initialEventJson = lastEvent != null
-            ? JsonSerializer.Serialize(lastEvent, JsonOptions)
-            : "null";
 
         return $$"""
 <!DOCTYPE html>
@@ -846,7 +841,7 @@ public class OverlayServerService : IOverlayServerService
         inset 0 -6px 12px rgba(10, 5, 2, 0.65);
     }
 
-    .overlay-stage:not(.fx-shadow) .digital-clean-card {
+    .overlay-stage:not(.fx-shadow) .led-panel {
       box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.10);
     }
 
@@ -955,7 +950,7 @@ public class OverlayServerService : IOverlayServerService
       display: flex;
     }
 
-    .clock-viewport[data-mode="DigitalClean"] .face-digital-clean {
+    .clock-viewport[data-mode="DigitalClean"] .face-led-panel {
       display: flex;
     }
 
@@ -1077,103 +1072,78 @@ public class OverlayServerService : IOverlayServerService
       color: rgba(254, 243, 199, 0.78);
     }
 
-    /* Mode 5: DigitalClean (Broadcast Swiss Typography HUD) */
-    .digital-clean-card {
+    /* Mode 5: DigitalClean (Red 7-Segment LED Wall Panel) */
+    .led-panel {
       position: relative;
       overflow: hidden;
       width: 264px;
-      padding: 15px 18px;
-      border-radius: 18px;
-      background: linear-gradient(155deg, rgba(15, 23, 42, 0.90) 0%, rgba(11, 15, 25, 0.96) 100%);
-      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.10), 0 12px 24px rgba(2, 6, 23, 0.42);
+      padding: 14px 14px 11px;
+      border-radius: 10px;
+      background: linear-gradient(180deg, #0C0C0E 0%, #040405 100%);
+      box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.06), inset 0 2px 10px rgba(0, 0, 0, 0.85), 0 12px 24px rgba(2, 6, 23, 0.45);
       display: flex;
       flex-direction: column;
-      gap: 6px;
+      gap: 8px;
     }
 
-    .digital-header-row {
+    .seg-row {
       display: flex;
       align-items: center;
-      justify-content: space-between;
-      gap: 6px;
+      gap: 3px;
+      transform: skewX(-6deg);
+      filter: drop-shadow(0 0 5px color-mix(in srgb, var(--accent-color) 65%, transparent));
     }
 
-    .digital-brand-pill {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      font-size: 10px;
-      font-weight: 700;
-      letter-spacing: 0.12em;
-      text-transform: uppercase;
-      color: #E2E8F0;
-      max-width: 155px;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
+    .seg-row svg { display: block; height: 100%; width: auto; }
+    .seg-row .on { fill: var(--accent-color); }
+    .seg-row .off { fill: color-mix(in srgb, var(--accent-color) 9%, transparent); }
+    .seg-row circle { fill: var(--accent-color); transition: opacity 120ms linear; }
+    .seg-row.colon-off circle { opacity: 0.12; }
+
+    .led-time {
+      height: 50px;
+      justify-content: center;
     }
 
-    .digital-tz-badge {
-      font-family: var(--font-mono);
-      font-size: 9px;
-      font-weight: 700;
-      padding: 2px 6px;
-      border-radius: 6px;
-      background: rgba(99, 102, 241, 0.18);
-      color: #A5B4FC;
-      max-width: 82px;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-
-    .digital-main-time {
-      display: flex;
-      align-items: baseline;
-      justify-content: flex-start;
-      gap: 4px;
-      font-family: var(--font-mono);
-      font-variant-numeric: tabular-nums;
-      line-height: 1;
-      margin: 4px 0 2px;
-    }
-
-    .digital-hm {
-      font-size: 42px;
-      font-weight: 800;
-      letter-spacing: -0.03em;
-      color: var(--primary-color);
-    }
-
-    .digital-sec-col {
-      display: flex;
-      flex-direction: column;
-      align-items: flex-start;
-      gap: 2px;
-    }
-
-    .digital-sec {
-      font-size: 17px;
-      font-weight: 800;
-      color: var(--accent-color);
-    }
-
-    .digital-ampm {
-      font-size: 9px;
-      font-weight: 700;
-      letter-spacing: 0.08em;
-      color: #94A3B8;
-    }
-
-    .digital-footer-row {
+    .led-mid {
       display: flex;
       align-items: center;
       justify-content: space-between;
       gap: 8px;
-      padding-top: 6px;
-      border-top: 1px solid rgba(148, 163, 184, 0.14);
-      font-size: 11px;
-      color: #CBD5E1;
+      font-size: 10px;
+      font-weight: 800;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+    }
+
+    .led-brand {
+      max-width: 170px;
+      color: rgba(248, 250, 252, 0.7);
+    }
+
+    .led-weekday {
+      color: var(--accent-color);
+      text-shadow: 0 0 6px color-mix(in srgb, var(--accent-color) 70%, transparent);
+    }
+
+    .led-date {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+    }
+
+    .led-date .seg-row {
+      height: 17px;
+      gap: 2px;
+    }
+
+    .led-label {
+      margin-right: 5px;
+      font-size: 10px;
+      font-weight: 800;
+      letter-spacing: 0.04em;
+      color: #F8FAFC;
     }
 
     /* Truncation Utilities (State 4: Overflow Protection) */
@@ -1181,104 +1151,6 @@ public class OverlayServerService : IOverlayServerService
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
-    }
-
-    /* Broadcast Lower-Third Live Event Ticker (State 1 Ideal & State 2 Empty) */
-    .live-ticker-bar {
-      width: 264px;
-      min-height: 36px;
-      padding: 6px 11px;
-      border-radius: 12px;
-      background: rgba(15, 23, 42, 0.90);
-      backdrop-filter: blur(12px);
-      -webkit-backdrop-filter: blur(12px);
-      box-shadow: 0 8px 18px rgba(2, 6, 23, 0.38), inset 0 1px 0 rgba(255, 255, 255, 0.08);
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      transition: opacity 220ms var(--ease-out-quart), transform 220ms var(--ease-out-expo);
-    }
-
-    .live-ticker-bar.is-disabled {
-      display: none;
-    }
-
-    .status-dot {
-      width: 7px;
-      height: 7px;
-      border-radius: 999px;
-      background: #10B981;
-      flex-shrink: 0;
-      box-shadow: 0 0 8px rgba(16, 185, 129, 0.75);
-      animation: livePulse 2s ease-in-out infinite;
-    }
-
-    .overlay-stage[data-conn="reconnecting"] .status-dot {
-      background: #F59E0B;
-      box-shadow: 0 0 8px rgba(245, 158, 11, 0.65);
-    }
-
-    @keyframes livePulse {
-      0%, 100% { opacity: 1; transform: scale(1); }
-      50%      { opacity: 0.52; transform: scale(0.86); }
-    }
-
-    .ticker-badge {
-      display: inline-flex;
-      align-items: center;
-      gap: 4px;
-      padding: 2px 6px;
-      border-radius: 6px;
-      font-size: 10px;
-      font-weight: 700;
-      letter-spacing: 0.04em;
-      background: rgba(99, 102, 241, 0.22);
-      color: #C7D2FE;
-      flex-shrink: 0;
-    }
-
-    .ticker-badge[data-type="gift"] {
-      background: rgba(245, 158, 11, 0.24);
-      color: #FDE68A;
-    }
-
-    .ticker-badge[data-type="join"],
-    .ticker-badge[data-type="follow"] {
-      background: rgba(16, 185, 129, 0.22);
-      color: #A7F3D0;
-    }
-
-    .ticker-badge[data-type="like"] {
-      background: rgba(244, 63, 94, 0.22);
-      color: #FECDD3;
-    }
-
-    .ticker-content {
-      display: flex;
-      align-items: center;
-      gap: 5px;
-      min-width: 0;
-      flex: 1;
-      font-size: 11.5px;
-    }
-
-    .ticker-nickname {
-      font-weight: 700;
-      color: #F8FAFC;
-      max-width: 96px;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      flex-shrink: 0;
-    }
-
-    .ticker-message {
-      color: #CBD5E1;
-      max-width: 150px;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      flex: 1;
     }
 
     /* Flash Deal Countdown Banner */
@@ -1453,39 +1325,21 @@ public class OverlayServerService : IOverlayServerService
           </div>
         </div>
 
-        <!-- Mode 5: DigitalClean -->
-        <div class="clock-face face-digital-clean">
-          <div class="digital-clean-card">
+        <!-- Mode 5: DigitalClean (red 7-segment LED wall panel) -->
+        <div class="clock-face face-led-panel">
+          <div class="led-panel">
             <div class="glare-layer glare-card" aria-hidden="true"></div>
-            <div class="digital-header-row">
-              <span class="digital-brand-pill">
-                <span class="status-dot" aria-hidden="true"></span>
-                <span id="digitalBrandText" class="truncate-text">LIVE STUDIO</span>
-              </span>
-              <span id="digitalTzBadge" class="digital-tz-badge">Asia/Bangkok</span>
+            <div id="ledTime" class="seg-row led-time" aria-label="Time"></div>
+            <div class="led-mid">
+              <span id="ledBrandText" class="led-brand truncate-text">LIVE STUDIO</span>
+              <span id="ledWeekday" class="led-weekday">---</span>
             </div>
-            <div class="digital-main-time">
-              <span id="digitalTimeHm" class="digital-hm">00:00</span>
-              <div class="digital-sec-col">
-                <span id="digitalTimeSec" class="digital-sec">:00</span>
-                <span id="digitalAmPm" class="digital-ampm">24H</span>
-              </div>
-            </div>
-            <div class="digital-footer-row">
-              <span id="digitalDateText" class="truncate-text" style="max-width: 135px;">--</span>
-              <span id="digitalSubtitleText" class="truncate-text" style="max-width: 75px; font-weight: 700;">VERIFIED</span>
+            <div class="led-date">
+              <span id="ledDay" class="seg-row"></span><span id="ledDayLabel" class="led-label">DATE</span>
+              <span id="ledMonth" class="seg-row"></span><span id="ledMonthLabel" class="led-label">MON</span>
+              <span id="ledYear" class="seg-row"></span><span id="ledYearLabel" class="led-label">YEAR</span>
             </div>
           </div>
-        </div>
-      </section>
-
-      <!-- Broadcast Lower-Third Live Proof Ticker -->
-      <section id="liveTickerBar" class="live-ticker-bar" aria-live="polite">
-        <span class="status-dot" aria-hidden="true"></span>
-        <span id="tickerBadge" class="ticker-badge" data-type="status">LIVE</span>
-        <div class="ticker-content">
-          <span id="tickerNickname" class="ticker-nickname">ยืนยันเวลาจริง</span>
-          <span id="tickerMessage" class="ticker-message">ซิงก์สัญญาณสด</span>
         </div>
       </section>
 
@@ -1519,17 +1373,7 @@ public class OverlayServerService : IOverlayServerService
         "GlassLight"
       ];
 
-      const EVENT_LABELS = {
-        chat: "แชทสด",
-        join: "เข้าชม",
-        gift: "ของขวัญ",
-        like: "ถูกใจ",
-        follow: "ติดตาม",
-        deal: "ดีลสด"
-      };
-
       const initialEnvelope = {{initialConfigJson}};
-      const initialLastEvent = {{initialEventJson}};
 
       let state = normalizeConfig(initialEnvelope.config || initialEnvelope);
       let ws = null;
@@ -1667,36 +1511,15 @@ public class OverlayServerService : IOverlayServerService
         setText("analogSubtitleText", (state.subtitleText || "REALTIME VERIFIED").slice(0, 26));
         setText("woodBrandText", state.brandText || "LIVE STUDIO");
         setText("woodSubtitleText", state.subtitleText || "VERIFIED");
-        setText("digitalBrandText", state.brandText || "LIVE STUDIO");
-        setText("digitalSubtitleText", state.subtitleText || "VERIFIED");
-        setText("digitalTzBadge", state.timeZoneId || "Asia/Bangkok");
+        setText("ledBrandText", state.brandText || "LIVE STUDIO");
+        setText("ledDayLabel", state.showThaiDate ? "วันที่" : "DATE");
+        setText("ledMonthLabel", state.showThaiDate ? "เดือน" : "MON");
+        setText("ledYearLabel", state.showThaiDate ? "พ.ศ." : "YEAR");
         setText("woodTzText", (state.timeZoneId || "Asia/Bangkok").split("/").pop());
-
-        // Live Ticker Toggle
-        const tickerBar = document.getElementById("liveTickerBar");
-        if (tickerBar) {
-          tickerBar.classList.toggle("is-disabled", !state.enableLiveEventTicker);
-        }
 
         // Flash Deal Toggle
         setText("dealTitleText", state.flashDealTitle || "โปรนาทีทอง ส่งฟรี");
         updateClockAndCountdown();
-      }
-
-      function applyLiveEvent(ev) {
-        if (!ev) return;
-        const typeKey = String(ev.eventType || ev.EventType || "chat").toLowerCase();
-        const badgeLabel = ev.badgeText || ev.BadgeText || EVENT_LABELS[typeKey] || "สด";
-        const nick = ev.nickname || ev.Nickname || ev.username || ev.Username || "ผู้ชม";
-        const msg = ev.message || ev.Message || "";
-
-        const badgeEl = document.getElementById("tickerBadge");
-        if (badgeEl) {
-          badgeEl.setAttribute("data-type", typeKey);
-          badgeEl.textContent = badgeLabel;
-        }
-        setText("tickerNickname", nick);
-        setText("tickerMessage", msg || "เข้าร่วมรับชมไลฟ์สด");
       }
 
       function setText(id, text) {
@@ -1748,7 +1571,25 @@ public class OverlayServerService : IOverlayServerService
           thaiDate = now.toLocaleDateString();
         }
 
+        const date = { day: 1, month: 1, year: 1970, weekday: "" };
+        new Intl.DateTimeFormat("en-US", {
+          timeZone: safeTz,
+          day: "numeric",
+          month: "numeric",
+          year: "numeric",
+          weekday: "short"
+        }).formatToParts(now).forEach(function (p) {
+          if (p.type === "weekday") date.weekday = p.value.toUpperCase();
+          else if (p.type in date) date[p.type] = parseInt(p.value, 10);
+        });
+        let weekdayTh = date.weekday;
+        try {
+          weekdayTh = new Intl.DateTimeFormat("th-TH", { timeZone: safeTz, weekday: "long" }).format(now);
+        } catch (_) {}
+
         return {
+          date: date,
+          weekdayTh: weekdayTh,
           h24: h24,
           displayHour: displayHour,
           m: m,
@@ -1761,6 +1602,37 @@ public class OverlayServerService : IOverlayServerService
 
       function pad2(n) {
         return n < 10 ? "0" + n : String(n);
+      }
+
+      // 7-segment LED digits (viewBox 60x100): segment polygons and which light up per digit
+      const SEGMENTS = {
+        a: "10,8 16,2 44,2 50,8 44,14 16,14",
+        b: "52,11 58,17 58,43 52,49 46,43 46,17",
+        c: "52,51 58,57 58,83 52,89 46,83 46,57",
+        d: "10,92 16,86 44,86 50,92 44,98 16,98",
+        e: "8,51 14,57 14,83 8,89 2,83 2,57",
+        f: "8,11 14,17 14,43 8,49 2,43 2,17",
+        g: "10,50 16,44 44,44 50,50 44,56 16,56"
+      };
+      const DIGIT_SEGMENTS = ["abcdef", "bc", "abdeg", "abcdg", "bcfg", "acdfg", "acdefg", "abc", "abcdefg", "abcdfg"];
+
+      function segGlyph(ch) {
+        if (ch === ":") {
+          return '<svg viewBox="0 0 16 100"><circle cx="8" cy="32" r="5"/><circle cx="8" cy="68" r="5"/></svg>';
+        }
+        const lit = DIGIT_SEGMENTS[parseInt(ch, 10)] || "";
+        let svg = '<svg viewBox="0 0 60 100">';
+        for (const k in SEGMENTS) {
+          svg += '<polygon class="' + (lit.indexOf(k) >= 0 ? "on" : "off") + '" points="' + SEGMENTS[k] + '"/>';
+        }
+        return svg + "</svg>";
+      }
+
+      function setSeg(id, str) {
+        const el = document.getElementById(id);
+        if (!el || el.dataset.v === str) return;
+        el.dataset.v = str;
+        el.innerHTML = Array.from(str, segGlyph).join("");
       }
 
       function updateClockAndCountdown() {
@@ -1783,14 +1655,17 @@ public class OverlayServerService : IOverlayServerService
 
         setText("woodTimeHm", hmStr);
         setText("woodTimeSec", secStr);
-        setText("digitalTimeHm", hmStr);
-        setText("digitalTimeSec", secStr);
-        setText("digitalAmPm", state.use24HourFormat ? "24H" : t.ampm);
+        setSeg("ledTime", hmStr + secStr);
+        const ledTimeEl = document.getElementById("ledTime");
+        if (ledTimeEl) ledTimeEl.classList.toggle("colon-off", t.s % 2 === 1);
+        setSeg("ledDay", pad2(t.date.day));
+        setSeg("ledMonth", pad2(t.date.month));
+        setSeg("ledYear", String(state.showThaiDate ? t.date.year + 543 : t.date.year));
+        setText("ledWeekday", (state.showThaiDate ? t.weekdayTh : t.date.weekday) + (state.use24HourFormat ? "" : " " + t.ampm));
 
         const dateLabel = state.showThaiDate ? t.thaiDate : (hmStr + secStr);
         setText("analogDateText", dateLabel);
         setText("woodDateText", state.showThaiDate ? t.thaiDate : "LIVE VERIFIED");
-        setText("digitalDateText", state.showThaiDate ? t.thaiDate : "LIVE VERIFIED");
 
         // Flash Deal Countdown
         const dealBar = document.getElementById("flashDealBar");
@@ -1847,8 +1722,6 @@ public class OverlayServerService : IOverlayServerService
             if (!data) return;
             if (data.type === "config" || data.config) {
               applyConfig(data.config || data);
-            } else if (data.type === "event" || data.event || data.payload) {
-              applyLiveEvent(data.event || data.payload || data);
             }
           } catch (_) {}
         };
@@ -1871,9 +1744,6 @@ public class OverlayServerService : IOverlayServerService
       }
 
       applyConfig(state);
-      if (initialLastEvent) {
-        applyLiveEvent(initialLastEvent);
-      }
       updateClockAndCountdown();
       setInterval(updateClockAndCountdown, 250);
       connectWebSocket();

@@ -351,8 +351,7 @@ public class OverlaySystemTests
         await page.GoToAsync(url, PuppeteerSharp.WaitUntilNavigation.Networkidle0);
         await Task.Delay(350);
 
-        string emptyTickerText = await page.EvaluateExpressionAsync<string>("document.body.innerText");
-        Assert.Contains("LIVE", emptyTickerText);
+        Assert.False(await page.EvaluateExpressionAsync<bool>("!!document.getElementById('liveTickerBar')"));
 
         string artifactDir = @"C:\Users\Prayu\.gemini\antigravity\brain\fe991115-6a0e-485f-ad29-dda1aa13577a";
         if (System.IO.Directory.Exists(artifactDir))
@@ -374,7 +373,6 @@ public class OverlaySystemTests
 
         string idealText = await page.EvaluateExpressionAsync<string>("document.body.innerText");
         Assert.Contains("โปรนาทีทอง ส่งฟรีทั่วไทย", idealText);
-        Assert.Contains("คุณลูกค้า VIP", idealText);
 
         if (System.IO.Directory.Exists(artifactDir))
         {

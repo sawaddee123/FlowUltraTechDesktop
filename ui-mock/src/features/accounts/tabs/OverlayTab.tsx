@@ -11,7 +11,7 @@ import type { TabProps } from './registry'
 
 const MODES: { value: ClockMode; label: string }[] = [
   { value: 'wall', label: 'นาฬิกาแขวน' }, { value: 'classic', label: 'คลาสสิก' }, { value: 'desk3d', label: 'ตั้งโต๊ะ 3D' },
-  { value: 'twinbell', label: 'ระฆังคู่' }, { value: 'led', label: 'LED' }, { value: 'digital', label: 'ดิจิทัล' },
+  { value: 'twinbell', label: 'ระฆังคู่' }, { value: 'led', label: 'LED' }, { value: 'digital', label: 'LED แดง' },
 ]
 const THAI_MONTHS = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.']
 const pad = (n: number) => String(n).padStart(2, '0')

@@ -58,7 +58,7 @@ flowchart LR
 | 2 `Desk3D` | นาฬิกาตั้งโต๊ะสตูดิโอ 3D | analog + perspective + ฐานตั้ง |
 | 3 `TwinBell` | นาฬิกาปลุกสองกระดิ่งวินเทจ | analog + กระดิ่ง (สั่นเมื่อนาทีทองทำงาน) |
 | 4 `WoodBlockLed` | นาฬิกาดิจิทัลบล็อกไม้ LED | ดิจิทัล |
-| 5 `DigitalClean` | นาฬิกาดิจิทัลโปร่งใส | ดิจิทัล พร้อมป้ายเขตเวลา |
+| 5 `DigitalClean` | นาฬิกาแขวน LED ตัวเลขแดง (7-segment) | ดิจิทัล พร้อมวัน/เดือน/ปี |
 
 พื้นหลัง 3 แบบ: `Transparent` (ค่าเริ่มต้น), `GlassDark`, `GlassLight`
 

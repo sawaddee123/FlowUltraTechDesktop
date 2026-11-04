@@ -727,7 +727,7 @@ public partial class InstanceCardViewModel : ObservableObject
         "นาฬิกาตั้งโต๊ะสตูดิโอ 3D (Desk 3D)",
         "นาฬิกาปลุกสองกระดิ่งวินเทจ (Twin Bell)",
         "นาฬิกาดิจิทัลบล็อกไม้ LED (Wood Block)",
-        "นาฬิกาดิจิทัลโปร่งใส (Broadcast Clean)"
+        "นาฬิกาแขวน LED ตัวเลขแดง (LED Panel)"
     ];
 
     public string[] OverlayBackgroundStyleOptions =>
