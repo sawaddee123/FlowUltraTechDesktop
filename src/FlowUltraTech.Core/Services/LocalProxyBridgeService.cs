@@ -59,6 +59,8 @@ public sealed class LocalProxyBridgeService : IDisposable
     public static ProxyItem? ResolveEffectiveProxy(StudioInstanceProfile profile, AppSettings settings)
     {
         if (profile == null) return null;
+        if (string.Equals(settings?.ProxyMode, "off", StringComparison.OrdinalIgnoreCase)) return null;
+        if (settings != null && IsAutoMode(settings)) AutoAssign(settings);
 
         if (profile.UseCustomProxy && !string.IsNullOrWhiteSpace(profile.ProxyHost) && profile.ProxyPort > 0)
         {
@@ -85,6 +87,48 @@ public sealed class LocalProxyBridgeService : IDisposable
         }
 
         return null;
+    }
+
+    public static bool IsAutoMode(AppSettings settings) =>
+        string.IsNullOrWhiteSpace(settings.ProxyMode) || string.Equals(settings.ProxyMode, "auto", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// โหมดอัตโนมัติ: ให้ทุกบัญชีที่ไม่ได้ตั้ง Proxy เอง ได้ Proxy จากรายการ ไม่ซ้ำกันก่อน
+    /// เก็บตัวเดิมไว้ถ้ายังใช้ได้ ข้ามตัวที่ปิดหรือทดสอบล่าสุดไม่ผ่าน ถ้า Proxy น้อยกว่าบัญชีจะแบ่งใช้ตัวที่มีคนใช้น้อยสุด
+    /// คืนค่า true ถ้ามีบัญชีที่เปลี่ยน Proxy
+    /// </summary>
+    public static bool AutoAssign(AppSettings settings)
+    {
+        lock (settings)
+        {
+            var usable = settings.Proxies.FindAll(p => p.IsActive && p.LastTestOk != false && !string.IsNullOrWhiteSpace(p.Host) && p.Port > 0);
+            var load = new Dictionary<Guid, int>();
+            foreach (var p in usable) load[p.Id] = 0;
+
+            var pending = new List<StudioInstanceProfile>();
+            foreach (var inst in settings.Instances)
+            {
+                if (inst.UseCustomProxy) continue;
+                if (inst.ProxyId is Guid id && load.TryGetValue(id, out int n) && n == 0)
+                    load[id] = 1; // เก็บของเดิมไว้ ไม่ต้องสลับ
+                else
+                    pending.Add(inst);
+            }
+
+            bool changed = false;
+            foreach (var inst in pending)
+            {
+                Guid? pick = null;
+                int best = int.MaxValue;
+                foreach (var p in usable)
+                {
+                    if (load[p.Id] < best) { best = load[p.Id]; pick = p.Id; }
+                }
+                if (pick is Guid g) load[g]++;
+                if (inst.ProxyId != pick) { inst.ProxyId = pick; changed = true; }
+            }
+            return changed;
+        }
     }
 
     /// <summary>

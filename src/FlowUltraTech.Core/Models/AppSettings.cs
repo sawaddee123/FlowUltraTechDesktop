@@ -52,9 +52,20 @@ public class AppSettings
     public bool TelegramAlertOnFailed { get; set; } = true;
     public bool TelegramSendPhoto { get; set; } = true;
 
+    /// <summary>เชื่อม Telegram ผ่านบอทของระบบแล้ว (ไม่ต้องมี Token/Chat ID ของตัวเอง)</summary>
+    public bool TelegramLinkedViaServer { get; set; }
+
+    [System.Text.Json.Serialization.JsonIgnore]
+    public bool CanSendTelegram => TelegramLinkedViaServer ||
+        (!string.IsNullOrWhiteSpace(TelegramBotToken) && !string.IsNullOrWhiteSpace(TelegramChatId));
+
     public int OverlayServerPort { get; set; } = 19450;
 
     public List<StudioInstanceProfile> Instances { get; set; } = new();
     public List<ProxyItem> Proxies { get; set; } = new();
+
+    /// <summary>"auto" = แจก Proxy จากรายการให้แต่ละบัญชีเอง (ไม่ซ้ำกัน ข้ามตัวที่ทดสอบไม่ผ่าน),
+    /// "manual" = ตั้งเองรายบัญชีที่ บัญชี › ขั้นสูง, "off" = ไม่ใช้ Proxy เลย</summary>
+    public string ProxyMode { get; set; } = "auto";
     public List<AutomationRule> Rules { get; set; } = new();
 }

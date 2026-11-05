@@ -45,6 +45,14 @@ public partial class InstanceCardViewModel : ObservableObject
     [ObservableProperty]
     private int _totalChatCount;
 
+    /// <summary>ผู้ชมตอนนี้ (จาก TikTok room update) 0 = ยังไม่ไลฟ์/ยังไม่ได้ข้อมูล</summary>
+    [ObservableProperty]
+    private int _viewerCount;
+
+    /// <summary>จำนวน Captcha ที่ AI แก้สำเร็จตั้งแต่เปิดโปรแกรม</summary>
+    [ObservableProperty]
+    private int _captchaSolvedCount;
+
     [ObservableProperty]
     private int _totalGiftCount;
 
@@ -268,6 +276,11 @@ public partial class InstanceCardViewModel : ObservableObject
             targetChannel,
             onEventReceived: (item) =>
             {
+                if (item.Type == LiveChatMessageType.ViewerCount)
+                {
+                    RunOnUi(() => ViewerCount = item.RepeatCount);
+                    return;
+                }
                 string signature = $"{item.Timestamp:HHmmss}_{item.Type}_{item.Username}_{item.Message}_{item.GiftName}_{item.RepeatCount}";
                 if (!TryAddChatSignature(signature)) return;
 
@@ -1002,7 +1015,7 @@ public partial class InstanceCardViewModel : ObservableObject
 
     private void OnExternalLiveEventReceived(string channel, LiveChatMessageItem item)
     {
-        if (item == null) return;
+        if (item == null || item.Type == LiveChatMessageType.ViewerCount) return;
 
         string targetChannel = !string.IsNullOrWhiteSpace(StreamerUsername)
             ? NormalizeUsername(StreamerUsername)

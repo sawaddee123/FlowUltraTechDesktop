@@ -146,7 +146,8 @@ public enum LiveChatMessageType
     SentMessage,    // 🚀 ข้อความที่เราส่งออก
     AutoReply,      // 🤖 บอทตอบกลับอัตโนมัติ
     System,         // ℹ️ แจ้งเตือนระบบ
-    Other           // 📦 ข้อมูลดิบ/อื่นๆ (Raw JSON)
+    Other,          // 📦 ข้อมูลดิบ/อื่นๆ (Raw JSON)
+    ViewerCount     // 👀 จำนวนผู้ชมตอนนี้ (อยู่ใน RepeatCount) ไม่แสดงในรายการแชท
 }
 
 public class LiveChatMessageItem : INotifyPropertyChanged

@@ -19,6 +19,10 @@ public class ProxyItem
     
     public bool IsActive { get; set; } = true;
 
+    /// <summary>ผลทดสอบล่าสุดในรอบนี้ (null = ยังไม่ทดสอบ) ไม่บันทึกลงไฟล์</summary>
+    [System.Text.Json.Serialization.JsonIgnore]
+    public bool? LastTestOk { get; set; }
+
     public override string ToString()
     {
         return $"{Name} ({Protocol}://{Host}:{Port})";

@@ -207,6 +207,7 @@
                         <Grid Visibility="{Binding ShowHome, Converter={StaticResource BoolToVis}}">
                             <Grid.RowDefinitions>
                                 <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
                                 <RowDefinition Height="*" />
                             </Grid.RowDefinitions>
 
@@ -228,8 +229,30 @@
                                 </StackPanel>
                             </DockPanel>
 
+                            <!-- สรุปรวมทุกบัญชี -->
+                            <UniformGrid Grid.Row="1" Columns="3" Margin="0,0,-10,18" MaxWidth="1000" HorizontalAlignment="Left" Visibility="{Binding HasInstances, Converter={StaticResource BoolToVis}}">
+                                <Border Background="{DynamicResource SurfaceBrush}" CornerRadius="12" Padding="16,12" Margin="0,0,10,0">
+                                    <StackPanel>
+                                        <TextBlock Text="ผู้ชมตอนนี้" FontSize="12" Foreground="{DynamicResource MutedBrush}" />
+                                        <TextBlock Text="{Binding TotalViewers, StringFormat={}{0:N0}}" FontSize="24" FontWeight="SemiBold" Foreground="{DynamicResource FgBrush}" Margin="0,2,0,0" />
+                                    </StackPanel>
+                                </Border>
+                                <Border Background="{DynamicResource SurfaceBrush}" CornerRadius="12" Padding="16,12" Margin="0,0,10,0">
+                                    <StackPanel>
+                                        <TextBlock Text="เพชรตั้งแต่เปิดโปรแกรม" FontSize="12" Foreground="{DynamicResource MutedBrush}" />
+                                        <TextBlock Text="{Binding TotalDiamonds, StringFormat={}{0:N0}}" FontSize="24" FontWeight="SemiBold" Foreground="{DynamicResource FgBrush}" Margin="0,2,0,0" />
+                                    </StackPanel>
+                                </Border>
+                                <Border Background="{DynamicResource SurfaceBrush}" CornerRadius="12" Padding="16,12" Margin="0,0,10,0">
+                                    <StackPanel>
+                                        <TextBlock Text="Captcha ที่ AI แก้ให้" FontSize="12" Foreground="{DynamicResource MutedBrush}" />
+                                        <TextBlock Text="{Binding TotalCaptchaSolved, StringFormat={}{0:N0}}" FontSize="24" FontWeight="SemiBold" Foreground="{DynamicResource FgBrush}" Margin="0,2,0,0" />
+                                    </StackPanel>
+                                </Border>
+                            </UniformGrid>
+
                             <!-- ยังไม่มีบัญชี -->
-                            <Border Grid.Row="1" Visibility="{Binding HasNoInstances, Converter={StaticResource BoolToVis}}" Background="{DynamicResource SurfaceBrush}" CornerRadius="16" Padding="40,36" MaxWidth="540" HorizontalAlignment="Center" VerticalAlignment="Center">
+                            <Border Grid.Row="1" Grid.RowSpan="2" Visibility="{Binding HasNoInstances, Converter={StaticResource BoolToVis}}" Background="{DynamicResource SurfaceBrush}" CornerRadius="16" Padding="40,36" MaxWidth="540" HorizontalAlignment="Center" VerticalAlignment="Center">
                                 <StackPanel HorizontalAlignment="Center">
                                     <Border Width="64" Height="64" CornerRadius="32" Background="{DynamicResource PrimarySoftBrush}" HorizontalAlignment="Center">
                                         <ui:SymbolIcon Symbol="PersonAdd24" FontSize="28" Foreground="{DynamicResource PrimaryBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" />
@@ -243,7 +266,7 @@
                             </Border>
 
                             <!-- การ์ดบัญชี -->
-                            <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" Visibility="{Binding HasInstances, Converter={StaticResource BoolToVis}}">
+                            <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto" Visibility="{Binding HasInstances, Converter={StaticResource BoolToVis}}">
                                 <ItemsControl ItemsSource="{Binding Instances}">
                                     <ItemsControl.ItemsPanel>
                                         <ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate>
@@ -434,14 +457,8 @@
                                                         <UniformGrid Grid.Row="0" Columns="4" Margin="0,0,-10,14">
                                                             <Border Background="{DynamicResource SurfaceBrush}" CornerRadius="12" Padding="16,12" Margin="0,0,10,0">
                                                                 <StackPanel>
-                                                                    <TextBlock Text="แชท" FontSize="12" Foreground="{DynamicResource MutedBrush}" />
-                                                                    <TextBlock Text="{Binding TotalChatCount, StringFormat={}{0:N0}}" FontSize="24" FontWeight="SemiBold" Foreground="{DynamicResource FgBrush}" Margin="0,2,0,0" />
-                                                                </StackPanel>
-                                                            </Border>
-                                                            <Border Background="{DynamicResource SurfaceBrush}" CornerRadius="12" Padding="16,12" Margin="0,0,10,0">
-                                                                <StackPanel>
-                                                                    <TextBlock Text="ของขวัญ" FontSize="12" Foreground="{DynamicResource MutedBrush}" />
-                                                                    <TextBlock Text="{Binding TotalGiftCount, StringFormat={}{0:N0}}" FontSize="24" FontWeight="SemiBold" Foreground="{DynamicResource FgBrush}" Margin="0,2,0,0" />
+                                                                    <TextBlock Text="ผู้ชมตอนนี้" FontSize="12" Foreground="{DynamicResource MutedBrush}" />
+                                                                    <TextBlock Text="{Binding ViewerCount, StringFormat={}{0:N0}}" FontSize="24" FontWeight="SemiBold" Foreground="{DynamicResource FgBrush}" Margin="0,2,0,0" />
                                                                 </StackPanel>
                                                             </Border>
                                                             <Border Background="{DynamicResource SurfaceBrush}" CornerRadius="12" Padding="16,12" Margin="0,0,10,0">
@@ -452,8 +469,14 @@
                                                             </Border>
                                                             <Border Background="{DynamicResource SurfaceBrush}" CornerRadius="12" Padding="16,12" Margin="0,0,10,0">
                                                                 <StackPanel>
-                                                                    <TextBlock Text="ไลก์ / ติดตาม" FontSize="12" Foreground="{DynamicResource MutedBrush}" />
-                                                                    <TextBlock Text="{Binding TotalLikeFollowCount, StringFormat={}{0:N0}}" FontSize="24" FontWeight="SemiBold" Foreground="{DynamicResource FgBrush}" Margin="0,2,0,0" />
+                                                                    <TextBlock Text="แชท" FontSize="12" Foreground="{DynamicResource MutedBrush}" />
+                                                                    <TextBlock Text="{Binding TotalChatCount, StringFormat={}{0:N0}}" FontSize="24" FontWeight="SemiBold" Foreground="{DynamicResource FgBrush}" Margin="0,2,0,0" />
+                                                                </StackPanel>
+                                                            </Border>
+                                                            <Border Background="{DynamicResource SurfaceBrush}" CornerRadius="12" Padding="16,12" Margin="0,0,10,0">
+                                                                <StackPanel>
+                                                                    <TextBlock Text="ของขวัญ" FontSize="12" Foreground="{DynamicResource MutedBrush}" />
+                                                                    <TextBlock Text="{Binding TotalGiftCount, StringFormat={}{0:N0}}" FontSize="24" FontWeight="SemiBold" Foreground="{DynamicResource FgBrush}" Margin="0,2,0,0" />
                                                                 </StackPanel>
                                                             </Border>
                                                         </UniformGrid>
@@ -495,6 +518,10 @@
                                                                 </TextBlock.Style>
                                                             </TextBlock></ContentControl>
                                                                 <TextBlock Text="แก้ Captcha ด้วย AI" FontSize="13" Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Center" />
+                                                            </DockPanel>
+                                                            <DockPanel Margin="0,0,0,12">
+                                                                <ContentControl DockPanel.Dock="Right" VerticalAlignment="Center"><TextBlock FontSize="13" FontWeight="SemiBold"><Run Text="{Binding CaptchaSolvedCount, Mode=OneWay}" /><Run Text=" ครั้ง" /></TextBlock></ContentControl>
+                                                                <TextBlock Text="AI แก้ให้แล้ว" FontSize="13" Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Center" />
                                                             </DockPanel>
                                                             <DockPanel Margin="0,0,0,12">
                                                                 <ContentControl DockPanel.Dock="Right" VerticalAlignment="Center"><TextBlock Text="{Binding ProxySummaryBadgeText}" FontSize="13" FontWeight="SemiBold" Foreground="{DynamicResource FgBrush}" TextTrimming="CharacterEllipsis" MaxWidth="170" /></ContentControl>
@@ -1035,33 +1062,63 @@
                                             </StackPanel>
                                         </DockPanel>
                                         <DockPanel Margin="0,0,0,10">
-                                            <ContentControl DockPanel.Dock="Right" VerticalAlignment="Center" Margin="16,0,0,0"><ui:ToggleSwitch IsChecked="{Binding EnableTelegramAlert}" AutomationProperties.Name="แจ้งเตือนทาง Telegram" /></ContentControl>
+                                            <ContentControl DockPanel.Dock="Right" VerticalAlignment="Center" Margin="16,0,0,0"><StackPanel Orientation="Horizontal">
+                                            <Button Style="{StaticResource PrimaryCtaButton}" Content="เชื่อม Telegram" Command="{Binding ConnectTelegramCommand}" Padding="16,8" Visibility="{Binding IsTelegramNotLinked, Converter={StaticResource BoolToVis}}" ToolTip="เปิดแชทบอทใน Telegram แล้วกด Start ไม่ต้องกรอก Token" />
+                                            <StackPanel Orientation="Horizontal" Visibility="{Binding IsLinkingTelegram, Converter={StaticResource BoolToVis}}">
+                                                <ui:ProgressRing IsIndeterminate="True" Width="16" Height="16" Margin="0,0,10,0" VerticalAlignment="Center" />
+                                                <TextBlock Text="รอคุณกด Start ใน Telegram" VerticalAlignment="Center" Margin="0,0,10,0" />
+                                                <Button Style="{StaticResource GhostButton}" Content="ยกเลิก" Command="{Binding CancelTelegramLinkCommand}" Padding="10,6" />
+                                            </StackPanel>
+                                            <StackPanel Orientation="Horizontal" Visibility="{Binding IsTelegramLinked, Converter={StaticResource BoolToVis}}">
+                                                <Border Background="{DynamicResource OkSoftBrush}" CornerRadius="10" Padding="10,4" Margin="0,0,10,0" VerticalAlignment="Center"><TextBlock Text="เชื่อมแล้ว" Foreground="{DynamicResource OkBrush}" FontWeight="SemiBold" FontSize="12.5" /></Border>
+                                                <Button Style="{StaticResource ActionDarkButton}" Content="ส่งข้อความทดสอบ" Command="{Binding TestTelegramCommand}" Padding="12,6" Margin="0,0,8,0" />
+                                                <Button Style="{StaticResource GhostButton}" Content="ยกเลิกการเชื่อม" Command="{Binding DisconnectTelegramCommand}" Padding="10,6" />
+                                            </StackPanel>
+                                        </StackPanel></ContentControl>
                                             <StackPanel VerticalAlignment="Center">
                                                 <TextBlock Text="แจ้งเตือนทาง Telegram" FontSize="14" Foreground="{DynamicResource FgBrush}" />
-                                                <TextBlock Text="ส่งข้อความเข้า Telegram ของคุณ" Style="{StaticResource HintText}" Margin="0,2,0,0" />
+                                                <TextBlock Text="กดเชื่อม แล้วกด Start ในแชทบอท ไม่ต้องกรอก Token" Style="{StaticResource HintText}" Margin="0,2,0,0" />
                                             </StackPanel>
                                         </DockPanel>
-                                        <StackPanel Visibility="{Binding EnableTelegramAlert, Converter={StaticResource BoolToVis}}" Margin="0,0,0,4">
-                                            <StackPanel Margin="0,0,0,14">
-                                                <TextBlock Text="โทเคนบอต" Style="{StaticResource FieldLabel}" />
-                                                <DockPanel>
-                                                    <Button DockPanel.Dock="Right" Style="{StaticResource ActionDarkButton}" Content="ทดสอบส่ง" Command="{Binding TestTelegramCommand}" Margin="8,0,0,0" Padding="12,6" />
-                                                    <ui:TextBox Text="{Binding TelegramBotToken, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="เช่น 123456789:ABCdef..." FontFamily="{StaticResource MonoFont}" />
-                                                </DockPanel>
-                                            </StackPanel>
-                                            <StackPanel Margin="0,0,0,14">
-                                                <TextBlock Text="รหัสแชทหรือกลุ่ม" Style="{StaticResource FieldLabel}" />
-                                                <DockPanel>
-                                                    <ui:TextBox Text="{Binding TelegramChatId, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="เช่น 987654321 หรือ -100123456789" FontFamily="{StaticResource MonoFont}" />
-                                                </DockPanel>
-                                            </StackPanel>
-                                            <WrapPanel Margin="0,0,0,8">
+                                        <StackPanel Margin="0,0,0,4">
+                                            <TextBlock Text="{Binding TelegramTestStatus}" Foreground="{DynamicResource PrimaryBrush}" FontSize="12.5" TextWrapping="Wrap" Margin="0,0,0,10">
+                                                <TextBlock.Style>
+                                                    <Style TargetType="TextBlock">
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding TelegramTestStatus}" Value=""><Setter Property="Visibility" Value="Collapsed" /></DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </TextBlock.Style>
+                                            </TextBlock>
+                                            <WrapPanel Margin="0,0,0,8" Visibility="{Binding ShowTelegramEvents, Converter={StaticResource BoolToVis}}">
                                                 <CheckBox Content="เมื่อต้องให้ช่วยแก้ Captcha" IsChecked="{Binding TelegramAlertOnDetected}" Margin="0,0,16,6" />
                                                 <CheckBox Content="แนบรูป Captcha" IsChecked="{Binding TelegramSendPhoto}" Margin="0,0,16,6" />
                                                 <CheckBox Content="เมื่อแก้สำเร็จ" IsChecked="{Binding TelegramAlertOnSolved}" Margin="0,0,16,6" />
                                                 <CheckBox Content="เมื่อแก้ไม่ผ่าน" IsChecked="{Binding TelegramAlertOnFailed}" Margin="0,0,0,6" />
                                             </WrapPanel>
-                                            <TextBlock Text="{Binding TelegramTestStatus}" Foreground="{DynamicResource PrimaryBrush}" FontSize="12" />
+                                            <Button Style="{StaticResource GhostButton}" Content="ใช้บอท Telegram ของฉันเอง (Token)" Command="{Binding ToggleManualTelegramCommand}" HorizontalAlignment="Left" Padding="6,4" Margin="-6,0,0,0" Visibility="{Binding IsTelegramNotLinked, Converter={StaticResource BoolToVis}}" />
+                                            <StackPanel Visibility="{Binding ShowManualTelegram, Converter={StaticResource BoolToVis}}" Margin="0,10,0,0">
+                                                <DockPanel Margin="0,0,0,14">
+                                                    <ContentControl DockPanel.Dock="Right" VerticalAlignment="Center" Margin="16,0,0,0"><ui:ToggleSwitch IsChecked="{Binding EnableTelegramAlert}" AutomationProperties.Name="ใช้บอท Telegram ของฉันเอง" /></ContentControl>
+                                                    <StackPanel VerticalAlignment="Center">
+                                                        <TextBlock Text="ใช้บอทของฉันเอง" FontSize="14" Foreground="{DynamicResource FgBrush}" />
+                                                        <TextBlock Text="สำหรับคนที่มีบอท Telegram อยู่แล้ว" Style="{StaticResource HintText}" Margin="0,2,0,0" />
+                                                    </StackPanel>
+                                                </DockPanel>
+                                                <StackPanel Margin="0,0,0,14">
+                                                    <TextBlock Text="โทเคนบอต" Style="{StaticResource FieldLabel}" />
+                                                    <DockPanel>
+                                                        <Button DockPanel.Dock="Right" Style="{StaticResource ActionDarkButton}" Content="ทดสอบส่ง" Command="{Binding TestTelegramCommand}" Margin="8,0,0,0" Padding="12,6" />
+                                                        <ui:TextBox Text="{Binding TelegramBotToken, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="เช่น 123456789:ABCdef..." FontFamily="{StaticResource MonoFont}" />
+                                                    </DockPanel>
+                                                </StackPanel>
+                                                <StackPanel Margin="0,0,0,14">
+                                                    <TextBlock Text="รหัสแชทหรือกลุ่ม" Style="{StaticResource FieldLabel}" />
+                                                    <DockPanel>
+                                                        <ui:TextBox Text="{Binding TelegramChatId, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="เช่น 987654321 หรือ -100123456789" FontFamily="{StaticResource MonoFont}" />
+                                                    </DockPanel>
+                                                </StackPanel>
+                                            </StackPanel>
                                         </StackPanel>
                                     </StackPanel>
                                 </Border>
@@ -1070,39 +1127,48 @@
                                     <StackPanel>
                                         <DockPanel>
                                             <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
-                                                <Button Style="{StaticResource ActionDarkButton}" Content="บันทึกและใช้งาน" Command="{Binding ApplyNativeProxiesCommand}" Padding="14,8" Margin="0,0,8,0" />
-                                                <Button Style="{StaticResource PrimaryCtaButton}" Content="เพิ่ม Proxy" Command="{Binding AddProxyCommand}" Padding="14,8" />
+                                                <ComboBox SelectedIndex="{Binding ProxyModeIndex}" MinWidth="170" AutomationProperties.Name="โหมด Proxy">
+                                                    <ComboBoxItem Content="อัตโนมัติ" />
+                                                    <ComboBoxItem Content="ตั้งเองรายบัญชี" />
+                                                    <ComboBoxItem Content="ไม่ใช้ Proxy" />
+                                                </ComboBox>
                                             </StackPanel>
                                             <StackPanel>
                                                 <TextBlock Text="Proxy" Style="{StaticResource SectionTitle}" Margin="0" />
-                                                <TextBlock Text="ไม่ใส่ก็ใช้งานได้ ถ้าใส่ไว้ เลือกใช้กับแต่ละบัญชีได้ที่ บัญชี › ขั้นสูง" Style="{StaticResource HintText}" Margin="0,2,0,0" />
+                                                <TextBlock Text="{Binding ProxyModeHint}" Style="{StaticResource HintText}" Margin="0,2,0,0" />
                                             </StackPanel>
                                         </DockPanel>
-                                        <DataGrid ItemsSource="{Binding Proxies}" MaxHeight="280" Margin="0,12,0,0">
-                                            <DataGrid.Columns>
-                                                <DataGridTextColumn Header="ชื่อ Proxy" Binding="{Binding Name}" Width="*" />
-                                                <DataGridTextColumn Header="ประเภท" Binding="{Binding Protocol}" Width="90" />
-                                                <DataGridTextColumn Header="ที่อยู่ (IP)" Binding="{Binding Host}" Width="1.2*" />
-                                                <DataGridTextColumn Header="พอร์ต" Binding="{Binding Port}" Width="76" />
-                                                <DataGridTextColumn Header="ชื่อผู้ใช้" Binding="{Binding Username}" Width="90" />
-                                                <DataGridTextColumn Header="รหัสผ่าน" Binding="{Binding Password}" Width="90" />
-                                                <DataGridCheckBoxColumn Header="ใช้" Binding="{Binding IsActive}" Width="70" />
-                                                <DataGridTemplateColumn Header="" Width="108">
-                                                    <DataGridTemplateColumn.CellTemplate>
-                                                        <DataTemplate>
-                                                            <StackPanel Orientation="Horizontal">
-                                                                <Button Style="{StaticResource MicroButton}" Content="ทดสอบ"
-                                                                        Command="{Binding DataContext.TestProxyItemCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
-                                                                        CommandParameter="{Binding}" Margin="0,0,6,0" />
-                                                                <Button Style="{StaticResource MicroButton}" Content="ลบ"
-                                                                        Command="{Binding DataContext.RemoveProxyCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
-                                                                        CommandParameter="{Binding}" />
-                                                            </StackPanel>
-                                                        </DataTemplate>
-                                                    </DataGridTemplateColumn.CellTemplate>
-                                                </DataGridTemplateColumn>
-                                            </DataGrid.Columns>
-                                        </DataGrid>
+                                        <StackPanel Visibility="{Binding IsProxyPoolVisible, Converter={StaticResource BoolToVis}}">
+                                            <DataGrid ItemsSource="{Binding Proxies}" MaxHeight="280" Margin="0,12,0,0">
+                                                <DataGrid.Columns>
+                                                    <DataGridTextColumn Header="ชื่อ Proxy" Binding="{Binding Name}" Width="*" />
+                                                    <DataGridTextColumn Header="ประเภท" Binding="{Binding Protocol}" Width="90" />
+                                                    <DataGridTextColumn Header="ที่อยู่ (IP)" Binding="{Binding Host}" Width="1.2*" />
+                                                    <DataGridTextColumn Header="พอร์ต" Binding="{Binding Port}" Width="76" />
+                                                    <DataGridTextColumn Header="ชื่อผู้ใช้" Binding="{Binding Username}" Width="90" />
+                                                    <DataGridTextColumn Header="รหัสผ่าน" Binding="{Binding Password}" Width="90" />
+                                                    <DataGridCheckBoxColumn Header="ใช้" Binding="{Binding IsActive}" Width="70" />
+                                                    <DataGridTemplateColumn Header="" Width="108">
+                                                        <DataGridTemplateColumn.CellTemplate>
+                                                            <DataTemplate>
+                                                                <StackPanel Orientation="Horizontal">
+                                                                    <Button Style="{StaticResource MicroButton}" Content="ทดสอบ"
+                                                                            Command="{Binding DataContext.TestProxyItemCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
+                                                                            CommandParameter="{Binding}" Margin="0,0,6,0" />
+                                                                    <Button Style="{StaticResource MicroButton}" Content="ลบ"
+                                                                            Command="{Binding DataContext.RemoveProxyCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
+                                                                            CommandParameter="{Binding}" />
+                                                                </StackPanel>
+                                                            </DataTemplate>
+                                                        </DataGridTemplateColumn.CellTemplate>
+                                                    </DataGridTemplateColumn>
+                                                </DataGrid.Columns>
+                                            </DataGrid>
+                                            <StackPanel Orientation="Horizontal" Margin="0,12,0,0">
+                                                <Button Style="{StaticResource PrimaryCtaButton}" Content="เพิ่ม Proxy" Command="{Binding AddProxyCommand}" Padding="14,8" Margin="0,0,8,0" />
+                                                <Button Style="{StaticResource ActionDarkButton}" Content="บันทึกและทดสอบ" Command="{Binding RefreshProxiesCommand}" Padding="14,8" ToolTip="ทดสอบทุกตัว แล้วแจกให้แต่ละบัญชี" />
+                                            </StackPanel>
+                                        </StackPanel>
                                     </StackPanel>
                                 </Border>
 

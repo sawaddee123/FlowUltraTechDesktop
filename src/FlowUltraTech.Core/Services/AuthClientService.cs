@@ -308,6 +308,73 @@ public class AuthClientService : IAuthClientService, IDisposable
         }
     }
 
+    private async Task<HttpResponseMessage?> SendAuthedAsync(HttpMethod method, string path, string accessToken, object? body, string? endpoint)
+    {
+        if (string.IsNullOrWhiteSpace(accessToken)) return null;
+        var url = $"{(endpoint ?? DefaultBaseEndpoint).TrimEnd('/')}{path}";
+        try
+        {
+            using var req = new HttpRequestMessage(method, url);
+            req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken.Trim());
+            if (body != null) req.Content = new StringContent(JsonSerializer.Serialize(body), Encoding.UTF8, "application/json");
+            return await _httpClient.SendAsync(req);
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    public async Task<TelegramLinkResult> CreateTelegramLinkAsync(string accessToken, string? endpoint = null)
+    {
+        using var resp = await SendAuthedAsync(HttpMethod.Post, "/api/v1/auth/telegram/link", accessToken, new { }, endpoint);
+        if (resp == null) return new TelegramLinkResult { Error = "network" };
+        string text = await resp.Content.ReadAsStringAsync();
+        try
+        {
+            using var doc = JsonDocument.Parse(text);
+            var root = doc.RootElement;
+            if (resp.IsSuccessStatusCode && root.TryGetProperty("url", out var u) && u.GetString() is string url &&
+                url.StartsWith("https://t.me/", StringComparison.Ordinal))
+                return new TelegramLinkResult { Success = true, Url = url };
+            string? err = root.TryGetProperty("error", out var e) ? e.GetString() : null;
+            return new TelegramLinkResult { Error = err ?? $"http_{(int)resp.StatusCode}" };
+        }
+        catch
+        {
+            // เซิร์ฟเวอร์รุ่นเก่ายังไม่มี endpoint นี้ (ตอบ 404 ที่ไม่ใช่ JSON)
+            return new TelegramLinkResult { Error = resp.StatusCode == System.Net.HttpStatusCode.NotFound ? "telegram_not_configured" : $"http_{(int)resp.StatusCode}" };
+        }
+    }
+
+    public async Task<bool?> GetTelegramLinkedAsync(string accessToken, string? endpoint = null)
+    {
+        using var resp = await SendAuthedAsync(HttpMethod.Get, "/api/v1/auth/telegram/status", accessToken, null, endpoint);
+        if (resp == null || !resp.IsSuccessStatusCode) return null;
+        try
+        {
+            using var doc = JsonDocument.Parse(await resp.Content.ReadAsStringAsync());
+            return doc.RootElement.TryGetProperty("linked", out var l) && l.ValueKind == JsonValueKind.True;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    public async Task<bool> UnlinkTelegramAsync(string accessToken, string? endpoint = null)
+    {
+        using var resp = await SendAuthedAsync(HttpMethod.Delete, "/api/v1/auth/telegram/link", accessToken, null, endpoint);
+        return resp?.IsSuccessStatusCode == true;
+    }
+
+    public async Task<bool> SendTelegramViaServerAsync(string accessToken, string text, byte[]? photo = null, string? endpoint = null)
+    {
+        object body = photo is { Length: > 0 } ? new { text, photoBase64 = Convert.ToBase64String(photo) } : new { text };
+        using var resp = await SendAuthedAsync(HttpMethod.Post, "/api/v1/auth/telegram/notify", accessToken, body, endpoint);
+        return resp?.IsSuccessStatusCode == true;
+    }
+
     public async Task<bool> SaveCloudSettingsAsync(string accessToken, CloudSettingsDto settings, string? endpoint = null)
     {
         if (string.IsNullOrWhiteSpace(accessToken) || settings == null)
@@ -333,9 +400,11 @@ public class AuthClientService : IAuthClientService, IDisposable
                 }
             };
 
+            // ค่า null ไม่ส่ง = เซิร์ฟเวอร์ไม่แตะฟิลด์นั้น (กันการเชื่อม Telegram ผ่านระบบถูกล้างเป็นค่าว่าง)
+            var opts = new JsonSerializerOptions { DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull };
             using var req = new HttpRequestMessage(HttpMethod.Put, url)
             {
-                Content = new StringContent(JsonSerializer.Serialize(payload), Encoding.UTF8, "application/json")
+                Content = new StringContent(JsonSerializer.Serialize(payload, opts), Encoding.UTF8, "application/json")
             };
             req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken.Trim());
 

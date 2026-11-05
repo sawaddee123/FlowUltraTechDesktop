@@ -320,7 +320,7 @@ public partial class InstanceCardViewModel : ObservableObject
 
                     // 📱 Telegram Alert Notification on Detection
                     if (_settings.EnableTelegramAlert && _settings.TelegramAlertOnDetected &&
-                        !string.IsNullOrWhiteSpace(_settings.TelegramBotToken) && !string.IsNullOrWhiteSpace(_settings.TelegramChatId))
+                        _settings.CanSendTelegram)
                     {
                         _ = Task.Run(async () =>
                         {
@@ -602,10 +602,11 @@ public partial class InstanceCardViewModel : ObservableObject
                 Logger.Info("CaptchaSolver", $"Captcha solved successfully on '{Name}' in {result.ElapsedSeconds:F1}s (Mode: {_settings.CaptchaSolverMode}).");
                 AudioAlertService.StopAlert();
                 IsCaptchaAlertVisible = false;
+                RunOnUi(() => CaptchaSolvedCount++);
 
                 // Telegram Alert on Solved
                 if (_settings.EnableTelegramAlert && _settings.TelegramAlertOnSolved &&
-                    !string.IsNullOrWhiteSpace(_settings.TelegramBotToken) && !string.IsNullOrWhiteSpace(_settings.TelegramChatId))
+                    _settings.CanSendTelegram)
                 {
                     _ = Task.Run(async () =>
                     {
@@ -629,7 +630,7 @@ public partial class InstanceCardViewModel : ObservableObject
 
                 // Telegram Alert on Failed
                 if (_settings.EnableTelegramAlert && _settings.TelegramAlertOnFailed &&
-                    !string.IsNullOrWhiteSpace(_settings.TelegramBotToken) && !string.IsNullOrWhiteSpace(_settings.TelegramChatId))
+                    _settings.CanSendTelegram)
                 {
                     _ = Task.Run(async () =>
                     {

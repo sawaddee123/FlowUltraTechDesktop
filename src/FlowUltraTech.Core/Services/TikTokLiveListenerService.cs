@@ -187,6 +187,23 @@ public class TikTokLiveListenerService : ITikTokLiveListenerService
             catch { }
         };
 
+        // 👀 จำนวนผู้ชมตอนนี้
+        client.OnRoomUpdate += (sender, room) =>
+        {
+            try
+            {
+                EmitEvent(normalized, onEventReceived, new LiveChatMessageItem
+                {
+                    Id = Guid.NewGuid().ToString("N"),
+                    Type = LiveChatMessageType.ViewerCount,
+                    Username = normalized,
+                    RepeatCount = (int)room.NumberOfViewers,
+                    Timestamp = DateTime.Now
+                });
+            }
+            catch { }
+        };
+
         // 6. 🚪 Join
         client.OnJoin += (sender, join) =>
         {

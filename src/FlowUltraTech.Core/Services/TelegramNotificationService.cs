@@ -13,6 +13,9 @@ public class TelegramNotificationService : ITelegramNotificationService
 {
     private readonly HttpClient _httpClient;
 
+    /// <summary>ส่งผ่านบอทของระบบ (ตั้งหลังล็อกอิน) ใช้เมื่อผู้ใช้ไม่ได้กรอก Token เอง: (ข้อความ, รูป?) คืนว่าสำเร็จไหม</summary>
+    public static Func<string, byte[]?, Task<bool>>? ServerRelay { get; set; }
+
     public TelegramNotificationService(HttpClient? httpClient = null)
     {
         _httpClient = httpClient ?? new HttpClient { Timeout = TimeSpan.FromSeconds(15) };
@@ -20,6 +23,11 @@ public class TelegramNotificationService : ITelegramNotificationService
 
     public async Task<bool> SendMessageAsync(string botToken, string chatId, string message, CancellationToken cancellationToken = default)
     {
+        if (string.IsNullOrWhiteSpace(botToken) && ServerRelay != null && !string.IsNullOrWhiteSpace(message))
+        {
+            return await ServerRelay(message, null).ConfigureAwait(false);
+        }
+
         if (string.IsNullOrWhiteSpace(botToken) || string.IsNullOrWhiteSpace(chatId) || string.IsNullOrWhiteSpace(message))
         {
             return false;
@@ -52,6 +60,10 @@ public class TelegramNotificationService : ITelegramNotificationService
         string fileName = "captcha.png",
         CancellationToken cancellationToken = default)
     {
+        if (string.IsNullOrWhiteSpace(botToken) && ServerRelay != null && photoBytes is { Length: > 0 })
+        {
+            return await ServerRelay(caption ?? string.Empty, photoBytes).ConfigureAwait(false);
+        }
         if (string.IsNullOrWhiteSpace(botToken) || string.IsNullOrWhiteSpace(chatId) || photoBytes == null || photoBytes.Length == 0)
         {
             return false;
