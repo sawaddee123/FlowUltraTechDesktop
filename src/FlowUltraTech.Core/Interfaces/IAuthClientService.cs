@@ -22,14 +22,6 @@ public class CloudSettingsDto
     public List<AutomationRule>? Rules { get; set; }
 }
 
-public class TelegramLinkResult
-{
-    public bool Success { get; set; }
-    public string? Url { get; set; }
-    /// <summary>telegram_not_configured / telegram_unreachable / network / http_xxx</summary>
-    public string? Error { get; set; }
-}
-
 public class CloudSettingsResult
 {
     public bool Success { get; set; }
@@ -109,12 +101,6 @@ public interface IAuthClientService
     Task<LoginResult> RefreshTokenAsync(string refreshToken, string? endpoint = null);
     Task<CloudSettingsResult> GetCloudSettingsAsync(string accessToken, string? endpoint = null);
     Task<bool> SaveCloudSettingsAsync(string accessToken, CloudSettingsDto settings, string? endpoint = null);
-
-    // Telegram แบบไม่ต้องกรอก Token (ผ่านบอทของระบบ)
-    Task<TelegramLinkResult> CreateTelegramLinkAsync(string accessToken, string? endpoint = null);
-    Task<bool?> GetTelegramLinkedAsync(string accessToken, string? endpoint = null);
-    Task<bool> UnlinkTelegramAsync(string accessToken, string? endpoint = null);
-    Task<bool> SendTelegramViaServerAsync(string accessToken, string text, byte[]? photo = null, string? endpoint = null);
     Task<bool> ReportSecurityEventAsync(string accessToken, string eventType, string details, string hwid, string? profileFolder = null, string? severity = null, string? endpoint = null);
 
     // Profile Cloud Sync

@@ -1,13 +1,12 @@
 using System;
 using System.Linq;
-using System.Threading.Tasks;
 using FlowUltraTech.Core.Models;
 using FlowUltraTech.Core.Services;
 using Xunit;
 
 namespace FlowUltraTech.Tests;
 
-public class ProxyAutoAssignAndTelegramRelayTests
+public class ProxyAutoAssignTests
 {
     private static AppSettings Make(int accounts, int proxies)
     {
@@ -62,32 +61,5 @@ public class ProxyAutoAssignAndTelegramRelayTests
         Assert.Null(LocalProxyBridgeService.ResolveEffectiveProxy(s.Instances[0], s));
         s.ProxyMode = "auto";
         Assert.NotNull(LocalProxyBridgeService.ResolveEffectiveProxy(s.Instances[0], s));
-    }
-
-    [Fact]
-    public void CanSendTelegram_IsTrueWhenLinkedViaServerWithoutToken()
-    {
-        var s = new AppSettings();
-        Assert.False(s.CanSendTelegram);
-        s.TelegramLinkedViaServer = true;
-        Assert.True(s.CanSendTelegram);
-    }
-
-    [Fact]
-    public async Task SendMessage_WithoutToken_GoesThroughServerRelay()
-    {
-        string? relayed = null;
-        var previous = TelegramNotificationService.ServerRelay;
-        TelegramNotificationService.ServerRelay = (text, photo) => { relayed = text; return Task.FromResult(true); };
-        try
-        {
-            var svc = new TelegramNotificationService();
-            Assert.True(await svc.SendMessageAsync("", "", "hello"));
-            Assert.Equal("hello", relayed);
-        }
-        finally
-        {
-            TelegramNotificationService.ServerRelay = previous;
-        }
     }
 }

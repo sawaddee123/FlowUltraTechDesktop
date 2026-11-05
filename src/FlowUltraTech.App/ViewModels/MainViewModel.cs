@@ -272,114 +272,7 @@ public partial class MainViewModel : ObservableObject
     {
         OnPropertyChanged(nameof(IsUserLoggedIn));
         OnPropertyChanged(nameof(IsUserNotLoggedIn));
-        // แจ้งเตือนผ่านบอทของระบบ ใช้ token ล่าสุดเสมอ (token ต่ออายุได้)
-        TelegramNotificationService.ServerRelay = string.IsNullOrWhiteSpace(value)
-            ? null
-            : (text, photo) => _authService.SendTelegramViaServerAsync(AuthToken, text, photo, AuthApiEndpoint);
-        if (!string.IsNullOrWhiteSpace(value)) _ = RefreshTelegramLinkAsync();
     }
-
-    // ---------------- Telegram แบบไม่ต้องกรอก Token
-    [ObservableProperty]
-    private bool _isTelegramLinked;
-
-    [ObservableProperty]
-    private bool _isLinkingTelegram;
-
-    /// <summary>แสดงช่องกรอก Token บอทของตัวเอง (ทางเลือกสำรอง)</summary>
-    [ObservableProperty]
-    private bool _showManualTelegram;
-
-    public bool IsTelegramNotLinked => !IsTelegramLinked && !IsLinkingTelegram;
-    public bool ShowTelegramEvents => IsTelegramLinked || EnableTelegramAlert;
-    private CancellationTokenSource? _telegramLinkCts;
-
-    partial void OnIsTelegramLinkedChanged(bool value)
-    {
-        OnPropertyChanged(nameof(IsTelegramNotLinked));
-        OnPropertyChanged(nameof(ShowTelegramEvents));
-    }
-
-    partial void OnIsLinkingTelegramChanged(bool value) => OnPropertyChanged(nameof(IsTelegramNotLinked));
-    partial void OnEnableTelegramAlertChanged(bool value) => OnPropertyChanged(nameof(ShowTelegramEvents));
-
-    private void SetTelegramLinked(bool linked)
-    {
-        if (Settings.TelegramLinkedViaServer == linked && IsTelegramLinked == linked) return;
-        Settings.TelegramLinkedViaServer = linked;
-        IsTelegramLinked = linked;
-        if (linked) EnableTelegramAlert = true;
-        else if (string.IsNullOrWhiteSpace(TelegramBotToken)) EnableTelegramAlert = false;
-        _storageService.SaveSettings(Settings);
-    }
-
-    /// <summary>ถามเซิร์ฟเวอร์ว่ายังเชื่อมอยู่ไหม (เช่น ผู้ใช้กดยกเลิกจากเครื่องอื่น)</summary>
-    public async Task RefreshTelegramLinkAsync()
-    {
-        var linked = await _authService.GetTelegramLinkedAsync(AuthToken, AuthApiEndpoint);
-        if (linked is bool l) RunOnUi(() => SetTelegramLinked(l));
-    }
-
-    [RelayCommand]
-    public async Task ConnectTelegramAsync()
-    {
-        if (string.IsNullOrWhiteSpace(AuthToken))
-        {
-            TelegramTestStatus = "เข้าสู่ระบบก่อน แล้วกดเชื่อมอีกครั้ง";
-            return;
-        }
-        var link = await _authService.CreateTelegramLinkAsync(AuthToken, AuthApiEndpoint);
-        if (!link.Success || link.Url == null)
-        {
-            ShowManualTelegram = true;
-            TelegramTestStatus = link.Error == "telegram_not_configured"
-                ? "ระบบยังไม่เปิดการเชื่อมแบบกดครั้งเดียว ใช้ Token บอทของคุณเองด้านล่างแทนได้"
-                : "เชื่อมต่อเซิร์ฟเวอร์ไม่ได้ ลองใหม่อีกครั้ง";
-            return;
-        }
-
-        try { System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(link.Url) { UseShellExecute = true }); }
-        catch { /* ไม่มีเบราว์เซอร์: ผู้ใช้คัดลอกลิงก์จากข้อความด้านล่างได้ */ }
-
-        _telegramLinkCts?.Cancel();
-        var cts = _telegramLinkCts = new CancellationTokenSource(TimeSpan.FromMinutes(10));
-        IsLinkingTelegram = true;
-        TelegramTestStatus = $"เปิด Telegram แล้ว กด Start ในแชทบอท ถ้าไม่เปิดเอง เข้า {link.Url}";
-        try
-        {
-            while (!cts.IsCancellationRequested)
-            {
-                await Task.Delay(2000, cts.Token);
-                if (await _authService.GetTelegramLinkedAsync(AuthToken, AuthApiEndpoint) == true)
-                {
-                    SetTelegramLinked(true);
-                    TelegramTestStatus = "เชื่อม Telegram แล้ว จะแจ้งเตือนเมื่อต้องให้คุณช่วย";
-                    StatusNotification = "เชื่อม Telegram แล้ว";
-                    return;
-                }
-            }
-        }
-        catch (TaskCanceledException) { }
-        finally
-        {
-            IsLinkingTelegram = false;
-        }
-        if (!IsTelegramLinked) TelegramTestStatus = "ยังไม่ได้กด Start ในแชทบอท กดเชื่อมใหม่ได้";
-    }
-
-    [RelayCommand]
-    public void CancelTelegramLink() => _telegramLinkCts?.Cancel();
-
-    [RelayCommand]
-    public async Task DisconnectTelegramAsync()
-    {
-        await _authService.UnlinkTelegramAsync(AuthToken, AuthApiEndpoint);
-        SetTelegramLinked(false);
-        TelegramTestStatus = "ยกเลิกการเชื่อม Telegram แล้ว";
-    }
-
-    [RelayCommand]
-    public void ToggleManualTelegram() => ShowManualTelegram = !ShowManualTelegram;
 
     // ---------------- Proxy mode: 0 = อัตโนมัติ, 1 = ตั้งเองรายบัญชี, 2 = ไม่ใช้
     [ObservableProperty]
@@ -578,8 +471,6 @@ public partial class MainViewModel : ObservableObject
         });
 
         EnableTelegramAlert = Settings.EnableTelegramAlert;
-        _isTelegramLinked = Settings.TelegramLinkedViaServer;
-        _showManualTelegram = !Settings.TelegramLinkedViaServer && !string.IsNullOrWhiteSpace(Settings.TelegramBotToken);
         TelegramBotToken = Settings.TelegramBotToken ?? string.Empty;
         TelegramChatId = Settings.TelegramChatId ?? string.Empty;
         TelegramAlertOnDetected = Settings.TelegramAlertOnDetected;
@@ -1307,8 +1198,8 @@ public partial class MainViewModel : ObservableObject
                 {
                     var cloudDto = new CloudSettingsDto
                     {
-                        TelegramBotToken = Settings.TelegramLinkedViaServer ? null : TelegramBotToken,
-                        TelegramChatId = Settings.TelegramLinkedViaServer ? null : TelegramChatId,
+                        TelegramBotToken = TelegramBotToken,
+                        TelegramChatId = TelegramChatId,
                         AutoSolveDelaySeconds = AutoSolveDelaySeconds,
                         CaptchaSoundVolume = CaptchaSoundVolume,
                         AutoSaveCaptchaImage = AutoSaveCaptchaImage,
@@ -2098,17 +1989,7 @@ public partial class MainViewModel : ObservableObject
     public async Task TestTelegramAsync()
     {
         TelegramTestStatus = "กำลังทดสอบส่งข้อความแจ้งเตือนเข้า Telegram...";
-        bool ok;
-        string msg;
-        if (string.IsNullOrWhiteSpace(TelegramBotToken) && IsTelegramLinked)
-        {
-            ok = await _authService.SendTelegramViaServerAsync(AuthToken, "🔔 ทดสอบแจ้งเตือนจาก FlowUltraTech", null, AuthApiEndpoint);
-            msg = ok ? "ส่งข้อความทดสอบแล้ว ดูใน Telegram ได้เลย" : "ส่งไม่สำเร็จ ลองเชื่อมใหม่อีกครั้ง";
-        }
-        else
-        {
-            (ok, msg) = await _telegramService.TestConnectionAsync(TelegramBotToken, TelegramChatId);
-        }
+        var (ok, msg) = await _telegramService.TestConnectionAsync(TelegramBotToken, TelegramChatId);
         TelegramTestStatus = msg;
         StatusNotification = ok ? "ทดสอบ Telegram สำเร็จ" : "ทดสอบ Telegram ไม่สำเร็จ";
     }

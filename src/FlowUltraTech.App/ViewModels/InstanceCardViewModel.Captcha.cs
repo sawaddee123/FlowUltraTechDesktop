@@ -320,7 +320,7 @@ public partial class InstanceCardViewModel : ObservableObject
 
                     // 📱 Telegram Alert Notification on Detection
                     if (_settings.EnableTelegramAlert && _settings.TelegramAlertOnDetected &&
-                        _settings.CanSendTelegram)
+                        !string.IsNullOrWhiteSpace(_settings.TelegramBotToken) && !string.IsNullOrWhiteSpace(_settings.TelegramChatId))
                     {
                         _ = Task.Run(async () =>
                         {
@@ -606,7 +606,7 @@ public partial class InstanceCardViewModel : ObservableObject
 
                 // Telegram Alert on Solved
                 if (_settings.EnableTelegramAlert && _settings.TelegramAlertOnSolved &&
-                    _settings.CanSendTelegram)
+                    !string.IsNullOrWhiteSpace(_settings.TelegramBotToken) && !string.IsNullOrWhiteSpace(_settings.TelegramChatId))
                 {
                     _ = Task.Run(async () =>
                     {
@@ -630,7 +630,7 @@ public partial class InstanceCardViewModel : ObservableObject
 
                 // Telegram Alert on Failed
                 if (_settings.EnableTelegramAlert && _settings.TelegramAlertOnFailed &&
-                    _settings.CanSendTelegram)
+                    !string.IsNullOrWhiteSpace(_settings.TelegramBotToken) && !string.IsNullOrWhiteSpace(_settings.TelegramChatId))
                 {
                     _ = Task.Run(async () =>
                     {
