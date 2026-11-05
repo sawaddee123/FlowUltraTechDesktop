@@ -41,19 +41,71 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty]
     private int _selectedNavIndex = 0;
 
+    // หน้าหลักมีแค่ 2 หน้า: 0 = บัญชี, 1 = ตั้งค่า (Captcha/Proxy/บอท ย้ายเข้าไปอยู่ในบัญชีและตั้งค่าแล้ว)
     public bool IsNavInstances => SelectedNavIndex == 0;
-    public bool IsNavCaptcha => SelectedNavIndex == 1;
-    public bool IsNavProxies => SelectedNavIndex == 2;
-    public bool IsNavRules => SelectedNavIndex == 3;
-    public bool IsNavSettings => SelectedNavIndex == 4;
+    public bool IsNavSettings => SelectedNavIndex == 1;
 
     partial void OnSelectedNavIndexChanged(int value)
     {
         OnPropertyChanged(nameof(IsNavInstances));
-        OnPropertyChanged(nameof(IsNavCaptcha));
-        OnPropertyChanged(nameof(IsNavProxies));
-        OnPropertyChanged(nameof(IsNavRules));
         OnPropertyChanged(nameof(IsNavSettings));
+        NotifyPageChanged();
+    }
+
+    /// <summary>บัญชีที่เปิดดูอยู่ (null = หน้ารวมบัญชี)</summary>
+    [ObservableProperty]
+    private InstanceCardViewModel? _selectedInstance;
+
+    /// <summary>true = กำลังดูหน้า "ขั้นสูง" ของบัญชีที่เลือก</summary>
+    [ObservableProperty]
+    private bool _isAdvancedOpen;
+
+    partial void OnSelectedInstanceChanged(InstanceCardViewModel? value) => NotifyPageChanged();
+    partial void OnIsAdvancedOpenChanged(bool value) => NotifyPageChanged();
+
+    public bool ShowHome => IsNavInstances && SelectedInstance == null;
+    public bool ShowDetail => IsNavInstances && SelectedInstance != null && !IsAdvancedOpen;
+    public bool ShowAdvanced => IsNavInstances && SelectedInstance != null && IsAdvancedOpen;
+    public bool HasNoInstances => Instances.Count == 0;
+    public bool HasInstances => Instances.Count > 0;
+    public int NeedsHelpCount => Instances.Count(i => i.NeedsHelp);
+    public bool HasNeedsHelp => NeedsHelpCount > 0;
+    public string PlanUsageText => $"ใช้ {Instances.Count} จาก {MaxTiktokAccounts} บัญชี";
+
+    private void NotifyPageChanged()
+    {
+        OnPropertyChanged(nameof(ShowHome));
+        OnPropertyChanged(nameof(ShowDetail));
+        OnPropertyChanged(nameof(ShowAdvanced));
+    }
+
+    private void NotifyInstancesChanged()
+    {
+        OnPropertyChanged(nameof(HasNoInstances));
+        OnPropertyChanged(nameof(HasInstances));
+        OnPropertyChanged(nameof(PlanUsageText));
+        OnPropertyChanged(nameof(NeedsHelpCount));
+        OnPropertyChanged(nameof(HasNeedsHelp));
+        OnPropertyChanged(nameof(RunningStatusSummary));
+    }
+
+    [RelayCommand]
+    public void OpenInstance(InstanceCardViewModel? card)
+    {
+        if (card == null) return;
+        SelectedNavIndex = 0;
+        IsAdvancedOpen = false;
+        SelectedInstance = card;
+    }
+
+    [RelayCommand]
+    public void OpenAdvanced() => IsAdvancedOpen = SelectedInstance != null;
+
+    [RelayCommand]
+    public void GoBack()
+    {
+        if (IsAdvancedOpen) IsAdvancedOpen = false;
+        else SelectedInstance = null;
     }
 
     public int RunningInstancesCount => Instances.Count(i => i.Status == InstanceStatus.Running);
@@ -221,6 +273,32 @@ public partial class MainViewModel : ObservableObject
     {
         Settings.MaxTiktokAccounts = value;
         UpdateQuotaState();
+        OnPropertyChanged(nameof(PlanUsageText));
+    }
+
+    // ตั้งค่าบันทึกเองเมื่อเปลี่ยน (หน่วง 0.8 วิ รวมการพิมพ์ต่อเนื่องเป็นครั้งเดียว)
+    private static readonly System.Collections.Generic.HashSet<string> AutoSavedSettings = new()
+    {
+        nameof(StudioExePath), nameof(AutoHideOnLaunch),
+        nameof(EnableCaptchaSoundAlert), nameof(LoopCaptchaSoundAlert), nameof(CaptchaSoundVolume), nameof(CaptchaSoundFilePath),
+        nameof(CaptchaSaveDirectory), nameof(AutoSaveCaptchaImage), nameof(AutoSolveCaptcha), nameof(AutoSolveDelaySeconds),
+        nameof(EnableTelegramAlert), nameof(TelegramBotToken), nameof(TelegramChatId),
+        nameof(TelegramAlertOnDetected), nameof(TelegramAlertOnSolved), nameof(TelegramAlertOnFailed), nameof(TelegramSendPhoto),
+    };
+    private bool _autoSaveArmed;
+    private System.Windows.Threading.DispatcherTimer? _autoSaveTimer;
+
+    protected override void OnPropertyChanged(System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        base.OnPropertyChanged(e);
+        if (!_autoSaveArmed || e.PropertyName == null || !AutoSavedSettings.Contains(e.PropertyName)) return;
+        _autoSaveTimer ??= new System.Windows.Threading.DispatcherTimer(
+            TimeSpan.FromMilliseconds(800),
+            System.Windows.Threading.DispatcherPriority.Background,
+            async (_, _) => { _autoSaveTimer!.Stop(); await SaveSettingsAsync(); },
+            System.Windows.Threading.Dispatcher.CurrentDispatcher);
+        _autoSaveTimer.Stop();
+        _autoSaveTimer.Start();
     }
 
     public MainViewModel(
@@ -372,6 +450,8 @@ public partial class MainViewModel : ObservableObject
         }
 
         SelectedCaptchaInstance = Instances.FirstOrDefault();
+        Instances.CollectionChanged += (_, _) => NotifyInstancesChanged();
+        _autoSaveArmed = true;
         UpdateQuotaState();
         StartLicenseWatchdog();
         StartTelemetryReporting();
@@ -425,6 +505,12 @@ public partial class MainViewModel : ObservableObject
                 OnPropertyChanged(nameof(HasAnyCaptchaAlert));
                 OnPropertyChanged(nameof(RunningStatusSummary));
                 UpdateQuotaState();
+            }
+
+            if (e.PropertyName == nameof(InstanceCardViewModel.NeedsHelp))
+            {
+                OnPropertyChanged(nameof(NeedsHelpCount));
+                OnPropertyChanged(nameof(HasNeedsHelp));
             }
 
             if (e.PropertyName is nameof(InstanceCardViewModel.Status)
@@ -645,19 +731,15 @@ public partial class MainViewModel : ObservableObject
     }
 
     [RelayCommand]
-    public void NavigateInstances() => SelectedNavIndex = 0;
+    public void NavigateInstances()
+    {
+        SelectedNavIndex = 0;
+        IsAdvancedOpen = false;
+        SelectedInstance = null;
+    }
 
     [RelayCommand]
-    public void NavigateCaptcha() => SelectedNavIndex = 1;
-
-    [RelayCommand]
-    public void NavigateProxies() => SelectedNavIndex = 2;
-
-    [RelayCommand]
-    public void NavigateRules() => SelectedNavIndex = 3;
-
-    [RelayCommand]
-    public void NavigateSettings() => SelectedNavIndex = 4;
+    public void NavigateSettings() => SelectedNavIndex = 1;
 
     [RelayCommand]
     public async Task ScanAllCaptchasAsync()
@@ -756,8 +838,12 @@ public partial class MainViewModel : ObservableObject
     [RelayCommand]
     public void AddInstance()
     {
-        int count = Instances.Count + 1;
-        int nextPort = 9220 + count;
+        // นับต่อจากเลขที่สูงสุด ไม่ใช่จำนวนบัญชี: ลบบัญชีกลางๆ แล้วเพิ่มใหม่ต้องไม่ได้โฟลเดอร์/พอร์ตซ้ำกับบัญชีที่ยังอยู่
+        int count = Settings.Instances
+            .Select(p => p.ProfileFolderName ?? string.Empty)
+            .Select(f => f.StartsWith("Acc", StringComparison.OrdinalIgnoreCase) && int.TryParse(f.AsSpan(3), out int n) ? n : 0)
+            .DefaultIfEmpty(0).Max() + 1;
+        int nextPort = Math.Max(9220 + count, Settings.Instances.Select(p => p.CdpPort).DefaultIfEmpty(9220).Max() + 1);
         var newProfile = new StudioInstanceProfile
         {
             Name = $"Account {count:D2}",
@@ -816,10 +902,29 @@ public partial class MainViewModel : ObservableObject
         }
     }
 
+    /// <summary>ปุ่ม "เพิ่มบัญชี": สร้างบัญชี เปิดหน้าบัญชีนั้น แล้วเปิด TikTok LIVE Studio ให้ล็อกอินทันที</summary>
+    [RelayCommand]
+    public async Task AddAccountAndLoginAsync()
+    {
+        AddInstance();
+        var card = Instances[^1];
+        OpenInstance(card);
+        await card.OpenStudioForLoginAsync();
+    }
+
     [RelayCommand]
     public async Task RemoveInstanceAsync(InstanceCardViewModel? card)
     {
         if (card == null) return;
+        if (Application.Current?.MainWindow is { IsLoaded: true } owner &&
+            MessageBox.Show(owner, $"ลบ {card.PrimaryDisplayName} ออกจากโปรแกรม?\nไลฟ์ของบัญชีนี้จะถูกปิด", "ลบบัญชี",
+                MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes)
+            return;
+        if (SelectedInstance == card)
+        {
+            IsAdvancedOpen = false;
+            SelectedInstance = null;
+        }
         await card.StopAsync();
         Instances.Remove(card);
         Settings.Instances.Remove(card.Profile);
@@ -1014,7 +1119,7 @@ public partial class MainViewModel : ObservableObject
 
         await _storageService.SaveSettingsAsync(Settings);
         UpdateQuotaState();
-        StatusNotification = "บันทึกการตั้งค่าทั้งหมดเรียบร้อยแล้ว";
+        StatusNotification = "บันทึกการตั้งค่าแล้ว";
 
         if (!string.IsNullOrWhiteSpace(AuthToken))
         {

@@ -63,7 +63,10 @@ public partial class InstanceCardViewModel : ObservableObject
     private CaptchaElementItem? _selectedCaptchaElement;
 
     [ObservableProperty]
-    private int _selectedDetailTabIndex;
+    private int _selectedDetailTabIndex; // 0 ภาพรวม, 1 หน้าจอไลฟ์, 2 บอท (เร็วๆ นี้)
+
+    [ObservableProperty]
+    private int _selectedAdvancedTabIndex; // 0 บัญชีและ Proxy, 1 Captcha, 2 บันทึกการทำงาน
 
     // Session & Tokens
     [ObservableProperty]
@@ -463,7 +466,7 @@ public partial class InstanceCardViewModel : ObservableObject
     public void OpenCaptchaTab()
     {
         IsDetailOpen = true;
-        SelectedDetailTabIndex = 4; // Subtab 5: Captcha Inspector
+        SelectedAdvancedTabIndex = 1;
     }
 
     [RelayCommand]

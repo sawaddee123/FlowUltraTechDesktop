@@ -304,7 +304,59 @@ public partial class InstanceCardViewModel : ObservableObject
         _ => "หยุดทำงาน"
     };
 
-    public string WindowVisibilityDisplay => IsRunning 
+    /// <summary>พบ Captcha และ AI ไม่ได้กำลังแก้อยู่ (ปิดแก้อัตโนมัติ หรือ AI แก้ไม่ผ่าน) = ต้องให้ผู้ใช้ช่วย</summary>
+    public bool NeedsHelp => IsCaptchaAlertVisible && !IsSolvingCaptcha;
+    public bool IsAiSolving => IsCaptchaAlertVisible && IsSolvingCaptcha;
+    public string NeedsHelpReason => IsAutoSolveCaptcha ? "AI ลองแก้ Captcha แล้วไม่ผ่าน" : "ปิดแก้ Captcha อัตโนมัติไว้";
+
+    /// <summary>สถานะบนการ์ด เรียงตามสิ่งที่ผู้ใช้ต้องรู้ก่อน</summary>
+    public string CardStatusText =>
+        NeedsHelp ? "รอคุณช่วย"
+        : IsAiSolving ? "AI กำลังแก้ Captcha"
+        : Status == InstanceStatus.Error ? "เริ่มไม่สำเร็จ"
+        : !IsLoggedIn && !IsRunningOrStarting ? "ยังไม่ล็อกอิน"
+        : Status switch
+        {
+            InstanceStatus.Running => "ทำงานอยู่",
+            InstanceStatus.Starting => "กำลังเริ่ม",
+            _ => "หยุดอยู่"
+        };
+
+    /// <summary>ok / warn / bad / info / muted ใช้เลือกสีป้ายสถานะใน XAML</summary>
+    public string CardStatusTone =>
+        NeedsHelp ? "warn"
+        : IsAiSolving || IsStarting ? "info"
+        : Status == InstanceStatus.Error ? "bad"
+        : IsRunning ? "ok"
+        : "muted";
+
+    // ปุ่มหลักบนการ์ด: แสดงทีละปุ่มตามสถานะ (ล็อกอิน → เริ่ม → หยุด)
+    public Visibility LoginButtonVisibility => !IsLoggedIn ? Visibility.Visible : Visibility.Collapsed;
+    public Visibility StartButtonVisibility => IsLoggedIn && !IsRunningOrStarting ? Visibility.Visible : Visibility.Collapsed;
+    public Visibility StopButtonVisibility => IsRunningOrStarting ? Visibility.Visible : Visibility.Collapsed;
+    public string ToggleWindowText => IsWindowHidden ? "แสดงหน้าต่าง Studio" : "ซ่อนหน้าต่าง Studio";
+
+    private static readonly System.Collections.Generic.HashSet<string> CardStatusInputs = new()
+    {
+        nameof(Status), nameof(IsLoggedIn), nameof(IsCaptchaAlertVisible), nameof(IsSolvingCaptcha), nameof(IsAutoSolveCaptcha), nameof(IsWindowHidden),
+    };
+
+    protected override void OnPropertyChanged(System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        base.OnPropertyChanged(e);
+        if (e.PropertyName == null || !CardStatusInputs.Contains(e.PropertyName)) return;
+        OnPropertyChanged(nameof(NeedsHelp));
+        OnPropertyChanged(nameof(IsAiSolving));
+        OnPropertyChanged(nameof(NeedsHelpReason));
+        OnPropertyChanged(nameof(CardStatusText));
+        OnPropertyChanged(nameof(CardStatusTone));
+        OnPropertyChanged(nameof(LoginButtonVisibility));
+        OnPropertyChanged(nameof(StartButtonVisibility));
+        OnPropertyChanged(nameof(StopButtonVisibility));
+        OnPropertyChanged(nameof(ToggleWindowText));
+    }
+
+    public string WindowVisibilityDisplay => IsRunning
         ? (IsWindowHidden ? "ซ่อนหน้าต่าง" : "แสดงหน้าต่าง") 
         : "ยังไม่เปิด";
 

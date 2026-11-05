@@ -1052,7 +1052,7 @@ public partial class InstanceCardViewModel : ObservableObject
     public void OpenOverlayTab()
     {
         IsDetailOpen = true;
-        SelectedDetailTabIndex = 7;
+        SelectedDetailTabIndex = 1;
         OnPropertyChanged(nameof(IsDetailExpanded));
         OnPropertyChanged(nameof(DetailButtonText));
         OnPropertyChanged(nameof(DetailVisibility));

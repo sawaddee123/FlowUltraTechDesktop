@@ -227,7 +227,7 @@ public class DebugViewModelAndCdpTests
 
         vm.OpenCaptchaTabCommand.Execute(null);
         Assert.True(vm.IsDetailOpen);
-        Assert.Equal(4, vm.SelectedDetailTabIndex);
+        Assert.Equal(1, vm.SelectedAdvancedTabIndex); // Captcha อยู่ในหน้าขั้นสูง แท็บที่ 1
 
         // Add dummy detected captcha items
         vm.DetectedCaptchaHtml = "<div>captcha</div>";

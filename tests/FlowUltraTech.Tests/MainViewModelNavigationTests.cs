@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.Linq;
 using FlowUltraTech.App.ViewModels;
 using FlowUltraTech.Core.Models;
 using FlowUltraTech.Core.Services;
@@ -30,17 +31,17 @@ public class MainViewModelNavigationTests
     }
 
     [Fact]
-    public void DefaultNavigation_ShouldBeInstancesTab()
+    public void DefaultNavigation_ShouldBeAccountsHome()
     {
         var (vm, tempFile) = CreateTestMainViewModel();
         try
         {
             Assert.Equal(0, vm.SelectedNavIndex);
             Assert.True(vm.IsNavInstances);
-            Assert.False(vm.IsNavCaptcha);
-            Assert.False(vm.IsNavProxies);
-            Assert.False(vm.IsNavRules);
             Assert.False(vm.IsNavSettings);
+            Assert.True(vm.ShowHome);
+            Assert.False(vm.ShowDetail);
+            Assert.False(vm.ShowAdvanced);
         }
         finally
         {
@@ -48,32 +49,45 @@ public class MainViewModelNavigationTests
         }
     }
 
-    [Theory]
-    [InlineData(0, true, false, false, false, false)]
-    [InlineData(1, false, true, false, false, false)]
-    [InlineData(2, false, false, true, false, false)]
-    [InlineData(3, false, false, false, true, false)]
-    [InlineData(4, false, false, false, false, true)]
-    public void NavigateCommands_ShouldUpdateSelectedNavIndexAndBooleans(int targetIndex, bool isInst, bool isCap, bool isProxy, bool isRule, bool isSetting)
+    [Fact]
+    public void NavigateSettings_ThenInstances_ShouldReturnToHome()
     {
         var (vm, tempFile) = CreateTestMainViewModel();
         try
         {
-            switch (targetIndex)
-            {
-                case 0: vm.NavigateInstances(); break;
-                case 1: vm.NavigateCaptcha(); break;
-                case 2: vm.NavigateProxies(); break;
-                case 3: vm.NavigateRules(); break;
-                case 4: vm.NavigateSettings(); break;
-            }
+            vm.OpenInstance(vm.Instances[0]);
+            vm.NavigateSettings();
+            Assert.True(vm.IsNavSettings);
+            Assert.False(vm.ShowDetail);
 
-            Assert.Equal(targetIndex, vm.SelectedNavIndex);
-            Assert.Equal(isInst, vm.IsNavInstances);
-            Assert.Equal(isCap, vm.IsNavCaptcha);
-            Assert.Equal(isProxy, vm.IsNavProxies);
-            Assert.Equal(isRule, vm.IsNavRules);
-            Assert.Equal(isSetting, vm.IsNavSettings);
+            vm.NavigateInstances();
+            Assert.True(vm.ShowHome);
+            Assert.Null(vm.SelectedInstance);
+        }
+        finally
+        {
+            if (File.Exists(tempFile)) File.Delete(tempFile);
+        }
+    }
+
+    [Fact]
+    public void OpenInstance_Advanced_GoBack_ShouldStepBackOnePageAtATime()
+    {
+        var (vm, tempFile) = CreateTestMainViewModel();
+        try
+        {
+            vm.OpenInstance(vm.Instances[1]);
+            Assert.True(vm.ShowDetail);
+            Assert.Same(vm.Instances[1], vm.SelectedInstance);
+
+            vm.OpenAdvanced();
+            Assert.True(vm.ShowAdvanced);
+
+            vm.GoBack();
+            Assert.True(vm.ShowDetail);
+
+            vm.GoBack();
+            Assert.True(vm.ShowHome);
         }
         finally
         {
@@ -87,12 +101,62 @@ public class MainViewModelNavigationTests
         var (vm, tempFile) = CreateTestMainViewModel();
         try
         {
-            vm.NavigateTo("2");
-            Assert.Equal(2, vm.SelectedNavIndex);
-            Assert.True(vm.IsNavProxies);
+            vm.NavigateTo("1");
+            Assert.True(vm.IsNavSettings);
 
             vm.NavigateTo("invalid");
-            Assert.Equal(2, vm.SelectedNavIndex); // Unchanged
+            Assert.Equal(1, vm.SelectedNavIndex); // Unchanged
+        }
+        finally
+        {
+            if (File.Exists(tempFile)) File.Delete(tempFile);
+        }
+    }
+
+    [Fact]
+    public void AddInstance_AfterRemovingMiddleAccount_ShouldNotReuseFolderOrPort()
+    {
+        var (vm, tempFile) = CreateTestMainViewModel();
+        try
+        {
+            vm.AddInstance(); // Acc03
+            vm.Settings.Instances.RemoveAt(1); // ลบ Acc02 ทิ้ง เหลือ Acc01, Acc03
+            vm.AddInstance();
+
+            var folders = vm.Settings.Instances.Select(p => p.ProfileFolderName).ToList();
+            var ports = vm.Settings.Instances.Select(p => p.CdpPort).ToList();
+            Assert.Equal(folders.Count, folders.Distinct().Count());
+            Assert.Equal(ports.Count, ports.Distinct().Count());
+            Assert.Equal("Acc04", folders[^1]);
+        }
+        finally
+        {
+            if (File.Exists(tempFile)) File.Delete(tempFile);
+        }
+    }
+
+    [Fact]
+    public void CaptchaWithoutAiSolving_ShouldNeedHelp_AndCountOnSidebar()
+    {
+        var (vm, tempFile) = CreateTestMainViewModel();
+        try
+        {
+            var card = vm.Instances[0];
+            card.Status = InstanceStatus.Running;
+            card.IsCaptchaAlertVisible = true;
+            card.IsSolvingCaptcha = true;
+            Assert.False(card.NeedsHelp);
+            Assert.Equal("AI กำลังแก้ Captcha", card.CardStatusText);
+            Assert.Equal(0, vm.NeedsHelpCount);
+
+            card.IsSolvingCaptcha = false; // AI แก้ไม่ผ่าน
+            Assert.True(card.NeedsHelp);
+            Assert.Equal("รอคุณช่วย", card.CardStatusText);
+            Assert.Equal("warn", card.CardStatusTone);
+            Assert.Equal(1, vm.NeedsHelpCount);
+
+            card.IsCaptchaAlertVisible = false;
+            Assert.Equal(0, vm.NeedsHelpCount);
         }
         finally
         {

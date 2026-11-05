@@ -10,7 +10,7 @@ public class AppSettings
 
     public string DefaultChromiumFlags { get; set; } = string.Empty;
 
-    public bool AutoHideOnLaunch { get; set; } = false;
+    public bool AutoHideOnLaunch { get; set; } = true;
 
     /// <summary>ธีมของแอป: "dark" หรือ "light"</summary>
     public string ThemeMode { get; set; } = "dark";

@@ -258,15 +258,15 @@ public class OverlaySystemTests
             overlayService: server,
             onStateChanged: () => stateSaveCount++);
 
-        // Verify Tab Index Continuity: Captcha is Tab 4, Overlay is Tab 7
+        // Verify Tab Index Continuity: Captcha is Advanced tab 1, Overlay (หน้าจอไลฟ์) is detail tab 1
         vm.OpenCaptchaTabCommand.Execute(null);
         Assert.True(vm.IsDetailOpen);
-        Assert.Equal(4, vm.SelectedDetailTabIndex);
+        Assert.Equal(1, vm.SelectedAdvancedTabIndex); // Captcha อยู่ในหน้าขั้นสูง แท็บที่ 1
 
         vm.OpenOverlayTabCommand.Execute(null);
         Assert.True(vm.IsDetailOpen);
         Assert.True(vm.IsDetailExpanded);
-        Assert.Equal(7, vm.SelectedDetailTabIndex);
+        Assert.Equal(1, vm.SelectedDetailTabIndex);
 
         // Verify OverlayEndpointUrl format
         Assert.Equal($"http://127.0.0.1:{port}/overlay/{profile.Id:D}", vm.OverlayEndpointUrl);

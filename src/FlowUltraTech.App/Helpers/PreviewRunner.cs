@@ -13,7 +13,7 @@ namespace FlowUltraTech.App.Helpers;
 /// <summary>
 /// ตัวช่วยสำหรับนักพัฒนา (เฉพาะ Debug): เปิดหน้าหลักโดยไม่ล็อกอิน ใช้ config ชั่วคราว
 /// แล้วแคปภาพหน้าจอตัวเองเป็น PNG ก่อนปิด ใช้ตรวจ UI แต่ละหน้า
-/// args: --preview-main [--theme=light|dark] [--nav=0..4] [--demo=N] [--detail=TAB] [--shot=path] [--delay=sec]
+/// args: --preview-main [--theme=light|dark] [--nav=0|1] [--demo=N] [--detail=TAB] [--advanced=TAB] [--captcha[=solving]] [--error] [--shot=path] [--delay=sec]
 /// </summary>
 internal static class PreviewRunner
 {
@@ -76,19 +76,35 @@ internal static class PreviewRunner
                     c0.LoggedInDisplayId = "sawaddee_.123";
                     c0.LoggedInAvatarUrl = Arg(args, "--login");
                 }
+                if (Arg(args, "--captcha") != null && vm.Instances.Count > 0)
+                {
+                    var c = vm.Instances[0];
+                    c.IsCaptchaAutoDetect = false;
+                    c.Profile.Status = FlowUltraTech.Core.Models.InstanceStatus.Running;
+                    c.Status = FlowUltraTech.Core.Models.InstanceStatus.Running;
+                    c.DetectedCaptchaCountdown = "01:24";
+                    c.IsCaptchaAlertVisible = true;
+                    c.IsSolvingCaptcha = Arg(args, "--captcha") == "solving";
+                }
+                if (Arg(args, "--error") != null && vm.Instances.Count > 1)
+                {
+                    vm.Instances[1].Profile.Status = FlowUltraTech.Core.Models.InstanceStatus.Error;
+                    vm.Instances[1].Profile.StatusMessage = "เปิด TikTok LIVE Studio ไม่สำเร็จ";
+                    vm.Instances[1].SyncFromProfile();
+                }
                 if (hasDetail && vm.Instances.Count > 0)
                 {
                     var card = vm.Instances[0];
-                    card.ToggleDetailCommand.Execute(null);
+                    vm.OpenInstanceCommand.Execute(card);
                     card.SelectedDetailTabIndex = detailTab;
                 }
-                switch (nav)
+                if (int.TryParse(Arg(args, "--advanced"), out int advTab) && vm.Instances.Count > 0)
                 {
-                    case 1: vm.NavigateCaptchaCommand.Execute(null); break;
-                    case 2: vm.NavigateProxiesCommand.Execute(null); break;
-                    case 3: vm.NavigateRulesCommand.Execute(null); break;
-                    case 4: vm.NavigateSettingsCommand.Execute(null); break;
+                    vm.OpenInstanceCommand.Execute(vm.Instances[0]);
+                    vm.OpenAdvancedCommand.Execute(null);
+                    vm.SelectedInstance!.SelectedAdvancedTabIndex = advTab;
                 }
+                if (nav == 1) vm.NavigateSettingsCommand.Execute(null);
                 await Task.Delay(TimeSpan.FromSeconds(delay));
                 if (!string.IsNullOrWhiteSpace(shot)) Capture(win, shot!);
                 var qa = Arg(args, "--qa");
